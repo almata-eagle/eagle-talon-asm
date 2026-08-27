@@ -9,14 +9,21 @@ Run locally for the wifi demo:
 Then open frontend/index.html (it talks to http://localhost:8000 by default —
 change API_BASE at the top of the <script> if you deploy the backend elsewhere).
 """
+import csv
+import io
 import json
+import os
 import random
+import re
 import sqlite3
+import threading
+import uuid
 import datetime
+import concurrent.futures as cf
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -36,42 +43,113 @@ app.add_middleware(
 # SQLite is intentional for this stage — zero extra infra, a single file you
 # can back up/inspect directly, good enough until this needs multi-writer
 # concurrency (at which point: Postgres/RDS, see the AWS deploy notes).
+#
+# Multi-client model: clients are workspaces inside this one instance/DB —
+# each client's scans are isolated by client_id, switchable in the UI
+# without needing a separate deployment. For clients who need full physical
+# isolation (compliance, dedicated infra) the alternative is a fully
+# separate deployment of this same stack with its own .env — see README.
 # ---------------------------------------------------------------------------
-DB_PATH = Path(__file__).parent / "eagle_talon.db"
+DB_PATH = Path(os.environ.get("EAGLE_TALON_DB_PATH", str(Path(__file__).parent / "eagle_talon.db")))
+DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+DEFAULT_CLIENT_ID = "default"
+DEFAULT_CLIENT_NAME = "Default Workspace"
 
 
 def _db():
     conn = sqlite3.connect(DB_PATH)
     conn.execute("""
-        CREATE TABLE IF NOT EXISTS scans (
-            domain TEXT PRIMARY KEY,
-            data TEXT NOT NULL,
-            scanned_at TEXT NOT NULL
+        CREATE TABLE IF NOT EXISTS clients (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            created_at TEXT NOT NULL
         )
     """)
+
+    # Migrate from the old single-tenant schema (domain as sole primary key)
+    # if this DB predates the multi-client model.
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(scans)").fetchall()]
+    if cols and "client_id" not in cols:
+        conn.execute("ALTER TABLE scans RENAME TO scans_legacy")
+        conn.execute("""
+            CREATE TABLE scans (
+                client_id TEXT NOT NULL DEFAULT 'default',
+                domain TEXT NOT NULL,
+                data TEXT NOT NULL,
+                scanned_at TEXT NOT NULL,
+                PRIMARY KEY (client_id, domain)
+            )
+        """)
+        conn.execute("""
+            INSERT INTO scans (client_id, domain, data, scanned_at)
+            SELECT 'default', domain, data, scanned_at FROM scans_legacy
+        """)
+        conn.execute("DROP TABLE scans_legacy")
+    else:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS scans (
+                client_id TEXT NOT NULL DEFAULT 'default',
+                domain TEXT NOT NULL,
+                data TEXT NOT NULL,
+                scanned_at TEXT NOT NULL,
+                PRIMARY KEY (client_id, domain)
+            )
+        """)
+
+    if not conn.execute("SELECT 1 FROM clients WHERE id=?", (DEFAULT_CLIENT_ID,)).fetchone():
+        conn.execute("INSERT INTO clients (id, name, created_at) VALUES (?, ?, ?)",
+                     (DEFAULT_CLIENT_ID, DEFAULT_CLIENT_NAME, datetime.datetime.utcnow().isoformat()))
+    conn.commit()
     return conn
 
 
-def _save_scan(result: dict):
+def _save_scan(result: dict, client_id: str = DEFAULT_CLIENT_ID):
     conn = _db()
     conn.execute(
-        "INSERT OR REPLACE INTO scans (domain, data, scanned_at) VALUES (?, ?, ?)",
-        (result["domain"], json.dumps(result), result["scanned_at"]),
+        "INSERT OR REPLACE INTO scans (client_id, domain, data, scanned_at) VALUES (?, ?, ?, ?)",
+        (client_id, result["domain"], json.dumps(result), result["scanned_at"]),
     )
     conn.commit()
     conn.close()
 
 
-def _all_saved_scans() -> list[dict]:
+def _all_saved_scans(client_id: Optional[str] = None) -> list[dict]:
     conn = _db()
-    rows = conn.execute("SELECT data FROM scans ORDER BY scanned_at DESC").fetchall()
+    if client_id:
+        rows = conn.execute("SELECT data FROM scans WHERE client_id=? ORDER BY scanned_at DESC", (client_id,)).fetchall()
+    else:
+        rows = conn.execute("SELECT data FROM scans ORDER BY scanned_at DESC").fetchall()
     conn.close()
     return [json.loads(r[0]) for r in rows]
+
+
+def _list_clients() -> list[dict]:
+    conn = _db()
+    rows = conn.execute("SELECT id, name, created_at FROM clients ORDER BY created_at ASC").fetchall()
+    conn.close()
+    return [{"id": r[0], "name": r[1], "created_at": r[2]} for r in rows]
+
+
+def _create_client(name: str) -> dict:
+    client_id = re.sub(r"[^a-z0-9-]", "-", name.strip().lower())[:40] or str(uuid.uuid4())[:8]
+    conn = _db()
+    # avoid id collisions if two clients would normalize to the same slug
+    base_id, n = client_id, 1
+    while conn.execute("SELECT 1 FROM clients WHERE id=?", (client_id,)).fetchone():
+        n += 1
+        client_id = f"{base_id}-{n}"
+    created_at = datetime.datetime.utcnow().isoformat()
+    conn.execute("INSERT INTO clients (id, name, created_at) VALUES (?, ?, ?)", (client_id, name.strip(), created_at))
+    conn.commit()
+    conn.close()
+    return {"id": client_id, "name": name.strip(), "created_at": created_at}
 
 
 class ScanRequest(BaseModel):
     domain: str
     watchlist: Optional[str] = "Live Scans"
+    client_id: Optional[str] = DEFAULT_CLIENT_ID
 
 
 @app.get("/api/debug/cve-lookup")
@@ -87,6 +165,26 @@ def health():
     return {"status": "ok", "time": datetime.datetime.utcnow().isoformat()}
 
 
+@app.get("/api/clients")
+def list_clients():
+    """Client workspaces inside this single instance — switch between them
+    in the UI without needing a separate deployment. For clients who need
+    full physical isolation instead, deploy this same stack again with its
+    own .env (separate DB path/port) — see README."""
+    return {"clients": _list_clients()}
+
+
+class ClientCreate(BaseModel):
+    name: str
+
+
+@app.post("/api/clients")
+def create_client(req: ClientCreate):
+    if not req.name or not req.name.strip():
+        raise HTTPException(400, "Client name can't be empty.")
+    return _create_client(req.name)
+
+
 @app.post("/api/scan")
 def scan(req: ScanRequest):
     """Synchronous scan of a single real domain — passive OSINT only.
@@ -96,8 +194,9 @@ def scan(req: ScanRequest):
     try:
         result = scan_domain(req.domain)
         result["watchlist"] = req.watchlist
+        client_id = req.client_id or DEFAULT_CLIENT_ID
         _SCANS[result["domain"]] = result
-        _save_scan(result)
+        _save_scan(result, client_id)
         return result
     except Exception as e:
         raise HTTPException(500, f"Scan failed: {e}")
@@ -111,10 +210,11 @@ def get_scan(domain: str):
 
 
 @app.get("/api/scans")
-def list_scans():
-    """Every real scan ever run against this backend, in the same shape the
-    UI's portfolio views expect — this is the actual, non-mock data."""
-    saved = _all_saved_scans()
+def list_scans(client_id: Optional[str] = None):
+    """Every real scan run against this backend for a given client workspace
+    (or all of them, if client_id is omitted), in the shape the UI's
+    portfolio views expect — this is the actual, non-mock data."""
+    saved = _all_saved_scans(client_id)
     out = []
     for i, s in enumerate(saved):
         raw = s.get("raw", {})
@@ -135,6 +235,98 @@ def list_scans():
             "is_demo": False,
         })
     return {"count": len(out), "domains": out}
+
+
+# ---------------------------------------------------------------------------
+# Bulk CSV upload: scans many domains at once. Runs as a background job
+# rather than a single blocking request — 100 domains at ~3-10s each would
+# blow past any sane HTTP timeout, and this also lets the UI show progress.
+#
+# Concurrency is deliberately modest (3 domains at a time): the individual
+# checks inside scan_domain() already run in parallel per-domain, and several
+# of the external services this hits (crt.sh, RDAP, URLhaus, NVD) are
+# community-run and rate-limit-sensitive — scanning 100 domains "all at once"
+# would just trade a slow job for a flaky one.
+# ---------------------------------------------------------------------------
+_BULK_JOBS: dict[str, dict] = {}
+_BULK_LOCK = threading.Lock()
+_BULK_CONCURRENCY = 3
+
+DOMAIN_RE = re.compile(r"^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$")
+
+
+def _extract_domains_from_csv(raw_bytes: bytes) -> list[str]:
+    text = raw_bytes.decode("utf-8-sig", errors="ignore")
+    reader = csv.reader(io.StringIO(text))
+    rows = [r for r in reader if r]
+    if not rows:
+        return []
+
+    # Find whichever column looks like it holds domains, defaulting to column 0.
+    header = [c.strip().lower() for c in rows[0]]
+    col = 0
+    if "domain" in header:
+        col = header.index("domain")
+
+    # Skip the header row only if it doesn't itself look like a domain
+    # (covers CSVs with or without a header line).
+    start = 1 if not DOMAIN_RE.match(rows[0][col].strip()) else 0
+
+    domains, seen = [], set()
+    for row in rows[start:]:
+        if col >= len(row):
+            continue
+        candidate = row[col].strip().lower().replace("https://", "").replace("http://", "").rstrip("/")
+        if candidate and DOMAIN_RE.match(candidate) and candidate not in seen:
+            seen.add(candidate)
+            domains.append(candidate)
+    return domains
+
+
+def _run_bulk_job(job_id: str, domains: list[str], watchlist: str, client_id: str):
+    job = _BULK_JOBS[job_id]
+
+    def scan_one(domain: str):
+        try:
+            result = scan_domain(domain)
+            result["watchlist"] = watchlist
+            _save_scan(result, client_id)
+            with _BULK_LOCK:
+                job["completed"] += 1
+                job["results"].append({"domain": domain, "ok": True, "score": result["overall_score"]})
+        except Exception as e:
+            with _BULK_LOCK:
+                job["completed"] += 1
+                job["results"].append({"domain": domain, "ok": False, "error": str(e)})
+
+    with cf.ThreadPoolExecutor(max_workers=_BULK_CONCURRENCY) as ex:
+        list(ex.map(scan_one, domains))
+
+    with _BULK_LOCK:
+        job["status"] = "done"
+
+
+@app.post("/api/scan/bulk")
+async def scan_bulk(file: UploadFile = File(...), watchlist: str = "Bulk Upload", client_id: str = DEFAULT_CLIENT_ID):
+    raw = await file.read()
+    domains = _extract_domains_from_csv(raw)
+    if not domains:
+        raise HTTPException(400, "No valid domains found in that CSV — expected a 'domain' column or one domain per line.")
+    if len(domains) > 500:
+        raise HTTPException(400, f"{len(domains)} domains found — cap this run at 500 per upload and split the rest into another batch.")
+
+    job_id = str(uuid.uuid4())
+    _BULK_JOBS[job_id] = {"total": len(domains), "completed": 0, "results": [], "status": "running"}
+    threading.Thread(target=_run_bulk_job, args=(job_id, domains, watchlist, client_id), daemon=True).start()
+    return {"job_id": job_id, "total": len(domains)}
+
+
+@app.get("/api/scan/bulk/{job_id}")
+def get_bulk_job(job_id: str):
+    job = _BULK_JOBS.get(job_id)
+    if not job:
+        raise HTTPException(404, "No such bulk job — it may have completed and the server since restarted.")
+    return job
 
 
 # ---------------------------------------------------------------------------

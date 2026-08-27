@@ -6,9 +6,24 @@
 <title>Eagle Talon — Attack Surface Console</title>
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="icon" type="image/png" sizes="64x64" href="favicon-64.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
+  /* Self-hosted fonts — no CDN dependency, works fully offline for the demo.
+     Space Grotesk / Inter / JetBrains Mono: SIL OFL. Noto Sans JP: SIL OFL. */
+  @font-face{font-family:'Space Grotesk';font-style:normal;font-weight:400;src:url('fonts/space-grotesk-latin-400-normal.woff2') format('woff2');font-display:swap;}
+  @font-face{font-family:'Space Grotesk';font-style:normal;font-weight:500;src:url('fonts/space-grotesk-latin-500-normal.woff2') format('woff2');font-display:swap;}
+  @font-face{font-family:'Space Grotesk';font-style:normal;font-weight:600;src:url('fonts/space-grotesk-latin-600-normal.woff2') format('woff2');font-display:swap;}
+  @font-face{font-family:'Space Grotesk';font-style:normal;font-weight:700;src:url('fonts/space-grotesk-latin-700-normal.woff2') format('woff2');font-display:swap;}
+  @font-face{font-family:'Inter';font-style:normal;font-weight:400;src:url('fonts/inter-latin-400-normal.woff2') format('woff2');font-display:swap;}
+  @font-face{font-family:'Inter';font-style:normal;font-weight:500;src:url('fonts/inter-latin-500-normal.woff2') format('woff2');font-display:swap;}
+  @font-face{font-family:'Inter';font-style:normal;font-weight:600;src:url('fonts/inter-latin-600-normal.woff2') format('woff2');font-display:swap;}
+  @font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:400;src:url('fonts/jetbrains-mono-latin-400-normal.woff2') format('woff2');font-display:swap;}
+  @font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:500;src:url('fonts/jetbrains-mono-latin-500-normal.woff2') format('woff2');font-display:swap;}
+  @font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:600;src:url('fonts/jetbrains-mono-latin-600-normal.woff2') format('woff2');font-display:swap;}
+  @font-face{font-family:'Noto Sans JP';font-style:normal;font-weight:400;src:url('fonts/noto-sans-jp-japanese-400-normal.woff2') format('woff2');font-display:swap;}
+  @font-face{font-family:'Noto Sans JP';font-style:normal;font-weight:500;src:url('fonts/noto-sans-jp-japanese-500-normal.woff2') format('woff2');font-display:swap;}
+  @font-face{font-family:'Noto Sans JP';font-style:normal;font-weight:600;src:url('fonts/noto-sans-jp-japanese-600-normal.woff2') format('woff2');font-display:swap;}
+  @font-face{font-family:'Noto Sans JP';font-style:normal;font-weight:700;src:url('fonts/noto-sans-jp-japanese-700-normal.woff2') format('woff2');font-display:swap;}
+
   :root{
     --font-display:'Space Grotesk','Noto Sans JP',sans-serif;
     --font-body:'Inter','Noto Sans JP',sans-serif;
@@ -303,6 +318,10 @@
 <div class="app">
   <div class="topbar">
     <div class="brand"><img class="mark" src="logo-icon.png" alt="Eagle Talon">EAGLE TALON <span class="sub">Attack Surface Console</span></div>
+    <div class="viewToggle" id="clientSwitchWrap">
+      <select id="clientSelect" style="background:transparent; border:none; color:var(--text); font-size:12.5px; font-weight:600; padding:6px 8px; cursor:pointer; outline:none;"></select>
+      <button id="newClientBtn" data-i18n="new_client_btn" style="padding:6px 10px;">+ Client</button>
+    </div>
     <div class="searchwrap">
       <span class="ico">⌕</span>
       <input id="searchInput" placeholder="Search domains, sectors, watchlists…" data-i18n-placeholder="search_placeholder">
@@ -321,6 +340,7 @@
     </div>
     <div class="spacer"></div>
     <button class="addbtn" id="openAdd" data-i18n="add_domain">+ Analyze Domain</button>
+    <button class="addbtn" id="openBulk" style="background:var(--panel-2); color:var(--text); border:1px solid var(--line);" data-i18n="bulk_upload">⬆ Bulk Upload</button>
   </div>
 
   <div class="rail">
@@ -400,6 +420,23 @@
   </div>
 </div>
 
+<div class="modal" id="bulkModal">
+  <div class="modalCard">
+    <h3 data-i18n="bulk_title">Bulk upload — CSV</h3>
+    <p class="sub" data-i18n="bulk_sub">A "domain" column, or one domain per line. Scans run a few at a time — allow roughly 1 minute per 10 domains.</p>
+    <input type="file" id="bulkFileInput" accept=".csv" style="width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text); padding:10px 12px; border-radius:8px; font-size:13px; margin-bottom:14px;">
+    <input id="bulkWatchlistInput" placeholder="Watchlist name (optional)" autocomplete="off" data-i18n-placeholder="bulk_watchlist_placeholder">
+    <div class="scanStatus" id="bulkStatus"></div>
+    <div class="catTrack" id="bulkProgressTrack" style="display:none; margin:4px 0 14px;">
+      <div class="catFill" id="bulkProgressFill" style="width:0%; background:var(--signal);"></div>
+    </div>
+    <div class="modalActions">
+      <button class="btnGhost" id="bulkCancel" data-i18n="modal_cancel">Cancel</button>
+      <button class="btnPrimary" id="bulkGo" data-i18n="bulk_run">Start scan</button>
+    </div>
+  </div>
+</div>
+
 <div id="printReport"></div>
 
 <div class="tooltip" id="tooltip"></div>
@@ -453,6 +490,19 @@ const STR = {
     modal_sub:"Runs a live passive scan — DNS, TLS, email auth, headers, cert-transparency subdomains, RDAP, threat intel.",
     modal_input_placeholder:"e.g. supplier-example.com",
     modal_cancel:"Cancel", modal_run:"Run scan",
+    bulk_upload:"⬆ Bulk Upload",
+    bulk_title:"Bulk upload — CSV",
+    bulk_sub:"A \"domain\" column, or one domain per line. Scans run a few at a time — allow roughly 1 minute per 10 domains.",
+    bulk_watchlist_placeholder:"Watchlist name (optional)",
+    bulk_run:"Start scan",
+    bulk_no_file:"Choose a CSV file first.",
+    bulk_uploading:"Uploading and reading CSV…",
+    bulk_progress:(done,total)=>`Scanning ${done} of ${total}…`,
+    bulk_done:(done,total,failed)=>failed>0 ? `Done — ${done-failed} of ${total} scanned, ${failed} failed.` : `Done — ${total} domains scanned.`,
+    bulk_failed:api=>`Upload failed — is the API running at ${api}?`,
+    new_client_btn:"+ Client",
+    new_client_prompt:"New client name:",
+    new_client_failed:"Couldn't create that client — try again.",
     scan_scanning:"Scanning — DNS, TLS, email auth, headers, cert-transparency, threat intel…",
     scan_done:(score,tier)=>`Done — score ${score} (${tier}).`,
     scan_failed:api=>`Scan failed — backend unreachable or domain invalid. Is the API running at ${api}?`,
@@ -499,6 +549,19 @@ const STR = {
     modal_sub:"パッシブスキャンをリアルタイム実行します — DNS、TLS、メール認証、ヘッダー、証明書透明性ログ由来のサブドメイン、RDAP、脅威インテリジェンス。",
     modal_input_placeholder:"例：supplier-example.com",
     modal_cancel:"キャンセル", modal_run:"スキャン実行",
+    bulk_upload:"⬆ 一括アップロード",
+    bulk_title:"一括アップロード — CSV",
+    bulk_sub:"「domain」列、または1行に1ドメインで指定してください。数件ずつ並行してスキャンします — 10件あたり約1分を目安にしてください。",
+    bulk_watchlist_placeholder:"ウォッチリスト名（任意）",
+    bulk_run:"スキャン開始",
+    bulk_no_file:"先にCSVファイルを選択してください。",
+    bulk_uploading:"CSVをアップロード・読み込み中…",
+    bulk_progress:(done,total)=>`${total}件中${done}件をスキャン中…`,
+    bulk_done:(done,total,failed)=>failed>0 ? `完了 — ${total}件中${done-failed}件をスキャン、${failed}件失敗。` : `完了 — ${total}件のドメインをスキャンしました。`,
+    bulk_failed:api=>`アップロード失敗 — API は ${api} で稼働していますか？`,
+    new_client_btn:"＋ クライアント",
+    new_client_prompt:"新しいクライアント名：",
+    new_client_failed:"クライアントを作成できませんでした。もう一度お試しください。",
     scan_scanning:"スキャン中 — DNS、TLS、メール認証、ヘッダー、証明書透明性ログ、脅威インテリジェンス…",
     scan_done:(score,tier)=>`完了 — スコア ${score}（${tier}）`,
     scan_failed:api=>`スキャン失敗 — バックエンドに接続できないか、ドメインが無効です。API は ${api} で稼働していますか？`,
@@ -708,6 +771,8 @@ let sortMode = "score_asc";
 let currentTheme = "dark";
 
 // ---------- Data load ----------
+let CURRENT_CLIENT_ID = 'default';
+
 async function loadPortfolio(){
   let demo = [];
   let real = [];
@@ -719,7 +784,7 @@ async function loadPortfolio(){
     demo = generateFallback(220);
   }
   try{
-    const res2 = await fetch(`${API_BASE}/api/scans`);
+    const res2 = await fetch(`${API_BASE}/api/scans?client_id=${encodeURIComponent(CURRENT_CLIENT_ID)}`);
     const data2 = await res2.json();
     real = data2.domains;
   }catch(e){ /* backend not reachable — real scans just won't be there yet */ }
@@ -729,6 +794,42 @@ async function loadPortfolio(){
   buildRail();
   render();
 }
+
+async function loadClients(){
+  const select = document.getElementById('clientSelect');
+  try{
+    const res = await fetch(`${API_BASE}/api/clients`);
+    const data = await res.json();
+    select.innerHTML = data.clients.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+    if(!data.clients.find(c=>c.id===CURRENT_CLIENT_ID)) CURRENT_CLIENT_ID = data.clients[0]?.id || 'default';
+    select.value = CURRENT_CLIENT_ID;
+  }catch(e){
+    select.innerHTML = `<option value="default">Default Workspace</option>`;
+  }
+}
+
+document.getElementById('clientSelect').addEventListener('change', (e)=>{
+  CURRENT_CLIENT_ID = e.target.value;
+  loadPortfolio();
+});
+
+document.getElementById('newClientBtn').onclick = async ()=>{
+  const name = prompt(t('new_client_prompt'));
+  if(!name || !name.trim()) return;
+  try{
+    const res = await fetch(`${API_BASE}/api/clients`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({name: name.trim()})
+    });
+    if(!res.ok) throw new Error(await res.text());
+    const client = await res.json();
+    CURRENT_CLIENT_ID = client.id;
+    await loadClients();
+    loadPortfolio();
+  }catch(e){
+    alert(t('new_client_failed'));
+  }
+};
 
 function generateFallback(n){
   const SECTORS=["Payments","Logistics","Cloud/SaaS Vendors","Marketing & Ad Tech","Manufacturing Suppliers","Professional Services","Marketplace Sellers","Financial Institutions","Healthcare Vendors","Regional Resellers"];
@@ -1215,7 +1316,7 @@ const searchInput = document.getElementById('searchInput');
 searchInput.addEventListener('input', ()=>{ filters.query = searchInput.value.toLowerCase(); render(); });
 document.addEventListener('keydown', (e)=>{
   if(e.key==='/' && document.activeElement!==searchInput){ e.preventDefault(); searchInput.focus(); }
-  if(e.key==='Escape'){ closeDrawer(); closeModal(); }
+  if(e.key==='Escape'){ closeDrawer(); closeModal(); closeBulkModal(); }
 });
 
 // ---------- Add / scan modal ----------
@@ -1233,7 +1334,7 @@ document.getElementById('modalGo').onclick = async ()=>{
   try{
     const res = await fetch(`${API_BASE}/api/scan`, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({domain, watchlist:'Live Scans'})
+      body: JSON.stringify({domain, watchlist:'Live Scans', client_id: CURRENT_CLIENT_ID})
     });
     if(!res.ok) throw new Error(await res.text());
     const result = await res.json();
@@ -1251,13 +1352,84 @@ document.getElementById('modalGo').onclick = async ()=>{
     buildRail(); render();
     setTimeout(()=>{ closeModal(); document.getElementById('modalInput').value=''; openDrawer(entry); }, 500);
   }catch(e){
+    // Show the real error when we have one (a backend response body, e.g. a
+    // 500 with a Python traceback) — only fall back to the generic
+    // "is the API running" message for genuine network-level failures
+    // (fetch itself throwing, e.g. TypeError: Failed to fetch).
+    if(e instanceof TypeError){
+      status.textContent = t('scan_failed')(API_BASE || 'http://localhost:8000');
+    } else {
+      status.textContent = e.message || t('scan_failed')(API_BASE || 'http://localhost:8000');
+    }
+    console.error('Scan failed:', e);
     status.textContent = t('scan_failed')(API_BASE || 'http://localhost:8000');
+  }
+};
+
+// ---------- Bulk CSV upload ----------
+const bulkModal = document.getElementById('bulkModal');
+function openBulkModal(){ bulkModal.classList.add('show'); }
+function closeBulkModal(){
+  bulkModal.classList.remove('show');
+  document.getElementById('bulkStatus').textContent = '';
+  document.getElementById('bulkProgressTrack').style.display = 'none';
+  document.getElementById('bulkProgressFill').style.width = '0%';
+}
+document.getElementById('openBulk').onclick = openBulkModal;
+document.getElementById('bulkCancel').onclick = closeBulkModal;
+
+let _bulkPollTimer = null;
+
+document.getElementById('bulkGo').onclick = async ()=>{
+  const fileInput = document.getElementById('bulkFileInput');
+  const status = document.getElementById('bulkStatus');
+  const watchlist = document.getElementById('bulkWatchlistInput').value.trim() || 'Bulk Upload';
+
+  if(!fileInput.files || !fileInput.files[0]){
+    status.textContent = t('bulk_no_file');
+    return;
+  }
+
+  status.textContent = t('bulk_uploading');
+  const form = new FormData();
+  form.append('file', fileInput.files[0]);
+
+  try{
+    const res = await fetch(`${API_BASE}/api/scan/bulk?watchlist=${encodeURIComponent(watchlist)}&client_id=${encodeURIComponent(CURRENT_CLIENT_ID)}`, {
+      method: 'POST', body: form
+    });
+    if(!res.ok) throw new Error(await res.text());
+    const { job_id, total } = await res.json();
+
+    const track = document.getElementById('bulkProgressTrack');
+    const fill = document.getElementById('bulkProgressFill');
+    track.style.display = 'block';
+    status.textContent = t('bulk_progress')(0, total);
+
+    _bulkPollTimer = setInterval(async ()=>{
+      try{
+        const jr = await fetch(`${API_BASE}/api/scan/bulk/${job_id}`);
+        const job = await jr.json();
+        fill.style.width = Math.round((job.completed/job.total)*100) + '%';
+        if(job.status === 'done'){
+          clearInterval(_bulkPollTimer);
+          const failed = job.results.filter(r=>!r.ok).length;
+          status.textContent = t('bulk_done')(job.completed, job.total, failed);
+          loadPortfolio(); // pull the newly-scanned domains into the visualization
+          setTimeout(closeBulkModal, 1800);
+        } else {
+          status.textContent = t('bulk_progress')(job.completed, job.total);
+        }
+      }catch(e){ /* transient poll miss — next tick retries */ }
+    }, 2000);
+  }catch(e){
+    status.textContent = t('bulk_failed')(API_BASE || 'http://localhost:8000');
   }
 };
 
 window.addEventListener('resize', render);
 applyStaticI18n();
-loadPortfolio();
+loadClients().then(loadPortfolio);
 </script>
 </body>
 </html>
