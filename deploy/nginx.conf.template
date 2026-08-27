@@ -1,5 +1,5 @@
 server {
-    listen 80;
+    listen ${NGINX_PORT};
     server_name _;
 
     location / {
@@ -9,7 +9,7 @@ server {
     }
 
     location /api/ {
-        proxy_pass http://api:8000/api/;
+        proxy_pass http://localhost:8000/api/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
     }
