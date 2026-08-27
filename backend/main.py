@@ -29,6 +29,13 @@ from pydantic import BaseModel
 
 from scanner import scan_domain, tier_for_score
 
+# Shared sector list — used both by the demo-data generator and by real scans
+# (so a real domain's sector places it correctly on the Talon Scope radar,
+# alongside the same compass positions the demo data uses).
+SECTORS = ["Payments", "Logistics", "Cloud/SaaS Vendors", "Marketing & Ad Tech",
+           "Manufacturing Suppliers", "Professional Services", "Marketplace Sellers",
+           "Financial Institutions", "Healthcare Vendors", "Regional Resellers", "Unassigned"]
+
 app = FastAPI(title="Eagle Talon ASM API", version="0.1.0")
 
 app.add_middleware(
@@ -146,10 +153,19 @@ def _create_client(name: str) -> dict:
     return {"id": client_id, "name": name.strip(), "created_at": created_at}
 
 
+def _delete_client(client_id: str):
+    conn = _db()
+    conn.execute("DELETE FROM scans WHERE client_id=?", (client_id,))
+    conn.execute("DELETE FROM clients WHERE id=?", (client_id,))
+    conn.commit()
+    conn.close()
+
+
 class ScanRequest(BaseModel):
     domain: str
     watchlist: Optional[str] = "Live Scans"
     client_id: Optional[str] = DEFAULT_CLIENT_ID
+    sector: Optional[str] = "Unassigned"
 
 
 @app.get("/api/debug/cve-lookup")
@@ -185,6 +201,17 @@ def create_client(req: ClientCreate):
     return _create_client(req.name)
 
 
+@app.delete("/api/clients/{client_id}")
+def delete_client(client_id: str):
+    if client_id == DEFAULT_CLIENT_ID:
+        raise HTTPException(400, "Can't delete the Default Workspace — it's the fallback everything else relies on.")
+    clients = {c["id"] for c in _list_clients()}
+    if client_id not in clients:
+        raise HTTPException(404, "No such client.")
+    _delete_client(client_id)
+    return {"deleted": client_id}
+
+
 @app.post("/api/scan")
 def scan(req: ScanRequest):
     """Synchronous scan of a single real domain — passive OSINT only.
@@ -194,11 +221,19 @@ def scan(req: ScanRequest):
     try:
         result = scan_domain(req.domain)
         result["watchlist"] = req.watchlist
+        result["sector"] = req.sector or "Unassigned"
         client_id = req.client_id or DEFAULT_CLIENT_ID
         _save_scan(result, client_id)
         return result
     except Exception as e:
         raise HTTPException(500, f"Scan failed: {e}")
+
+
+@app.get("/api/sectors")
+def list_sectors():
+    """The fixed sector list, so the frontend's dropdowns always match what
+    the Talon Scope radar actually plots by."""
+    return {"sectors": SECTORS}
 
 
 @app.get("/api/scan/{domain}")
@@ -214,6 +249,32 @@ def get_scan(domain: str, client_id: str = DEFAULT_CLIENT_ID):
     return json.loads(row[0])
 
 
+class ScanEdit(BaseModel):
+    sector: Optional[str] = None
+    watchlist: Optional[str] = None
+
+
+@app.patch("/api/scans/{domain}")
+def edit_scan(domain: str, edit: ScanEdit, client_id: str = DEFAULT_CLIENT_ID):
+    """Adjust a real scan's sector/watchlist without re-running the scan —
+    for when a domain landed in the wrong category or you want to reassign
+    it to a different watchlist."""
+    conn = _db()
+    row = conn.execute("SELECT data FROM scans WHERE client_id=? AND domain=?", (client_id, domain)).fetchone()
+    if not row:
+        conn.close()
+        raise HTTPException(404, "No such scan for that domain/client.")
+    data = json.loads(row[0])
+    if edit.sector is not None:
+        data["sector"] = edit.sector
+    if edit.watchlist is not None:
+        data["watchlist"] = edit.watchlist
+    conn.execute("UPDATE scans SET data=? WHERE client_id=? AND domain=?", (json.dumps(data), client_id, domain))
+    conn.commit()
+    conn.close()
+    return data
+
+
 @app.get("/api/scans")
 def list_scans(client_id: Optional[str] = None):
     """Every real scan run against this backend for a given client workspace
@@ -226,7 +287,7 @@ def list_scans(client_id: Optional[str] = None):
         out.append({
             "id": f"real-{i}",
             "domain": s["domain"],
-            "sector": "Live Scans",
+            "sector": s.get("sector", "Unassigned"),
             "watchlist": s.get("watchlist", "Live Scans"),
             "overall_score": s["overall_score"],
             "tier": s["tier"],
@@ -260,7 +321,9 @@ _BULK_CONCURRENCY = 3
 DOMAIN_RE = re.compile(r"^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$")
 
 
-def _extract_domains_from_csv(raw_bytes: bytes) -> list[str]:
+def _extract_domains_from_csv(raw_bytes: bytes) -> list[dict]:
+    """Returns [{domain, sector}] — sector is None when the CSV has no
+    'sector' column, in which case the batch-level default sector applies."""
     text = raw_bytes.decode("utf-8-sig", errors="ignore")
     reader = csv.reader(io.StringIO(text))
     rows = [r for r in reader if r]
@@ -272,29 +335,35 @@ def _extract_domains_from_csv(raw_bytes: bytes) -> list[str]:
     col = 0
     if "domain" in header:
         col = header.index("domain")
+    sector_col = header.index("sector") if "sector" in header else None
 
     # Skip the header row only if it doesn't itself look like a domain
     # (covers CSVs with or without a header line).
     start = 1 if not DOMAIN_RE.match(rows[0][col].strip()) else 0
 
-    domains, seen = [], set()
+    out, seen = [], set()
     for row in rows[start:]:
         if col >= len(row):
             continue
         candidate = row[col].strip().lower().replace("https://", "").replace("http://", "").rstrip("/")
         if candidate and DOMAIN_RE.match(candidate) and candidate not in seen:
             seen.add(candidate)
-            domains.append(candidate)
-    return domains
+            sector = None
+            if sector_col is not None and sector_col < len(row) and row[sector_col].strip():
+                sector = row[sector_col].strip()
+            out.append({"domain": candidate, "sector": sector})
+    return out
 
 
-def _run_bulk_job(job_id: str, domains: list[str], watchlist: str, client_id: str):
+def _run_bulk_job(job_id: str, rows: list[dict], watchlist: str, client_id: str, default_sector: str):
     job = _BULK_JOBS[job_id]
 
-    def scan_one(domain: str):
+    def scan_one(row: dict):
+        domain = row["domain"]
         try:
             result = scan_domain(domain)
             result["watchlist"] = watchlist
+            result["sector"] = row["sector"] or default_sector
             _save_scan(result, client_id)
             with _BULK_LOCK:
                 job["completed"] += 1
@@ -305,25 +374,28 @@ def _run_bulk_job(job_id: str, domains: list[str], watchlist: str, client_id: st
                 job["results"].append({"domain": domain, "ok": False, "error": str(e)})
 
     with cf.ThreadPoolExecutor(max_workers=_BULK_CONCURRENCY) as ex:
-        list(ex.map(scan_one, domains))
+        list(ex.map(scan_one, rows))
 
     with _BULK_LOCK:
         job["status"] = "done"
 
 
 @app.post("/api/scan/bulk")
-async def scan_bulk(file: UploadFile = File(...), watchlist: str = "Bulk Upload", client_id: str = DEFAULT_CLIENT_ID):
+async def scan_bulk(file: UploadFile = File(...), watchlist: str = "Bulk Upload",
+                     client_id: str = DEFAULT_CLIENT_ID, sector: str = "Unassigned"):
+    """sector is the batch default — a 'sector' column in the CSV overrides
+    it per-row, so a single upload can span multiple categories at once."""
     raw = await file.read()
-    domains = _extract_domains_from_csv(raw)
-    if not domains:
+    rows = _extract_domains_from_csv(raw)
+    if not rows:
         raise HTTPException(400, "No valid domains found in that CSV — expected a 'domain' column or one domain per line.")
-    if len(domains) > 500:
-        raise HTTPException(400, f"{len(domains)} domains found — cap this run at 500 per upload and split the rest into another batch.")
+    if len(rows) > 500:
+        raise HTTPException(400, f"{len(rows)} domains found — cap this run at 500 per upload and split the rest into another batch.")
 
     job_id = str(uuid.uuid4())
-    _BULK_JOBS[job_id] = {"total": len(domains), "completed": 0, "results": [], "status": "running"}
-    threading.Thread(target=_run_bulk_job, args=(job_id, domains, watchlist, client_id), daemon=True).start()
-    return {"job_id": job_id, "total": len(domains)}
+    _BULK_JOBS[job_id] = {"total": len(rows), "completed": 0, "results": [], "status": "running"}
+    threading.Thread(target=_run_bulk_job, args=(job_id, rows, watchlist, client_id, sector), daemon=True).start()
+    return {"job_id": job_id, "total": len(rows)}
 
 
 @app.get("/api/scan/bulk/{job_id}")
@@ -341,9 +413,6 @@ def get_bulk_job(job_id: str):
 # Clearly flagged is_demo:true — /api/scans above is the real data.
 # ---------------------------------------------------------------------------
 
-SECTORS = ["Payments", "Logistics", "Cloud/SaaS Vendors", "Marketing & Ad Tech",
-           "Manufacturing Suppliers", "Professional Services", "Marketplace Sellers",
-           "Financial Institutions", "Healthcare Vendors", "Regional Resellers"]
 WATCHLISTS = ["Tier-1 Suppliers", "Insured Portfolio — Q3", "Marketplace Onboarding",
               "Tier-2 Suppliers", "M&A Diligence"]
 TLDS = [".com", ".io", ".co", ".net", ".biz", ".shop", ".ai"]
@@ -366,7 +435,7 @@ def portfolio(seed: int = 42, count: int = 480):
             if name not in used:
                 used.add(name)
                 break
-        sector = rng.choice(SECTORS)
+        sector = rng.choice(SECTORS[:-1])  # exclude "Unassigned" — that's only for real, uncategorized scans
         watchlist = rng.choice(WATCHLISTS)
 
         # Skew distribution so most are fine and a realistic minority are risky —

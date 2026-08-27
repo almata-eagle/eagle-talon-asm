@@ -321,6 +321,7 @@
     <div class="viewToggle" id="clientSwitchWrap">
       <select id="clientSelect" style="background:transparent; border:none; color:var(--text); font-size:12.5px; font-weight:600; padding:6px 8px; cursor:pointer; outline:none;"></select>
       <button id="newClientBtn" data-i18n="new_client_btn" style="padding:6px 10px;">+ Client</button>
+      <button id="deleteClientBtn" title="Delete this workspace" style="padding:6px 10px; color:var(--critical);">🗑</button>
     </div>
     <div class="searchwrap">
       <span class="ico">⌕</span>
@@ -412,6 +413,7 @@
     <h3 data-i18n="modal_title">Analyze a domain</h3>
     <p class="sub" data-i18n="modal_sub">Runs a live passive scan — DNS, TLS, email auth, headers, cert-transparency subdomains, RDAP.</p>
     <input id="modalInput" placeholder="e.g. supplier-example.com" autocomplete="off" data-i18n-placeholder="modal_input_placeholder">
+    <select id="modalSectorSelect" style="width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text); padding:10px 12px; border-radius:8px; font-size:13px; margin-bottom:14px;"></select>
     <div class="scanStatus" id="scanStatus"></div>
     <div class="modalActions">
       <button class="btnGhost" id="modalCancel" data-i18n="modal_cancel">Cancel</button>
@@ -426,6 +428,8 @@
     <p class="sub" data-i18n="bulk_sub">A "domain" column, or one domain per line. Scans run a few at a time — allow roughly 1 minute per 10 domains.</p>
     <input type="file" id="bulkFileInput" accept=".csv" style="width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text); padding:10px 12px; border-radius:8px; font-size:13px; margin-bottom:14px;">
     <input id="bulkWatchlistInput" placeholder="Watchlist name (optional)" autocomplete="off" data-i18n-placeholder="bulk_watchlist_placeholder">
+    <select id="bulkSectorSelect" style="width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text); padding:10px 12px; border-radius:8px; font-size:13px; margin-bottom:6px;"></select>
+    <p style="font-size:11px; color:var(--dim); margin-bottom:14px;" data-i18n="bulk_sector_hint">A "sector" column in the CSV overrides this per-row.</p>
     <div class="scanStatus" id="bulkStatus"></div>
     <div class="catTrack" id="bulkProgressTrack" style="display:none; margin:4px 0 14px;">
       <div class="catFill" id="bulkProgressFill" style="width:0%; background:var(--signal);"></div>
@@ -486,6 +490,11 @@ const STR = {
     what_it_means:"What a hacker could do with this", how_to_fix:"How to fix it",
     ti_banner:"Threat intelligence match — this host has sourced, reported malicious activity on record.",
     download_pdf:"⬇ Download PDF Report",
+    drawer_edit_h:"Edit this domain",
+    drawer_edit_save:"Save changes",
+    drawer_edit_saving:"Saving…",
+    drawer_edit_saved:"Saved.",
+    drawer_edit_failed:"Couldn't save — try again.",
     modal_title:"Analyze a domain",
     modal_sub:"Runs a live passive scan — DNS, TLS, email auth, headers, cert-transparency subdomains, RDAP, threat intel.",
     modal_input_placeholder:"e.g. supplier-example.com",
@@ -494,6 +503,7 @@ const STR = {
     bulk_title:"Bulk upload — CSV",
     bulk_sub:"A \"domain\" column, or one domain per line. Scans run a few at a time — allow roughly 1 minute per 10 domains.",
     bulk_watchlist_placeholder:"Watchlist name (optional)",
+    bulk_sector_hint:"A \"sector\" column in the CSV overrides this per-row.",
     bulk_run:"Start scan",
     bulk_no_file:"Choose a CSV file first.",
     bulk_uploading:"Uploading and reading CSV…",
@@ -503,6 +513,8 @@ const STR = {
     new_client_btn:"+ Client",
     new_client_prompt:"New client name:",
     new_client_failed:"Couldn't create that client — try again.",
+    delete_client_confirm:name=>`Delete "${name}" and all its scanned domains? This can't be undone.`,
+    delete_client_failed:"Couldn't delete that client — try again.",
     scan_scanning:"Scanning — DNS, TLS, email auth, headers, cert-transparency, threat intel…",
     scan_done:(score,tier)=>`Done — score ${score} (${tier}).`,
     scan_failed:api=>`Scan failed — backend unreachable or domain invalid. Is the API running at ${api}?`,
@@ -545,6 +557,11 @@ const STR = {
     what_it_means:"ハッカーはこれで何ができるか", how_to_fix:"対応方法",
     ti_banner:"脅威インテリジェンス該当 — このホストには、報告済みの悪意ある活動の記録があります。",
     download_pdf:"⬇ PDFレポートをダウンロード",
+    drawer_edit_h:"このドメインを編集",
+    drawer_edit_save:"変更を保存",
+    drawer_edit_saving:"保存中…",
+    drawer_edit_saved:"保存しました。",
+    drawer_edit_failed:"保存できませんでした。もう一度お試しください。",
     modal_title:"ドメインを分析",
     modal_sub:"パッシブスキャンをリアルタイム実行します — DNS、TLS、メール認証、ヘッダー、証明書透明性ログ由来のサブドメイン、RDAP、脅威インテリジェンス。",
     modal_input_placeholder:"例：supplier-example.com",
@@ -553,6 +570,7 @@ const STR = {
     bulk_title:"一括アップロード — CSV",
     bulk_sub:"「domain」列、または1行に1ドメインで指定してください。数件ずつ並行してスキャンします — 10件あたり約1分を目安にしてください。",
     bulk_watchlist_placeholder:"ウォッチリスト名（任意）",
+    bulk_sector_hint:"CSVの「sector」列があれば、行ごとにこの設定より優先されます。",
     bulk_run:"スキャン開始",
     bulk_no_file:"先にCSVファイルを選択してください。",
     bulk_uploading:"CSVをアップロード・読み込み中…",
@@ -562,6 +580,8 @@ const STR = {
     new_client_btn:"＋ クライアント",
     new_client_prompt:"新しいクライアント名：",
     new_client_failed:"クライアントを作成できませんでした。もう一度お試しください。",
+    delete_client_confirm:name=>`「${name}」とスキャン済みのすべてのドメインを削除しますか？元に戻せません。`,
+    delete_client_failed:"クライアントを削除できませんでした。もう一度お試しください。",
     scan_scanning:"スキャン中 — DNS、TLS、メール認証、ヘッダー、証明書透明性ログ、脅威インテリジェンス…",
     scan_done:(score,tier)=>`完了 — スコア ${score}（${tier}）`,
     scan_failed:api=>`スキャン失敗 — バックエンドに接続できないか、ドメインが無効です。API は ${api} で稼働していますか？`,
@@ -582,7 +602,7 @@ const SECTOR_JA = {
   "Marketing & Ad Tech":"マーケティング・広告テック", "Manufacturing Suppliers":"製造サプライヤー",
   "Professional Services":"専門サービス", "Marketplace Sellers":"マーケットプレイス出品者",
   "Financial Institutions":"金融機関", "Healthcare Vendors":"ヘルスケアベンダー",
-  "Regional Resellers":"地域リセラー",
+  "Regional Resellers":"地域リセラー", "Unassigned":"未分類",
 };
 const WATCHLIST_JA = {
   "Tier-1 Suppliers":"ティア1サプライヤー", "Insured Portfolio — Q3":"被保険ポートフォリオ（Q3）",
@@ -772,6 +792,21 @@ let currentTheme = "dark";
 
 // ---------- Data load ----------
 let CURRENT_CLIENT_ID = 'default';
+let SECTORS_LIST = ["Payments","Logistics","Cloud/SaaS Vendors","Marketing & Ad Tech",
+  "Manufacturing Suppliers","Professional Services","Marketplace Sellers",
+  "Financial Institutions","Healthcare Vendors","Regional Resellers","Unassigned"];
+
+async function loadSectors(){
+  try{
+    const res = await fetch(`${API_BASE}/api/sectors`);
+    const data = await res.json();
+    if(data.sectors && data.sectors.length) SECTORS_LIST = data.sectors;
+  }catch(e){ /* keep the built-in fallback list */ }
+}
+
+function sectorOptionsHtml(selected){
+  return SECTORS_LIST.map(s=>`<option value="${s}" ${s===selected?'selected':''}>${tSector(s)}</option>`).join('');
+}
 
 async function loadPortfolio(){
   let demo = [];
@@ -797,19 +832,23 @@ async function loadPortfolio(){
 
 async function loadClients(){
   const select = document.getElementById('clientSelect');
+  const delBtn = document.getElementById('deleteClientBtn');
   try{
     const res = await fetch(`${API_BASE}/api/clients`);
     const data = await res.json();
     select.innerHTML = data.clients.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
     if(!data.clients.find(c=>c.id===CURRENT_CLIENT_ID)) CURRENT_CLIENT_ID = data.clients[0]?.id || 'default';
     select.value = CURRENT_CLIENT_ID;
+    delBtn.style.display = (CURRENT_CLIENT_ID === 'default') ? 'none' : 'block';
   }catch(e){
     select.innerHTML = `<option value="default">Default Workspace</option>`;
+    delBtn.style.display = 'none';
   }
 }
 
 document.getElementById('clientSelect').addEventListener('change', (e)=>{
   CURRENT_CLIENT_ID = e.target.value;
+  document.getElementById('deleteClientBtn').style.display = (CURRENT_CLIENT_ID === 'default') ? 'none' : 'block';
   loadPortfolio();
 });
 
@@ -828,6 +867,22 @@ document.getElementById('newClientBtn').onclick = async ()=>{
     loadPortfolio();
   }catch(e){
     alert(t('new_client_failed'));
+  }
+};
+
+document.getElementById('deleteClientBtn').onclick = async ()=>{
+  if(CURRENT_CLIENT_ID === 'default') return;
+  const select = document.getElementById('clientSelect');
+  const name = select.options[select.selectedIndex]?.text || CURRENT_CLIENT_ID;
+  if(!confirm(t('delete_client_confirm')(name))) return;
+  try{
+    const res = await fetch(`${API_BASE}/api/clients/${encodeURIComponent(CURRENT_CLIENT_ID)}`, { method:'DELETE' });
+    if(!res.ok) throw new Error(await res.text());
+    CURRENT_CLIENT_ID = 'default';
+    await loadClients();
+    loadPortfolio();
+  }catch(e){
+    alert(t('delete_client_failed'));
   }
 };
 
@@ -1192,6 +1247,17 @@ function openDrawer(d){
 
   const tiBannerHtml = hasTiHit ? `<div class="findingItem ti" style="margin-bottom:16px;">⚠ ${t('ti_banner')}</div>` : '';
 
+  const editHtml = (d.is_demo === false) ? `
+    <div class="findings" style="margin-top:22px;">
+      <h5>${t('drawer_edit_h')}</h5>
+      <select id="drawerEditSector" style="width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text); padding:9px 11px; border-radius:8px; font-size:12.5px; margin-bottom:8px;">
+        ${sectorOptionsHtml(d.sector)}
+      </select>
+      <input id="drawerEditWatchlist" value="${(d.watchlist||'').replace(/"/g,'&quot;')}" style="width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text); padding:9px 11px; border-radius:8px; font-size:12.5px; margin-bottom:8px;">
+      <button class="pdfBtn" id="drawerEditSave">${t('drawer_edit_save')}</button>
+      <div class="scanStatus" id="drawerEditStatus"></div>
+    </div>` : '';
+
   document.getElementById('drawerBody').innerHTML = `
     ${tiBannerHtml}
     <div class="scoreBig">
@@ -1212,11 +1278,36 @@ function openDrawer(d){
       <h5>${t('drawer_findings')}</h5>
       ${findingsHtml}
     </div>
+    ${editHtml}
     <button class="pdfBtn" id="drawerPdfBtn">${t('download_pdf')}</button>
   `;
   document.getElementById('drawer').classList.add('open');
   document.getElementById('overlay').classList.add('show');
   document.getElementById('drawerPdfBtn').onclick = ()=>generateReport(d);
+
+  if(d.is_demo === false){
+    document.getElementById('drawerEditSave').onclick = async ()=>{
+      const newSector = document.getElementById('drawerEditSector').value;
+      const newWatchlist = document.getElementById('drawerEditWatchlist').value.trim();
+      const status = document.getElementById('drawerEditStatus');
+      status.textContent = t('drawer_edit_saving');
+      try{
+        const res = await fetch(`${API_BASE}/api/scans/${encodeURIComponent(d.domain)}?client_id=${encodeURIComponent(CURRENT_CLIENT_ID)}`, {
+          method:'PATCH', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({sector:newSector, watchlist:newWatchlist})
+        });
+        if(!res.ok) throw new Error(await res.text());
+        d.sector = newSector; d.watchlist = newWatchlist;
+        const idx = ALL.findIndex(x=>x.domain===d.domain && x.is_demo===false);
+        if(idx>=0){ ALL[idx].sector = newSector; ALL[idx].watchlist = newWatchlist; }
+        status.textContent = t('drawer_edit_saved');
+        buildRail(); render();
+        document.getElementById('drawerMeta').textContent = t('drawer_meta')(tSector(newSector), tWatchlist(newWatchlist), d.subdomain_count);
+      }catch(e){
+        status.textContent = t('drawer_edit_failed');
+      }
+    };
+  }
 }
 function closeDrawer(){
   document.getElementById('drawer').classList.remove('open');
@@ -1321,7 +1412,11 @@ document.addEventListener('keydown', (e)=>{
 
 // ---------- Add / scan modal ----------
 const modal = document.getElementById('modal');
-function openModal(){ modal.classList.add('show'); document.getElementById('modalInput').focus(); }
+function openModal(){
+  modal.classList.add('show');
+  document.getElementById('modalSectorSelect').innerHTML = sectorOptionsHtml('Unassigned');
+  document.getElementById('modalInput').focus();
+}
 function closeModal(){ modal.classList.remove('show'); document.getElementById('scanStatus').textContent=''; }
 document.getElementById('openAdd').onclick = openModal;
 document.getElementById('modalCancel').onclick = closeModal;
@@ -1334,13 +1429,13 @@ document.getElementById('modalGo').onclick = async ()=>{
   try{
     const res = await fetch(`${API_BASE}/api/scan`, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({domain, watchlist:'Live Scans', client_id: CURRENT_CLIENT_ID})
+      body: JSON.stringify({domain, watchlist:'Live Scans', client_id: CURRENT_CLIENT_ID, sector: document.getElementById('modalSectorSelect').value})
     });
     if(!res.ok) throw new Error(await res.text());
     const result = await res.json();
     status.textContent = t('scan_done')(result.overall_score, tTier(result.tier));
     const entry = {
-      id: 'real-new-' + Date.now(), domain: result.domain, sector: "Live Scans", watchlist: "Live Scans",
+      id: 'real-new-' + Date.now(), domain: result.domain, sector: result.sector || "Unassigned", watchlist: "Live Scans",
       overall_score: result.overall_score, tier: result.tier,
       categories: result.categories, subdomain_count: result.raw.subdomains.count || 0,
       trend: 0, last_scanned: result.scanned_at, country: "—",
@@ -1368,7 +1463,10 @@ document.getElementById('modalGo').onclick = async ()=>{
 
 // ---------- Bulk CSV upload ----------
 const bulkModal = document.getElementById('bulkModal');
-function openBulkModal(){ bulkModal.classList.add('show'); }
+function openBulkModal(){
+  bulkModal.classList.add('show');
+  document.getElementById('bulkSectorSelect').innerHTML = sectorOptionsHtml('Unassigned');
+}
 function closeBulkModal(){
   bulkModal.classList.remove('show');
   document.getElementById('bulkStatus').textContent = '';
@@ -1395,7 +1493,8 @@ document.getElementById('bulkGo').onclick = async ()=>{
   form.append('file', fileInput.files[0]);
 
   try{
-    const res = await fetch(`${API_BASE}/api/scan/bulk?watchlist=${encodeURIComponent(watchlist)}&client_id=${encodeURIComponent(CURRENT_CLIENT_ID)}`, {
+    const sector = document.getElementById('bulkSectorSelect').value;
+    const res = await fetch(`${API_BASE}/api/scan/bulk?watchlist=${encodeURIComponent(watchlist)}&client_id=${encodeURIComponent(CURRENT_CLIENT_ID)}&sector=${encodeURIComponent(sector)}`, {
       method: 'POST', body: form
     });
     if(!res.ok) throw new Error(await res.text());
@@ -1429,6 +1528,7 @@ document.getElementById('bulkGo').onclick = async ()=>{
 
 window.addEventListener('resize', render);
 applyStaticI18n();
+loadSectors();
 loadClients().then(loadPortfolio);
 </script>
 </body>
