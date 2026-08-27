@@ -195,7 +195,6 @@ def scan(req: ScanRequest):
         result = scan_domain(req.domain)
         result["watchlist"] = req.watchlist
         client_id = req.client_id or DEFAULT_CLIENT_ID
-        _SCANS[result["domain"]] = result
         _save_scan(result, client_id)
         return result
     except Exception as e:
@@ -203,10 +202,16 @@ def scan(req: ScanRequest):
 
 
 @app.get("/api/scan/{domain}")
-def get_scan(domain: str):
-    if domain not in _SCANS:
-        raise HTTPException(404, "No cached scan for that domain yet — POST /api/scan first.")
-    return _SCANS[domain]
+def get_scan(domain: str, client_id: str = DEFAULT_CLIENT_ID):
+    """Most recent persisted scan for this domain, within a given client
+    workspace. Not currently called by the frontend (which uses /api/scans
+    for the full list) but kept as a direct lookup for scripting/debugging."""
+    conn = _db()
+    row = conn.execute("SELECT data FROM scans WHERE client_id=? AND domain=?", (client_id, domain)).fetchone()
+    conn.close()
+    if not row:
+        raise HTTPException(404, "No cached scan for that domain/client yet — POST /api/scan first.")
+    return json.loads(row[0])
 
 
 @app.get("/api/scans")
