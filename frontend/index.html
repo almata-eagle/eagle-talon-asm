@@ -180,10 +180,15 @@
   /* ---------- Inspector drawer ---------- */
   .drawer{
     position:fixed; top:0; right:-440px; width:420px; height:100vh; background:var(--panel);
-    border-left:1px solid var(--line); z-index:50; transition:right .22s cubic-bezier(.2,.7,.3,1);
+    border-left:1px solid var(--line); z-index:50; transition:right .22s cubic-bezier(.2,.7,.3,1), width .22s cubic-bezier(.2,.7,.3,1);
     display:flex; flex-direction:column; box-shadow:var(--drawer-shadow);
   }
   .drawer.open{right:0;}
+  .drawer.fullscreen{width:100vw; border-left:none;}
+  .drawer.fullscreen .drawerBody{max-width:760px; margin:0 auto; width:100%; padding-top:32px;}
+  .drawer.fullscreen .drawerHead{max-width:760px; margin:0 auto; width:100%;}
+  .drawerFullscreenBtn{background:var(--panel-2); border:1px solid var(--line); color:var(--muted); width:28px; height:28px; border-radius:7px; cursor:pointer; flex-shrink:0; font-size:13px; margin-right:6px;}
+  .drawerFullscreenBtn:hover{color:var(--text); border-color:var(--signal);}
   .drawerHead{padding:20px; border-bottom:1px solid var(--line); display:flex; align-items:flex-start; justify-content:space-between; gap:10px;}
   .drawerHead .dom{font-family:var(--font-mono); font-size:17px; font-weight:600; word-break:break-all;}
   .drawerHead .meta{color:var(--muted); font-size:11.5px; margin-top:5px;}
@@ -403,7 +408,10 @@
       <div class="dom" id="drawerDomain">—</div>
       <div class="meta" id="drawerMeta">—</div>
     </div>
-    <button class="drawerClose" id="drawerClose">✕</button>
+    <div style="display:flex; align-items:flex-start; flex-shrink:0;">
+      <button class="drawerFullscreenBtn" id="drawerFullscreenBtn" title="Full screen">⛶</button>
+      <button class="drawerClose" id="drawerClose">✕</button>
+    </div>
   </div>
   <div class="drawerBody" id="drawerBody"></div>
 </div>
@@ -495,6 +503,8 @@ const STR = {
     drawer_edit_saving:"Saving…",
     drawer_edit_saved:"Saved.",
     drawer_edit_failed:"Couldn't save — try again.",
+    drawer_fullscreen:"Full screen",
+    drawer_exit_fullscreen:"Exit full screen",
     modal_title:"Analyze a domain",
     modal_sub:"Runs a live passive scan — DNS, TLS, email auth, headers, cert-transparency subdomains, RDAP, threat intel.",
     modal_input_placeholder:"e.g. supplier-example.com",
@@ -562,6 +572,8 @@ const STR = {
     drawer_edit_saving:"保存中…",
     drawer_edit_saved:"保存しました。",
     drawer_edit_failed:"保存できませんでした。もう一度お試しください。",
+    drawer_fullscreen:"全画面表示",
+    drawer_exit_fullscreen:"全画面表示を終了",
     modal_title:"ドメインを分析",
     modal_sub:"パッシブスキャンをリアルタイム実行します — DNS、TLS、メール認証、ヘッダー、証明書透明性ログ由来のサブドメイン、RDAP、脅威インテリジェンス。",
     modal_input_placeholder:"例：supplier-example.com",
@@ -1212,6 +1224,7 @@ function hideTooltip(){ tooltip.style.opacity = 0; }
 
 // ---------- Drawer ----------
 function openDrawer(d){
+  document.getElementById('drawerFullscreenBtn').title = t('drawer_fullscreen');
   document.getElementById('drawerDomain').textContent = d.domain;
   document.getElementById('drawerMeta').textContent =
     t('drawer_meta')(tSector(d.sector), tWatchlist(d.watchlist), d.subdomain_count);
@@ -1309,11 +1322,23 @@ function openDrawer(d){
     };
   }
 }
+let drawerIsFullscreen = false;
 function closeDrawer(){
   document.getElementById('drawer').classList.remove('open');
   document.getElementById('overlay').classList.remove('show');
+  // reset to compact side-panel for next time it opens
+  drawerIsFullscreen = false;
+  document.getElementById('drawer').classList.remove('fullscreen');
+  document.getElementById('drawerFullscreenBtn').textContent = '⛶';
 }
 document.getElementById('drawerClose').onclick = closeDrawer;
+document.getElementById('drawerFullscreenBtn').onclick = ()=>{
+  drawerIsFullscreen = !drawerIsFullscreen;
+  document.getElementById('drawer').classList.toggle('fullscreen', drawerIsFullscreen);
+  const btn = document.getElementById('drawerFullscreenBtn');
+  btn.textContent = drawerIsFullscreen ? '⤡' : '⛶';
+  btn.title = drawerIsFullscreen ? t('drawer_exit_fullscreen') : t('drawer_fullscreen');
+};
 document.getElementById('overlay').onclick = ()=>{ closeDrawer(); closeModal(); };
 
 // ---------- View toggle ----------
