@@ -264,6 +264,34 @@
     border:1px solid rgba(94,234,212,0.35); font-size:9.5px; padding:1px 6px; border-radius:5px; font-weight:700;
     letter-spacing:0.04em; text-transform:uppercase; vertical-align:middle;
   }
+  .eyeBadge{
+    display:inline-flex; align-items:center; gap:4px; background:rgba(124,147,181,0.15); color:var(--muted);
+    border:1px solid rgba(124,147,181,0.35); font-size:9.5px; padding:1px 6px; border-radius:5px; font-weight:700;
+    letter-spacing:0.02em; vertical-align:middle;
+  }
+  .alertItem{
+    padding:11px 14px; border-bottom:1px solid var(--line-soft); font-size:12px; cursor:pointer;
+    transition:background .1s; display:flex; gap:9px; align-items:flex-start;
+  }
+  .alertItem:hover{background:var(--panel-2);}
+  .alertItem:last-child{border-bottom:none;}
+  .alertItem .dot{width:7px; height:7px; border-radius:50%; flex-shrink:0; margin-top:4px;}
+  .alertItem.unread{background:rgba(94,234,212,0.04);}
+  .alertItem .aDomain{font-family:var(--font-mono); font-weight:600; font-size:11.5px;}
+  .alertItem .aMsg{color:var(--muted); margin-top:2px; line-height:1.5;}
+  .alertItem .aTime{color:var(--dim); font-size:10px; margin-top:4px;}
+  .alertsEmpty{padding:24px 14px; text-align:center; color:var(--muted); font-size:12px;}
+  .monitorToggleRow{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px;}
+  .monitorSwitch{
+    position:relative; width:38px; height:21px; background:var(--line); border-radius:11px; cursor:pointer;
+    transition:background .15s; flex-shrink:0; border:none;
+  }
+  .monitorSwitch.on{background:var(--signal);}
+  .monitorSwitch::after{
+    content:""; position:absolute; top:2px; left:2px; width:17px; height:17px; background:#fff; border-radius:50%;
+    transition:transform .15s;
+  }
+  .monitorSwitch.on::after{transform:translateX(17px);}
 
   /* ---------- Trends view ---------- */
   .trendsGrid{display:grid; grid-template-columns:1.3fr 1fr; gap:16px; max-width:1100px;}
@@ -334,6 +362,18 @@
       <span class="kbd">/</span>
     </div>
     <button class="themeBtn" id="themeToggle" title="Toggle light/dark">◐</button>
+    <div style="position:relative;">
+      <button class="themeBtn" id="alertsBellBtn" title="Alerts" style="position:relative;">
+        🔔<span id="alertsBadge" style="display:none; position:absolute; top:-4px; right:-4px; background:var(--critical); color:#fff; font-size:9px; font-weight:700; min-width:15px; height:15px; border-radius:8px; display:flex; align-items:center; justify-content:center; padding:0 3px;"></span>
+      </button>
+      <div id="alertsPanel" style="display:none; position:absolute; top:40px; right:0; width:340px; max-height:420px; overflow-y:auto; background:var(--panel); border:1px solid var(--line); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.2); z-index:100;">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border-bottom:1px solid var(--line);">
+          <span style="font-weight:600; font-size:13px;" data-i18n="alerts_h">Alerts</span>
+          <button id="markAllReadBtn" style="background:none; border:none; color:var(--signal); font-size:11.5px; cursor:pointer; padding:0;" data-i18n="mark_all_read">Mark all read</button>
+        </div>
+        <div id="alertsList"></div>
+      </div>
+    </div>
     <div class="viewToggle" id="langToggle">
       <button id="btnLangEn" class="active">EN</button>
       <button id="btnLangJa">日本語</button>
@@ -477,6 +517,7 @@ const STR = {
     ti_flagged_filter:"Threat intel match",
     real_scans_filter:"Real scans (not demo)",
     live_badge:"Live",
+    eye_badge:"via Eagle Eye",
     scope_title:"Talon Scope",
     scope_desc:"Sector on the compass · risk pulls toward center · size = exposed surface",
     log_title:"Flight Log", log_desc:"Dense, sortable record of every tracked domain",
@@ -505,6 +546,18 @@ const STR = {
     drawer_edit_failed:"Couldn't save — try again.",
     drawer_fullscreen:"Full screen",
     drawer_exit_fullscreen:"Exit full screen",
+    alerts_h:"Alerts", mark_all_read:"Mark all read", no_alerts:"No alerts yet.",
+    alert_score_drop:p=>`Score dropped from ${p.old_score} to ${p.new_score}`,
+    alert_tier_worsened:p=>`Risk level worsened: ${tTier(p.old_tier)} → ${tTier(p.new_tier)}`,
+    alert_new_threat_intel_hit:()=>"New threat intelligence match — this host now has a reported malware hit.",
+    alert_new_cve:()=>"A new known vulnerability (CVE) was detected.",
+    alert_cert_now_expired:()=>"TLS certificate is now expired.",
+    monitor_h:"Continuous monitoring", monitor_on:"On", monitor_off:"Off",
+    monitor_freq_daily:"Daily", monitor_freq_weekly:"Weekly", monitor_freq_monthly:"Monthly",
+    monitor_day_of_month:d=>`Day ${d} of the month`,
+    monitor_last_checked:iso=>iso ? `Last checked ${new Date(iso).toLocaleString()}` : "Not checked yet",
+    monitor_check_now:"Check now",
+    monitor_enable_hint:"Automatically re-scans this domain and alerts you here if something meaningfully changes.",
     modal_title:"Analyze a domain",
     modal_sub:"Runs a live passive scan — DNS, TLS, email auth, headers, cert-transparency subdomains, RDAP, threat intel.",
     modal_input_placeholder:"e.g. supplier-example.com",
@@ -546,6 +599,7 @@ const STR = {
     ti_flagged_filter:"脅威インテリジェンス該当",
     real_scans_filter:"実スキャンのみ（デモ除く）",
     live_badge:"実スキャン",
+    eye_badge:"Eagle Eye経由",
     scope_title:"タロン・スコープ",
     scope_desc:"コンパス上に業種を配置 · リスクが高いほど中心へ · 円の大きさ＝露出面",
     log_title:"フライトログ", log_desc:"追跡中の全ドメインを密度高く一覧表示・並び替え可能",
@@ -574,6 +628,18 @@ const STR = {
     drawer_edit_failed:"保存できませんでした。もう一度お試しください。",
     drawer_fullscreen:"全画面表示",
     drawer_exit_fullscreen:"全画面表示を終了",
+    alerts_h:"アラート", mark_all_read:"すべて既読にする", no_alerts:"アラートはまだありません。",
+    alert_score_drop:p=>`スコアが ${p.old_score} から ${p.new_score} に低下しました`,
+    alert_tier_worsened:p=>`リスクレベルが悪化しました：${tTier(p.old_tier)} → ${tTier(p.new_tier)}`,
+    alert_new_threat_intel_hit:()=>"新しい脅威インテリジェンス該当 — このホストにマルウェア報告が新たに検出されました。",
+    alert_new_cve:()=>"新しい既知の脆弱性（CVE）が検出されました。",
+    alert_cert_now_expired:()=>"TLS証明書の有効期限が切れました。",
+    monitor_h:"継続監視", monitor_on:"オン", monitor_off:"オフ",
+    monitor_freq_daily:"毎日", monitor_freq_weekly:"毎週", monitor_freq_monthly:"毎月",
+    monitor_day_of_month:d=>`毎月${d}日`,
+    monitor_last_checked:iso=>iso ? `最終チェック：${new Date(iso).toLocaleString()}` : "まだチェックされていません",
+    monitor_check_now:"今すぐチェック",
+    monitor_enable_hint:"このドメインを自動的に再スキャンし、意味のある変化があった場合にここで通知します。",
     modal_title:"ドメインを分析",
     modal_sub:"パッシブスキャンをリアルタイム実行します — DNS、TLS、メール認証、ヘッダー、証明書透明性ログ由来のサブドメイン、RDAP、脅威インテリジェンス。",
     modal_input_placeholder:"例：supplier-example.com",
@@ -858,10 +924,74 @@ async function loadClients(){
   }
 }
 
+// ---------- Alerts ----------
+const ALERT_SEVERITY_COLOR = {critical:"var(--critical)", warning:"var(--watch)"};
+
+function alertMessage(alert){
+  const fn = t('alert_' + alert.code);
+  return fn ? fn(alert.data) : alert.code;
+}
+
+async function loadAlerts(){
+  try{
+    const res = await fetch(`${API_BASE}/api/alerts?client_id=${encodeURIComponent(CURRENT_CLIENT_ID)}`);
+    const data = await res.json();
+    const unread = data.alerts.filter(a=>!a.is_read).length;
+    const badge = document.getElementById('alertsBadge');
+    if(unread > 0){ badge.style.display = 'flex'; badge.textContent = unread > 9 ? '9+' : unread; }
+    else badge.style.display = 'none';
+
+    const list = document.getElementById('alertsList');
+    if(data.alerts.length === 0){
+      list.innerHTML = `<div class="alertsEmpty">${t('no_alerts')}</div>`;
+      return;
+    }
+    list.innerHTML = data.alerts.map(a=>{
+      const daysAgo = Math.round((Date.now()-new Date(a.created_at))/86400000);
+      return `<div class="alertItem ${a.is_read?'':'unread'}" data-id="${a.id}">
+        <span class="dot" style="background:${ALERT_SEVERITY_COLOR[a.severity]||'var(--muted)'}"></span>
+        <div>
+          <div class="aDomain">${a.domain}</div>
+          <div class="aMsg">${alertMessage(a)}</div>
+          <div class="aTime">${daysAgo===0?t('today'):t('days_ago')(daysAgo)}</div>
+        </div>
+      </div>`;
+    }).join('');
+    list.querySelectorAll('.alertItem').forEach(el=>{
+      el.onclick = async ()=>{
+        await fetch(`${API_BASE}/api/alerts/${el.dataset.id}/read`, {method:'POST'});
+        const domain = ALL.find(x=>x.domain === el.querySelector('.aDomain').textContent);
+        if(domain) openDrawer(domain);
+        loadAlerts();
+      };
+    });
+  }catch(e){ /* backend not reachable — bell just shows no badge */ }
+}
+
+document.getElementById('alertsBellBtn').onclick = ()=>{
+  const panel = document.getElementById('alertsPanel');
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  if(panel.style.display === 'block') loadAlerts();
+};
+document.getElementById('markAllReadBtn').onclick = async (e)=>{
+  e.stopPropagation();
+  await fetch(`${API_BASE}/api/alerts/mark-all-read?client_id=${encodeURIComponent(CURRENT_CLIENT_ID)}`, {method:'POST'});
+  loadAlerts();
+};
+document.addEventListener('click', (e)=>{
+  const panel = document.getElementById('alertsPanel');
+  const bell = document.getElementById('alertsBellBtn');
+  if(panel.style.display==='block' && !panel.contains(e.target) && !bell.contains(e.target)) panel.style.display = 'none';
+});
+
+setInterval(loadAlerts, 120000); // poll every 2 minutes for new alerts
+
+
 document.getElementById('clientSelect').addEventListener('change', (e)=>{
   CURRENT_CLIENT_ID = e.target.value;
   document.getElementById('deleteClientBtn').style.display = (CURRENT_CLIENT_ID === 'default') ? 'none' : 'block';
   loadPortfolio();
+  loadAlerts();
 });
 
 document.getElementById('newClientBtn').onclick = async ()=>{
@@ -1094,8 +1224,9 @@ function renderLog(data){
                        `<span class="trendFlat">${t('trend_flat')}</span>`;
     const daysAgo = Math.round((Date.now()-new Date(d.last_scanned))/86400000);
     const liveBadge = d.is_demo===false ? `<span class="liveBadge">${t('live_badge')}</span>` : '';
+    const eyeBadge = d.last_scan_source==='eagle_eye' ? `<span class="eyeBadge">👁 ${t('eye_badge')}</span>` : '';
     return `<tr data-id="${d.id}">
-      <td class="domcell">${d.domain} ${liveBadge}</td>
+      <td class="domcell">${d.domain} ${liveBadge} ${eyeBadge}</td>
       <td><span class="sectorTag">${tSector(d.sector)}</span></td>
       <td style="color:var(--muted)">${tWatchlist(d.watchlist)}</td>
       <td class="scorecell" style="color:${TIER_COLOR[d.tier]}">${d.overall_score}
@@ -1121,9 +1252,10 @@ function renderGrid(data){
     const daysAgo = Math.round((Date.now()-new Date(d.last_scanned))/86400000);
     const tiBadge = d.ti_flagged ? `<span class="tiBadge">⚠ ${t('ti_flagged_filter')}</span>` : '';
     const liveBadge = d.is_demo===false ? `<span class="liveBadge">${t('live_badge')}</span>` : '';
+    const eyeBadge = d.last_scan_source==='eagle_eye' ? `<span class="eyeBadge">👁 ${t('eye_badge')}</span>` : '';
     return `<div class="domCard" style="border-left-color:${TIER_COLOR[d.tier]}" data-id="${d.id}">
       <div class="top">
-        <div class="dname">${d.domain} ${liveBadge}</div>
+        <div class="dname">${d.domain} ${liveBadge} ${eyeBadge}</div>
         <div class="dscore" style="color:${TIER_COLOR[d.tier]}">${d.overall_score}</div>
       </div>
       <span class="sectorTag">${tSector(d.sector)}</span>
@@ -1292,6 +1424,7 @@ function openDrawer(d){
       ${findingsHtml}
     </div>
     ${editHtml}
+    ${(d.is_demo === false) ? `<div class="findings" style="margin-top:22px;" id="monitorSection"><h5>${t('monitor_h')}</h5><div id="monitorBody" style="color:var(--muted); font-size:12px;">…</div></div>` : ''}
     <button class="pdfBtn" id="drawerPdfBtn">${t('download_pdf')}</button>
   `;
   document.getElementById('drawer').classList.add('open');
@@ -1318,6 +1451,95 @@ function openDrawer(d){
         document.getElementById('drawerMeta').textContent = t('drawer_meta')(tSector(newSector), tWatchlist(newWatchlist), d.subdomain_count);
       }catch(e){
         status.textContent = t('drawer_edit_failed');
+      }
+    };
+    renderMonitorSection(d.domain);
+  }
+}
+
+const WEEKDAY_NAMES_EN = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+const WEEKDAY_NAMES_JA = ["月曜日","火曜日","水曜日","木曜日","金曜日","土曜日","日曜日"];
+function weekdayName(i){ return (LANG==='ja'?WEEKDAY_NAMES_JA:WEEKDAY_NAMES_EN)[i]; }
+
+function freqSelectorsHtml(monitor){
+  const freqType = monitor ? monitor.freq_type : 'daily';
+  const dow = monitor && monitor.day_of_week!=null ? monitor.day_of_week : 0;
+  const dom = monitor && monitor.day_of_month!=null ? monitor.day_of_month : 1;
+  return `
+    <select class="monFreqType" style="width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text); padding:8px 10px; border-radius:8px; font-size:12px; margin-bottom:8px;">
+      <option value="daily" ${freqType==='daily'?'selected':''}>${t('monitor_freq_daily')}</option>
+      <option value="weekly" ${freqType==='weekly'?'selected':''}>${t('monitor_freq_weekly')}</option>
+      <option value="monthly" ${freqType==='monthly'?'selected':''}>${t('monitor_freq_monthly')}</option>
+    </select>
+    <select class="monDayOfWeek" style="width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text); padding:8px 10px; border-radius:8px; font-size:12px; margin-bottom:8px; ${freqType==='weekly'?'':'display:none;'}">
+      ${[0,1,2,3,4,5,6].map(i=>`<option value="${i}" ${i===dow?'selected':''}>${weekdayName(i)}</option>`).join('')}
+    </select>
+    <select class="monDayOfMonth" style="width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text); padding:8px 10px; border-radius:8px; font-size:12px; margin-bottom:8px; ${freqType==='monthly'?'':'display:none;'}">
+      ${Array.from({length:31},(_,i)=>i+1).map(d=>`<option value="${d}" ${d===dom?'selected':''}>${t('monitor_day_of_month')(d)}</option>`).join('')}
+    </select>
+  `;
+}
+function wireFreqSelectors(container, onChange){
+  const typeSel = container.querySelector('.monFreqType');
+  const dowSel = container.querySelector('.monDayOfWeek');
+  const domSel = container.querySelector('.monDayOfMonth');
+  typeSel.onchange = ()=>{
+    dowSel.style.display = typeSel.value==='weekly' ? 'block' : 'none';
+    domSel.style.display = typeSel.value==='monthly' ? 'block' : 'none';
+    onChange({freq_type: typeSel.value, day_of_week: parseInt(dowSel.value), day_of_month: parseInt(domSel.value)});
+  };
+  dowSel.onchange = ()=> onChange({freq_type: typeSel.value, day_of_week: parseInt(dowSel.value), day_of_month: parseInt(domSel.value)});
+  domSel.onchange = ()=> onChange({freq_type: typeSel.value, day_of_week: parseInt(dowSel.value), day_of_month: parseInt(domSel.value)});
+}
+
+async function renderMonitorSection(domain){
+  const body = document.getElementById('monitorBody');
+  if(!body) return;
+  let monitor = null;
+  try{
+    const res = await fetch(`${API_BASE}/api/monitors?client_id=${encodeURIComponent(CURRENT_CLIENT_ID)}`);
+    const data = await res.json();
+    monitor = data.monitors.find(m=>m.domain===domain) || null;
+  }catch(e){ /* fall through, show as off */ }
+
+  const isOn = monitor && monitor.enabled;
+  body.innerHTML = `
+    <div class="monitorToggleRow">
+      <span>${isOn ? t('monitor_on') : t('monitor_off')}</span>
+      <button class="monitorSwitch ${isOn?'on':''}" id="monitorSwitchBtn"></button>
+    </div>
+    ${isOn ? `
+      <div id="monFreqWrap">${freqSelectorsHtml(monitor)}</div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <span style="font-size:11px; color:var(--dim);">${t('monitor_last_checked')(monitor.last_checked_at)}</span>
+        <button class="btnGhost" id="monitorCheckNowBtn" style="padding:5px 10px; font-size:11px;">${t('monitor_check_now')}</button>
+      </div>
+    ` : `<p style="font-size:11.5px; color:var(--dim); margin-top:6px;">${t('monitor_enable_hint')}</p>`}
+  `;
+
+  document.getElementById('monitorSwitchBtn').onclick = async ()=>{
+    if(isOn){
+      await fetch(`${API_BASE}/api/monitors/${encodeURIComponent(domain)}?client_id=${encodeURIComponent(CURRENT_CLIENT_ID)}`, {method:'DELETE'});
+    } else {
+      await fetch(`${API_BASE}/api/monitors`, {method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({domain, freq_type:'daily', client_id: CURRENT_CLIENT_ID})});
+    }
+    renderMonitorSection(domain);
+  };
+  if(isOn){
+    wireFreqSelectors(document.getElementById('monFreqWrap'), async (vals)=>{
+      await fetch(`${API_BASE}/api/monitors`, {method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({domain, ...vals, client_id: CURRENT_CLIENT_ID})});
+    });
+    document.getElementById('monitorCheckNowBtn').onclick = async (e)=>{
+      const btn = e.target;
+      btn.disabled = true; btn.textContent = t('scan_scanning');
+      try{
+        await fetch(`${API_BASE}/api/monitors/${encodeURIComponent(domain)}/check-now?client_id=${encodeURIComponent(CURRENT_CLIENT_ID)}`, {method:'POST'});
+        loadPortfolio();
+        loadAlerts();
+      }finally{
+        renderMonitorSection(domain);
       }
     };
   }
@@ -1555,6 +1777,7 @@ window.addEventListener('resize', render);
 applyStaticI18n();
 loadSectors();
 loadClients().then(loadPortfolio);
+loadAlerts();
 </script>
 </body>
 </html>

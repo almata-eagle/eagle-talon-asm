@@ -17,6 +17,8 @@ import random
 import re
 import sqlite3
 import threading
+import calendar
+import time
 import uuid
 import datetime
 import concurrent.futures as cf
@@ -104,6 +106,39 @@ def _db():
             )
         """)
 
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS monitors (
+            client_id TEXT NOT NULL,
+            domain TEXT NOT NULL,
+            frequency_hours INTEGER NOT NULL DEFAULT 24,
+            enabled INTEGER NOT NULL DEFAULT 1,
+            last_checked_at TEXT,
+            created_at TEXT NOT NULL,
+            PRIMARY KEY (client_id, domain)
+        )
+    """)
+    # Safe additive migration (never rewrites/drops existing rows) for the
+    # Daily/Weekly/Monthly scheduling model — replaces the old fixed-hours
+    # cadence. Existing monitors default to "daily" so nothing breaks.
+    mon_cols = [r[1] for r in conn.execute("PRAGMA table_info(monitors)").fetchall()]
+    if "freq_type" not in mon_cols:
+        conn.execute("ALTER TABLE monitors ADD COLUMN freq_type TEXT NOT NULL DEFAULT 'daily'")
+        conn.execute("ALTER TABLE monitors ADD COLUMN day_of_week INTEGER")
+        conn.execute("ALTER TABLE monitors ADD COLUMN day_of_month INTEGER")
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS alerts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            client_id TEXT NOT NULL,
+            domain TEXT NOT NULL,
+            severity TEXT NOT NULL,
+            code TEXT NOT NULL,
+            data TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            is_read INTEGER NOT NULL DEFAULT 0
+        )
+    """)
+
     if not conn.execute("SELECT 1 FROM clients WHERE id=?", (DEFAULT_CLIENT_ID,)).fetchone():
         conn.execute("INSERT INTO clients (id, name, created_at) VALUES (?, ?, ?)",
                      (DEFAULT_CLIENT_ID, DEFAULT_CLIENT_NAME, datetime.datetime.utcnow().isoformat()))
@@ -157,8 +192,134 @@ def _delete_client(client_id: str):
     conn = _db()
     conn.execute("DELETE FROM scans WHERE client_id=?", (client_id,))
     conn.execute("DELETE FROM clients WHERE id=?", (client_id,))
+    conn.execute("DELETE FROM monitors WHERE client_id=?", (client_id,))
+    conn.execute("DELETE FROM alerts WHERE client_id=?", (client_id,))
     conn.commit()
     conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Monitoring: scheduled re-scans + change-detection alerts.
+#
+# Deliberately alerts only on *meaningful* change, not "scanned again, same
+# result" — a monitoring feed that fires every cycle regardless of content
+# trains people to ignore it. Score-drop threshold and the specific finding
+# codes checked below are the actual judgment calls this feature makes.
+# ---------------------------------------------------------------------------
+SCORE_DROP_ALERT_THRESHOLD = 10  # points
+TIER_RANK = {"clear": 3, "watch": 2, "high": 1, "critical": 0}  # higher = safer
+
+
+def _finding_codes(scan: dict) -> set:
+    return {f.get("code") for c in scan.get("categories", []) for f in c.get("findings", []) if isinstance(f, dict)}
+
+
+def _detect_changes(old: dict, new: dict) -> list[dict]:
+    """Compares two scans of the same domain, returns a list of
+    {severity, code, data} alert records — empty if nothing meaningful changed."""
+    alerts = []
+    old_score, new_score = old.get("overall_score", 100), new.get("overall_score", 100)
+    old_tier, new_tier = old.get("tier", "clear"), new.get("tier", "clear")
+
+    if old_score - new_score >= SCORE_DROP_ALERT_THRESHOLD:
+        severity = "critical" if new_tier in ("high", "critical") else "warning"
+        alerts.append({"severity": severity, "code": "score_drop",
+                        "data": {"old_score": old_score, "new_score": new_score}})
+
+    if TIER_RANK.get(new_tier, 3) < TIER_RANK.get(old_tier, 3):
+        alerts.append({"severity": "critical" if new_tier == "critical" else "warning",
+                        "code": "tier_worsened", "data": {"old_tier": old_tier, "new_tier": new_tier}})
+
+    old_codes, new_codes = _finding_codes(old), _finding_codes(new)
+    if "urlhaus_hit" in new_codes and "urlhaus_hit" not in old_codes:
+        alerts.append({"severity": "critical", "code": "new_threat_intel_hit", "data": {}})
+    if "cve_detected" in new_codes and "cve_detected" not in old_codes:
+        alerts.append({"severity": "critical", "code": "new_cve", "data": {}})
+    if "cert_expired" in new_codes and "cert_expired" not in old_codes:
+        alerts.append({"severity": "critical", "code": "cert_now_expired", "data": {}})
+
+    return alerts
+
+
+def _save_alert(client_id: str, domain: str, severity: str, code: str, data: dict):
+    conn = _db()
+    conn.execute("INSERT INTO alerts (client_id, domain, severity, code, data, created_at, is_read) VALUES (?,?,?,?,?,?,0)",
+                 (client_id, domain, severity, code, json.dumps(data), datetime.datetime.utcnow().isoformat()))
+    conn.commit()
+    conn.close()
+
+
+def _check_monitor(client_id: str, domain: str):
+    """Runs one monitored domain: fetch the previous scan, run a fresh one,
+    diff them, save the new scan, record any alerts, update last_checked_at."""
+    conn = _db()
+    row = conn.execute("SELECT data FROM scans WHERE client_id=? AND domain=?", (client_id, domain)).fetchone()
+    old_scan = json.loads(row[0]) if row else None
+    conn.close()
+
+    try:
+        new_scan = scan_domain(domain)
+    except Exception as e:
+        conn = _db()
+        conn.execute("UPDATE monitors SET last_checked_at=? WHERE client_id=? AND domain=?",
+                     (datetime.datetime.utcnow().isoformat(), client_id, domain))
+        conn.commit()
+        conn.close()
+        return
+
+    _save_scan(new_scan, client_id)
+
+    if old_scan:
+        for a in _detect_changes(old_scan, new_scan):
+            _save_alert(client_id, domain, a["severity"], a["code"], a["data"])
+
+    conn = _db()
+    conn.execute("UPDATE monitors SET last_checked_at=? WHERE client_id=? AND domain=?",
+                 (datetime.datetime.utcnow().isoformat(), client_id, domain))
+    conn.commit()
+    conn.close()
+
+
+def _monitor_is_due(freq_type: str, day_of_week: Optional[int], day_of_month: Optional[int],
+                     last_checked_at: Optional[str], now: Optional[datetime.datetime] = None) -> bool:
+    """Daily: due once per calendar day. Weekly: due on the chosen weekday
+    (0=Monday), once per week. Monthly: due on the chosen day-of-month,
+    clamped to that month's actual length (e.g. day 31 in February -> 28th).
+    Never fires twice on the same calendar day regardless of frequency."""
+    now = now or datetime.datetime.utcnow()
+    if not last_checked_at:
+        return True
+    last = datetime.datetime.fromisoformat(last_checked_at)
+    if last.date() == now.date():
+        return False
+    if freq_type == "weekly":
+        return now.weekday() == (day_of_week if day_of_week is not None else 0)
+    if freq_type == "monthly":
+        days_in_month = calendar.monthrange(now.year, now.month)[1]
+        target_day = min(day_of_month or 1, days_in_month)
+        return now.day == target_day
+    return True  # daily
+
+
+def _monitoring_scheduler_loop():
+    """Runs forever in a background thread, checking every 60s for any
+    monitor that's due today per its Daily/Weekly/Monthly schedule. The 60s
+    poll interval is just the scheduler's granularity, not the check cadence."""
+    while True:
+        try:
+            conn = _db()
+            monitors = conn.execute("""SELECT client_id, domain, freq_type, day_of_week, day_of_month, last_checked_at
+                                        FROM monitors WHERE enabled=1""").fetchall()
+            conn.close()
+            for client_id, domain, freq_type, day_of_week, day_of_month, last_checked_at in monitors:
+                if _monitor_is_due(freq_type, day_of_week, day_of_month, last_checked_at):
+                    _check_monitor(client_id, domain)
+        except Exception:
+            pass  # scheduler must never die — one bad domain shouldn't stop monitoring for the rest
+        time.sleep(60)
+
+
+threading.Thread(target=_monitoring_scheduler_loop, daemon=True).start()
 
 
 class ScanRequest(BaseModel):
@@ -299,8 +460,99 @@ def list_scans(client_id: Optional[str] = None):
             "ti_flagged": raw.get("threat_intel", {}).get("malicious_host_reports", 0) > 0,
             "findings_flat": [f for c in s["categories"] for f in c.get("findings", [])],
             "is_demo": False,
+            "last_scan_source": s.get("last_scan_source", "talon"),
         })
     return {"count": len(out), "domains": out}
+
+
+# ---------------------------------------------------------------------------
+# Monitoring API
+# ---------------------------------------------------------------------------
+class MonitorCreate(BaseModel):
+    domain: str
+    freq_type: str = "daily"  # "daily" | "weekly" | "monthly"
+    day_of_week: Optional[int] = None   # 0=Monday..6=Sunday, used when freq_type="weekly"
+    day_of_month: Optional[int] = None  # 1-31, used when freq_type="monthly" (clamped to actual month length)
+    client_id: str = DEFAULT_CLIENT_ID
+
+
+@app.post("/api/monitors")
+def create_monitor(req: MonitorCreate):
+    if req.freq_type not in ("daily", "weekly", "monthly"):
+        raise HTTPException(400, "freq_type must be 'daily', 'weekly', or 'monthly'.")
+    conn = _db()
+    if not conn.execute("SELECT 1 FROM scans WHERE client_id=? AND domain=?", (req.client_id, req.domain)).fetchone():
+        conn.close()
+        raise HTTPException(400, "Scan this domain at least once before enabling monitoring.")
+    conn.execute("""INSERT INTO monitors (client_id, domain, freq_type, day_of_week, day_of_month, enabled, created_at)
+                     VALUES (?,?,?,?,?,1,?)
+                     ON CONFLICT(client_id, domain) DO UPDATE SET
+                         freq_type=excluded.freq_type, day_of_week=excluded.day_of_week,
+                         day_of_month=excluded.day_of_month, enabled=1""",
+                 (req.client_id, req.domain, req.freq_type, req.day_of_week, req.day_of_month,
+                  datetime.datetime.utcnow().isoformat()))
+    conn.commit()
+    conn.close()
+    return {"domain": req.domain, "freq_type": req.freq_type, "day_of_week": req.day_of_week,
+            "day_of_month": req.day_of_month, "enabled": True}
+
+
+@app.delete("/api/monitors/{domain}")
+def disable_monitor(domain: str, client_id: str = DEFAULT_CLIENT_ID):
+    conn = _db()
+    conn.execute("UPDATE monitors SET enabled=0 WHERE client_id=? AND domain=?", (client_id, domain))
+    conn.commit()
+    conn.close()
+    return {"domain": domain, "enabled": False}
+
+
+@app.get("/api/monitors")
+def list_monitors(client_id: str = DEFAULT_CLIENT_ID):
+    conn = _db()
+    rows = conn.execute("""SELECT domain, freq_type, day_of_week, day_of_month, enabled, last_checked_at
+                            FROM monitors WHERE client_id=?""", (client_id,)).fetchall()
+    conn.close()
+    return {"monitors": [{"domain": r[0], "freq_type": r[1], "day_of_week": r[2], "day_of_month": r[3],
+                           "enabled": bool(r[4]), "last_checked_at": r[5]} for r in rows]}
+
+
+@app.post("/api/monitors/{domain}/check-now")
+def check_monitor_now(domain: str, client_id: str = DEFAULT_CLIENT_ID):
+    """Manual trigger — bypasses the schedule for testing/demoing without
+    waiting for the actual frequency_hours interval to elapse."""
+    _check_monitor(client_id, domain)
+    return {"checked": True, "domain": domain}
+
+
+@app.get("/api/alerts")
+def list_alerts(client_id: str = DEFAULT_CLIENT_ID, unread_only: bool = False):
+    conn = _db()
+    q = "SELECT id, domain, severity, code, data, created_at, is_read FROM alerts WHERE client_id=?"
+    if unread_only:
+        q += " AND is_read=0"
+    q += " ORDER BY created_at DESC LIMIT 100"
+    rows = conn.execute(q, (client_id,)).fetchall()
+    conn.close()
+    return {"alerts": [{"id": r[0], "domain": r[1], "severity": r[2], "code": r[3],
+                         "data": json.loads(r[4]), "created_at": r[5], "is_read": bool(r[6])} for r in rows]}
+
+
+@app.post("/api/alerts/{alert_id}/read")
+def mark_alert_read(alert_id: int):
+    conn = _db()
+    conn.execute("UPDATE alerts SET is_read=1 WHERE id=?", (alert_id,))
+    conn.commit()
+    conn.close()
+    return {"id": alert_id, "is_read": True}
+
+
+@app.post("/api/alerts/mark-all-read")
+def mark_all_alerts_read(client_id: str = DEFAULT_CLIENT_ID):
+    conn = _db()
+    conn.execute("UPDATE alerts SET is_read=1 WHERE client_id=?", (client_id,))
+    conn.commit()
+    conn.close()
+    return {"ok": True}
 
 
 # ---------------------------------------------------------------------------
