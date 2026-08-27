@@ -1,3 +1,4 @@
+name: eagle-talon
 version: "3.9"
 
 # Both services run on the HOST's network directly (network_mode: host).
