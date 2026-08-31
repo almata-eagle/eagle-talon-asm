@@ -1182,15 +1182,17 @@ function renderScope(data){
     svg.appendChild(t);
   });
 
-  // points — angle = sector (+ jitter to avoid overlap), radius = inverse risk, size = subdomain count
   const jitterMap = {};
   data.forEach(d=>{
     const base = angleFor(d.sector);
     jitterMap[d.sector] = (jitterMap[d.sector]||0) + 1;
     const spread = (jitterMap[d.sector] % 13 - 6) * 0.045;
     const a = base + spread;
-    const riskFrac = 1 - (d.overall_score/100); // 0 = perfectly safe (outer), 1 = critical (center)
-    const r = 28 + riskFrac * (maxR-28);
+    // angle = sector (+ jitter to avoid overlap), radius = risk (critical near
+    // center, matching "Critical core"/"Clear perimeter" ring labels above),
+    // size = subdomain count
+    const proximityToEdge = d.overall_score / 100; // 0 = critical (center), 1 = perfectly safe (outer edge)
+    const r = 28 + proximityToEdge * (maxR-28);
     const x = cx + Math.cos(a)*r, y = cy + Math.sin(a)*r;
     const size = 3 + Math.min(d.subdomain_count,300)/300*7;
 
