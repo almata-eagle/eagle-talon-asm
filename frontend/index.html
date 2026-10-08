@@ -436,7 +436,22 @@
   .dbDTable td{font-size:11.5px;}
   #dbDRecent td{padding:5px 8px; font-size:11px;} #dbDRecent th{padding:6px 8px;}
   /* Threat intel (v0.6) */
-  .ti{display:inline-flex; align-items:center; gap:3px; font-size:9.5px; font-weight:700; padding:1px 6px; border-radius:5px; margin-left:5px; white-space:nowrap; vertical-align:middle; letter-spacing:.02em; border:1px solid;}
+  .ti{display:inline-flex; align-items:center; gap:4px; font-family:var(--font-body); font-size:11px; font-weight:600; line-height:1.3; padding:2px 8px; border-radius:6px; margin-left:6px; white-space:nowrap; vertical-align:middle; border:1px solid; cursor:pointer;}
+  .ti:hover{filter:brightness(1.25); text-decoration:underline;}
+  .ti .q{font-size:10px; opacity:.8; border:1px solid currentColor; border-radius:50%; width:13px; height:13px; display:inline-flex; align-items:center; justify-content:center;}
+  .tiX h4{font-size:10.5px; text-transform:uppercase; letter-spacing:.08em; color:var(--dim); margin:18px 0 8px; font-weight:600;}
+  .tiX .verdict{border-radius:10px; padding:12px 14px; font-size:14px; line-height:1.55; border-left:4px solid var(--dim); background:var(--panel-2);}
+  .tiX .verdict b{display:block; font-family:var(--font-display); font-size:15px; margin-bottom:4px;}
+  .tiX .verdict.urgent{border-left-color:var(--critical); background:color-mix(in srgb, var(--critical) 10%, var(--panel-2));}
+  .tiX .verdict.check{border-left-color:var(--watch); background:color-mix(in srgb, var(--watch) 9%, var(--panel-2));}
+  .tiX .verdict.ok{border-left-color:var(--clear);}
+  .tiX p{font-size:13px; line-height:1.65; margin:0 0 8px;}
+  .tiX ol{margin:0 0 0 20px; font-size:13px; line-height:1.7;}
+  .tiX ol code, .tiX p code{font-family:var(--font-mono); font-size:11.5px; background:var(--panel-2); padding:1px 5px; border-radius:4px;}
+  .tiX .list{background:var(--panel-2); border-radius:10px; padding:10px 12px; margin-bottom:8px; font-size:13px; line-height:1.55;}
+  .tiX .list .src{font-size:11.5px; color:var(--muted); margin-top:4px;}
+  .tiX .list a{color:var(--signal);}
+  .tiX .note{font-size:12px; color:var(--muted); line-height:1.6; margin-top:6px;}
   .ti.malicious{background:color-mix(in srgb, var(--critical) 14%, transparent); color:var(--critical); border-color:color-mix(in srgb, var(--critical) 40%, transparent);}
   .ti.suspicious{background:color-mix(in srgb, var(--watch) 14%, transparent); color:var(--watch); border-color:color-mix(in srgb, var(--watch) 40%, transparent);}
   .ti.info{background:var(--panel-2); color:var(--muted); border-color:var(--line);}
@@ -899,6 +914,32 @@ const STR = {
     db_co_intel_down_t:"Threat feeds aren't updating", db_co_intel_down_b:"None of the threat-intelligence feeds could be downloaded, so known-bad addresses may be missed.",
     db_co_intel_down_o:["Check that Core can reach the internet: <code>curl -sI https://feodotracker.abuse.ch</code>", "See the error per feed under Known-bad addresses"],
     db_co_intel_partial_t:"{n} threat feed(s) failing", db_co_intel_partial_b:"The other feeds are working. Hover the warning under Known-bad addresses for the error.",
+    ti_click:"Click for what this means and what to do", ti_x_meta:"Threat intelligence", ti_x_meta2:"{country} · {n} events in the last 7 days",
+    ti_x_a_device:"one of your devices", ti_x_lists:"Why it's flagged", ti_x_since:"in our copy of the list since {d}", ti_x_via:"listed as part of {net}",
+    ti_x_check:"Check on the source", ti_x_seen:"What your network did (last 7 days)", ti_x_devices:"Your devices involved", ti_x_how:"How",
+    ti_x_firewall:"What the firewall did", ti_x_when:"First → last seen", ti_x_data:"Data sent / received", ti_x_todo:"What to do",
+    ti_x_events:"Open these events", ti_x_note:"Lists contain stale and shared addresses (cloud servers are reused). Treat a hit as a reason to look, not as proof.",
+    ti_svc_ping:"Ping (ICMP)",
+    ti_icmp_note:"Only pings (tiny ICMP packets) were exchanged. No files or web pages were sent. Regular pings every few minutes usually mean a reachability check: a monitoring tool, a game, a VPN or an app measuring latency.",
+    ti_cat_botnet_c2:"A server that controls infected computers (a botnet). Infected machines check in with it for instructions. abuse.ch lists it after confirming malware traffic to it.",
+    ti_cat_malware_c2:"An address used by malware: to deliver it, or to receive stolen data and send commands. Reported by researchers to abuse.ch ThreatFox.",
+    ti_cat_hijacked_network:"A block of addresses Spamhaus considers hijacked or run by criminals. There's almost never a legitimate reason to talk to it.",
+    ti_cat_attacker:"This address attacked other servers in the last 48 hours: password guessing (SSH, mail, web logins) or similar, reported by honeypots to blocklist.de. Often it's a rented or hacked cloud server, and the same address may also host ordinary services.",
+    ti_cat_tor_exit:"An exit point of the Tor anonymity network. Traffic from it could be anyone; Tor hides who they really are. Not malicious by itself.",
+    ti_v_mal_out_t:"Urgent: {local} reached a known malicious server", ti_v_mal_out_b:"Your device connected to {ip} and the firewall allowed it. Devices usually only contact these servers when they're infected.",
+    ti_v_mal_out_steps:["Take <code>{local}</code> off the network now (unplug it, or move it to an isolated VLAN in UniFi).", "Block <code>{ip}</code> on the FortiGate: an address object plus a deny policy.", "On the device, look for unknown programs, startup items and scheduled tasks; run a malware scan.", "Change passwords that were used on that device.", "In Events, search <code>{local}</code> to see what else it contacted around the same time."],
+    ti_v_mal_in_t:"A known malicious address got in", ti_v_mal_in_b:"{ip} connected to {local} and the firewall allowed it (port {port}).",
+    ti_v_mal_in_steps:["Check which service on <code>{local}</code> listens on port {port}, and whether it should be reachable from the internet.", "If not, remove the port-forward or policy on the FortiGate.", "Block <code>{ip}</code> on the FortiGate.", "Check that service's logs for logins or errors at the same time."],
+    ti_v_att_out_t:"Worth checking: {local} is talking to a reported attacker", ti_v_att_out_b:"Your device contacted {ip} {n} times ({svc}), and the firewall allowed it. This is usually harmless, because the address also runs normal services or is shared. But you should know which program does it.",
+    ti_v_att_out_steps:["Find the device: in UniFi go to Clients and search <code>{local}</code> (or check the FortiGate's DHCP list).", "Ask what on it would contact <code>{ip}</code>: a monitoring tool (Uptime Kuma, Prometheus), a game, a VPN, a NAS cloud service or a smart-home device.", "If nothing explains it, check that device for unknown software, then block <code>{ip}</code> on the FortiGate.", "If it's legitimate, you can ignore it; it's labelled, but it won't open a case."],
+    ti_v_att_in_t:"A reported attacker got through", ti_v_att_in_b:"{ip} connected to {local} on port {port} and the firewall allowed it. Attackers like this mostly guess passwords.",
+    ti_v_att_in_steps:["Check whether port {port} on <code>{local}</code> needs to be open to the internet.", "If it does, make sure it uses strong passwords or keys (and ideally only allows Tailscale).", "Block <code>{ip}</code> on the FortiGate if it keeps trying."],
+    ti_v_blocked_t:"No action needed: the firewall blocked it", ti_v_blocked_b:"{ip} is on a threat list, but every connection was blocked. This is normal background noise on the internet.",
+    ti_v_blocked_steps:[],
+    ti_v_tor_in_t:"Someone connected through Tor", ti_v_tor_in_b:"A Tor user reached {local} on port {port}. That's fine for a public service; otherwise it shows the service is exposed.",
+    ti_v_tor_in_steps:["Check whether port {port} on <code>{local}</code> should be reachable from the internet.", "If not, close it on the FortiGate."],
+    ti_v_tor_other_t:"Tor exit node: informational", ti_v_tor_other_b:"{ip} is a Tor exit. Nothing allowed came in from it.", ti_v_tor_other_steps:[],
+    ti_v_none_t:"Not seen on your network", ti_v_none_b:"{ip} is on a list, but there's no traffic with it in the last 7 days.", ti_v_none_steps:[],
     db_co_events:"{n} events", db_kind_sensor:"sensor", db_kind_system:"system",
     db_co_sensor_stale_t:"{ds}: no new logs for {age}",
     db_co_stale_fortigate_b:"The firewall normally logs every few seconds. Until it resumes, detection can't see traffic.",
@@ -1087,6 +1128,32 @@ const STR = {
     db_co_intel_down_t:"脅威フィードが更新されていません", db_co_intel_down_b:"脅威インテリジェンスのフィードを1つもダウンロードできていないため、既知の悪性アドレスを見逃す可能性があります。",
     db_co_intel_down_o:["coreからインターネットに接続できるか確認：<code>curl -sI https://feodotracker.abuse.ch</code>", "「既知の悪性アドレス」欄でフィードごとのエラーを確認"],
     db_co_intel_partial_t:"{n}件の脅威フィードでエラー", db_co_intel_partial_b:"他のフィードは正常です。「既知の悪性アドレス」欄の警告にカーソルを合わせるとエラーを表示します。",
+    ti_click:"クリックすると意味と対処方法を表示", ti_x_meta:"脅威インテリジェンス", ti_x_meta2:"{country} · 過去7日間で{n}件",
+    ti_x_a_device:"社内の端末", ti_x_lists:"警告の理由", ti_x_since:"{d} からリストに掲載", ti_x_via:"{net} の一部として掲載",
+    ti_x_check:"提供元で確認", ti_x_seen:"社内ネットワークでの通信（過去7日間）", ti_x_devices:"関係する社内端末", ti_x_how:"通信の種類",
+    ti_x_firewall:"ファイアウォールの対応", ti_x_when:"最初 → 最後", ti_x_data:"送信／受信データ量", ti_x_todo:"対処方法",
+    ti_x_events:"このイベントを開く", ti_x_note:"リストには古い情報や共有アドレス（使い回されるクラウドサーバー）も含まれます。掲載は確認のきっかけであり、証拠ではありません。",
+    ti_svc_ping:"Ping（ICMP）",
+    ti_icmp_note:"やり取りはPing（小さなICMPパケット）のみで、ファイルやWebページは送られていません。数分おきのPingは、監視ツール、ゲーム、VPN、遅延を測るアプリなどの疎通確認であることが多いです。",
+    ti_cat_botnet_c2:"感染したコンピューター群（ボットネット）を操る指令サーバーです。感染した端末はここに接続して指示を受けます。abuse.chがマルウェア通信を確認して掲載しています。",
+    ti_cat_malware_c2:"マルウェアの配布、盗んだデータの受け取り、指令の送信などに使われるアドレスです。研究者がabuse.ch ThreatFoxに報告しています。",
+    ti_cat_hijacked_network:"Spamhausが乗っ取られた、または犯罪者が運用していると判断したアドレス帯です。正当な理由で通信することはほぼありません。",
+    ti_cat_attacker:"過去48時間に他のサーバーを攻撃（SSH・メール・Webログインのパスワード推測など）したとして、ハニーポットからblocklist.deに報告されたアドレスです。多くは借りられた、または乗っ取られたクラウドサーバーで、同じアドレスで通常のサービスが動いていることもあります。",
+    ti_cat_tor_exit:"匿名化ネットワークTorの出口です。ここからの通信は誰によるものか分からず、Torが利用者の正体を隠します。それ自体は悪性ではありません。",
+    ti_v_mal_out_t:"緊急：{local} が既知の悪性サーバーに接続しました", ti_v_mal_out_b:"社内端末が {ip} に接続し、ファイアウォールが許可しました。通常、感染した端末でなければこの種のサーバーには接続しません。",
+    ti_v_mal_out_steps:["<code>{local}</code> をすぐにネットワークから切り離してください（ケーブルを抜く、またはUniFiで隔離VLANへ移す）。", "FortiGateで <code>{ip}</code> を遮断します（アドレスオブジェクトと拒否ポリシー）。", "端末で見覚えのないプログラム、自動起動、スケジュールタスクを確認し、マルウェアスキャンを実行します。", "その端末で使っていたパスワードを変更します。", "イベント画面で <code>{local}</code> を検索し、同じ時間帯の他の接続先を確認します。"],
+    ti_v_mal_in_t:"既知の悪性アドレスからの通信が通過しました", ti_v_mal_in_b:"{ip} から {local}（ポート{port}）への接続をファイアウォールが許可しました。",
+    ti_v_mal_in_steps:["<code>{local}</code> のポート{port}で動いているサービスと、それをインターネットに公開すべきかを確認します。", "不要ならFortiGateのポート転送またはポリシーを削除します。", "FortiGateで <code>{ip}</code> を遮断します。", "同じ時間帯のサービスのログ（ログインやエラー）を確認します。"],
+    ti_v_att_out_t:"確認推奨：{local} が報告済みの攻撃元と通信しています", ti_v_att_out_b:"社内端末が {ip} に{n}回（{svc}）接続し、ファイアウォールが許可しました。そのアドレスで通常のサービスも動いている、または共有アドレスであるため、多くの場合は無害です。ただし、どのプログラムが通信しているかは把握すべきです。",
+    ti_v_att_out_steps:["端末を特定します：UniFiの「クライアント」で <code>{local}</code> を検索（またはFortiGateのDHCP一覧を確認）。", "その端末で <code>{ip}</code> に接続しそうなものを確認します：監視ツール（Uptime Kuma、Prometheus）、ゲーム、VPN、NASのクラウド機能、スマート家電など。", "心当たりがなければ不明なソフトがないか確認し、FortiGateで <code>{ip}</code> を遮断します。", "正当な通信であれば対応不要です（表示はされますが、ケースにはなりません）。"],
+    ti_v_att_in_t:"報告済みの攻撃元からの通信が通過しました", ti_v_att_in_b:"{ip} から {local} のポート{port}への接続をファイアウォールが許可しました。この種の攻撃元の多くはパスワードの推測を行います。",
+    ti_v_att_in_steps:["<code>{local}</code> のポート{port}をインターネットに公開する必要があるか確認します。", "必要な場合は強力なパスワードや鍵を使い、できればTailscale経由のみに制限します。", "試行が続くならFortiGateで <code>{ip}</code> を遮断します。"],
+    ti_v_blocked_t:"対応不要：ファイアウォールが遮断しました", ti_v_blocked_b:"{ip} は脅威リストに掲載されていますが、接続はすべて遮断されています。インターネットでは日常的な通信です。",
+    ti_v_blocked_steps:[],
+    ti_v_tor_in_t:"Tor経由の接続がありました", ti_v_tor_in_b:"Torの利用者が {local} のポート{port}に到達しました。公開サービスなら問題ありませんが、そうでなければサービスが公開状態になっていることを示します。",
+    ti_v_tor_in_steps:["<code>{local}</code> のポート{port}をインターネットから到達可能にすべきか確認します。", "不要ならFortiGateで閉じます。"],
+    ti_v_tor_other_t:"Tor出口ノード（参考情報）", ti_v_tor_other_b:"{ip} はTorの出口です。ここから許可された受信通信はありません。", ti_v_tor_other_steps:[],
+    ti_v_none_t:"社内ネットワークでは観測されていません", ti_v_none_b:"{ip} はリストに掲載されていますが、過去7日間に通信はありません。", ti_v_none_steps:[],
     db_co_events:"{n}件", db_kind_sensor:"センサー", db_kind_system:"システム",
     db_co_sensor_stale_t:"{ds}：{age}間ログが届いていません",
     db_co_stale_fortigate_b:"ファイアウォールは通常数秒ごとにログを送信します。再開するまで通信を検知できません。",
@@ -2390,12 +2457,12 @@ function fmtBytes(b){
 // they're escaped like log data.
 const TI_LEVELS = ['info','suspicious','malicious'];
 function tiWorst(hits){ return (hits||[]).reduce((w,h)=> TI_LEVELS.indexOf(h.level) > TI_LEVELS.indexOf(w) ? h.level : w, 'info'); }
-function tiBadge(hits){
+function tiBadge(hits, ip){
   if(!hits || !hits.length) return '';
   const lv = tiWorst(hits); const top = hits.find(h=>h.level===lv) || hits[0];
   const label = LANG==='ja' ? top.label_ja : top.label_en;
   const title = hits.map(h=>`${h.feed_name}: ${LANG==='ja' ? h.label_ja : h.label_en}${h.tag ? ' ('+h.tag+')' : ''}`).join('\n');
-  return `<span class="ti ${escH(lv)}" title="${escH(title)}">⚑ ${escH(label)}${top.tag ? ' · ' + escH(top.tag) : ''}</span>`;
+  return `<span class="ti ${escH(lv)}" role="button" tabindex="0" data-ti-ip="${escH(ip || '')}" title="${escH(title + '\n' + t('ti_click'))}">⚑ ${escH(label)}${top.tag ? ' · ' + escH(top.tag) : ''} <span class="q">?</span></span>`;
 }
 const EV = { timer:null, datasets:[], lastEvents:[], loading:false, seq:0 };
 
@@ -2523,7 +2590,7 @@ function eventsRenderTable(res){
   const ep = (ip, port, country, hits)=> {
     if(!ip) return '<span class="evDim">—</span>';
     const c = country && country !== 'Reserved' ? ` <span class="evDim">${escH(country)}</span>` : '';
-    return `<span class="evMono">${escH(ip)}${port != null ? '<span class="evDim">:' + escH(port) + '</span>' : ''}</span>${c}${tiBadge(hits)}`;
+    return `<span class="evMono">${escH(ip)}${port != null ? '<span class="evDim">:' + escH(port) + '</span>' : ''}</span>${c}${tiBadge(hits, ip)}`;
   };
   body.innerHTML = evs.map((e,i)=>{
     const out = e.outcome ? `<span class="evOutcome ${e.outcome==='blocked'?'blocked':'allowed'}" title="${escH(e.action)}">${escH(t('ev_out_'+e.outcome) || e.outcome)}</span>` : `<span class="evDim">${escH(e.action || '—')}</span>`;
@@ -2703,7 +2770,7 @@ function casesRenderDetail(c){
   const intel = Object.entries(c.intel || {});
   if(intel.length){
     h += `<div class="csSec"><h4>${escH(t('cs_intel'))}</h4><div class="csTi">` + intel.map(([ip, hits])=>
-      `<div><span class="evMono">${escH(ip)}</span>${tiBadge(hits)}<div class="evDim" style="margin-top:3px">${hits.map(x=>escH(x.feed_name) + (x.tag ? ' · ' + escH(x.tag) : '')).join(' · ')}</div></div>`).join('')
+      `<div><span class="evMono">${escH(ip)}</span>${tiBadge(hits, ip)}<div class="evDim" style="margin-top:3px">${hits.map(x=>escH(x.feed_name) + (x.tag ? ' · ' + escH(x.tag) : '')).join(' · ')}</div></div>`).join('')
       + `</div></div>`;
   }
   h += `<div class="csSec"><h4>${escH(t('cs_evidence'))}</h4><div class="csFacts">
@@ -3214,7 +3281,7 @@ function dbRenderCountry(){
   }).join('');
 
   const ips = (d.top_ips || []).filter(x=>show(x.dir));
-  const ipRows = ips.map((x,i)=>`<tr data-ip="${i}"><td class="evMono"><span class="evDir ${escH(x.dir)}">${x.dir==='inbound'?'↘':'↗'}</span> ${escH(x.ip)}${tiBadge(x.intel)}</td>
+  const ipRows = ips.map((x,i)=>`<tr data-ip="${i}"><td class="evMono"><span class="evDir ${escH(x.dir)}">${x.dir==='inbound'?'↘':'↗'}</span> ${escH(x.ip)}${tiBadge(x.intel, x.ip)}</td>
       <td class="num">${escH(fmtNum(x.events))}</td><td class="num">${x.events ? escH(Math.round(x.blocked/x.events*100)) + '%' : '—'}</td>
       <td class="evMono evDim">${escH((x.ports||[]).join(', ') || '—')}</td><td class="evDim evMono">${escH(csAge(x.last_ms))}</td></tr>`).join('');
 
@@ -3263,7 +3330,7 @@ function dbRenderIntel(){
   if(!ti.enabled){ el.innerHTML = `<tr><td class="evDim">${escH(t('db_ti_off'))}</td></tr>`; foot.textContent = ''; return; }
   const rows = (ti.sightings && ti.sightings.ips) || [];
   el.innerHTML = rows.length ? rows.map((x,i)=>`<tr data-i="${i}">
-      <td><span class="evDir ${escH(x.dir)}">${x.dir==='inbound'?'↘':'↗'}</span> <span class="evMono">${escH(x.ip)}</span>${tiBadge(x.intel)}
+      <td><span class="evDir ${escH(x.dir)}">${x.dir==='inbound'?'↘':'↗'}</span> <span class="evMono">${escH(x.ip)}</span>${tiBadge(x.intel, x.ip)}
         <div class="evDim" style="font-size:11px">${escH(x.country || '')}</div></td>
       <td class="num">${escH(fmtNum(x.events))}<div class="evDim" style="font-size:10.5px">${x.allowed ? `<span style="color:var(--critical)">${escH(tf('db_ti_allowed', {n: fmtNum(x.allowed)}))}</span>` : escH(t('db_ti_all_blocked'))}</div></td></tr>`).join('')
     : `<tr><td class="evDim">${escH(ti.indicators ? t('db_ti_none') : t('db_ti_loading'))}</td></tr>`;
@@ -3362,6 +3429,111 @@ document.querySelectorAll('#dbDir button').forEach(b=>b.onclick = ()=>{
 });
 let dbResizeT = null;
 window.addEventListener('resize', ()=>{ clearTimeout(dbResizeT); dbResizeT = setTimeout(()=>{ if(currentView==='dash') document.getElementById('dbTip').style.opacity = 0; }, 100); });
+
+// ---------- Threat-intel explainer (click any ⚑ badge) ----------
+// Turns a list hit plus what our own logs saw into plain language: what the
+// list is, what it means for *this* traffic, and what to do. All wording is
+// ours (STR); addresses, feed names and tags are escaped data.
+function tiFill(key, vars){
+  // Trusted template from STR with escaped values substituted.
+  let s = t(key) || '';
+  Object.entries(vars || {}).forEach(([k, v])=>{ s = s.split('{' + k + '}').join(escH(v)); });
+  return s;
+}
+function tiSvcText(x){
+  const p = (x.proto || '').toUpperCase();
+  if(p.startsWith('ICMP')) return t('ti_svc_ping');
+  return [p && x.port != null ? `${p}/${x.port}` : p, x.app].filter(Boolean).join(' · ') || '—';
+}
+function tiAssess(c){
+  const lv = tiWorst(c.intel);
+  let outA = 0, inA = 0, blocked = 0;
+  (c.by || []).forEach(b=>{
+    if(b.outcome === 'allowed'){ if(b.dir === 'inbound') inA += b.n; else outA += b.n; }
+    else if(b.outcome === 'blocked') blocked += b.n;
+  });
+  let key, tone;
+  if(!c.events){ key = 'none'; tone = 'ok'; }
+  else if(lv === 'malicious'){ key = outA ? 'mal_out' : inA ? 'mal_in' : 'blocked'; tone = (outA || inA) ? 'urgent' : 'ok'; }
+  else if(lv === 'suspicious'){ key = outA ? 'att_out' : inA ? 'att_in' : 'blocked'; tone = (outA || inA) ? 'check' : 'ok'; }
+  else { key = inA ? 'tor_in' : 'tor_other'; tone = inA ? 'check' : 'ok'; }
+  return {key, tone, outA, inA, blocked};
+}
+async function tiExplain(ip){
+  const drawer = document.getElementById('drawer');
+  document.getElementById('drawerFullscreenBtn').title = t('drawer_fullscreen');
+  document.getElementById('drawerDomain').textContent = ip;
+  document.getElementById('drawerMeta').textContent = t('ti_x_meta');
+  const body = document.getElementById('drawerBody');
+  body.innerHTML = `<div class="evEmpty">${escH(t('ev_loading'))}</div>`;
+  drawer.classList.add('open', 'socWide');
+  document.getElementById('overlay').classList.add('show');
+  let c;
+  try{
+    const r = await fetch(`${API_BASE}/api/soc/intel/explain?ip=${encodeURIComponent(ip)}&range=7d`);
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    c = await r.json();
+  }catch(e){ body.innerHTML = `<div class="evEmpty">${escH(tf('ev_error', {msg: e.message || e}))}</div>`; return; }
+  const a = tiAssess(c);
+  // Describe the direction that matters for the verdict: what our device
+  // sent out, or what came in and was allowed.
+  const want = /_out$/.test(a.key) ? 'outbound' : /_in$/.test(a.key) ? 'inbound' : null;
+  const hostsDir = (c.local_hosts || []).filter(x=>!want || x.dir === want);
+  const svcsDir = (c.services || []).filter(x=>!want || x.dir === want);
+  const local = hostsDir[0] || (c.local_hosts || [])[0];
+  const svcA = svcsDir.find(x=>x.allowed) || svcsDir[0];
+  const nDir = want === 'outbound' ? a.outA : want === 'inbound' ? a.inA : c.events;
+  const icmpOnly = svcsDir.length > 0 && svcsDir.every(x=>/^icmp/.test(x.proto || ''));
+  const vars = {ip: c.ip, local: local ? local.ip : t('ti_x_a_device'), n: fmtNum(nDir),
+                svc: svcA ? tiSvcText(svcA) : '—', port: svcA && svcA.port != null ? svcA.port : '—',
+                country: (c.countries || [])[0] || '—'};
+  document.getElementById('drawerMeta').textContent = tf('ti_x_meta2', {country: vars.country, n: fmtNum(c.events)});
+
+  let h = `<div class="tiX">`;
+  h += `<div class="verdict ${a.tone}"><b>${tiFill('ti_v_' + a.key + '_t', vars)}</b>${tiFill('ti_v_' + a.key + '_b', vars)}</div>`;
+  if(icmpOnly) h += `<div class="note">ⓘ ${tiFill('ti_icmp_note', vars)}</div>`;
+
+  h += `<h4>${escH(t('ti_x_lists'))}</h4>` + (c.intel || []).map(x=>{
+    const since = x.listed_since ? tf('ti_x_since', {d: fmtTime(Date.parse(x.listed_since))}) : '';
+    const via = x.listed_as && x.listed_as !== c.ip ? ' · ' + tf('ti_x_via', {net: x.listed_as}) : '';
+    return `<div class="list">${tiBadge([x], null).replace('role="button" tabindex="0" ', '').replace(' <span class="q">?</span>', '')}
+      <p style="margin-top:6px">${escH(t('ti_cat_' + x.category) || '')}</p>
+      <div class="src">${escH(x.feed_name)}${x.tag ? ' · ' + escH(x.tag) : ''}${since ? ' · ' + escH(since) : ''}${escH(via)}
+      ${x.url ? ` · <a href="${escH(x.url)}" target="_blank" rel="noopener noreferrer">${escH(t('ti_x_check'))} ↗</a>` : ''}</div></div>`;
+  }).join('');
+
+  if(c.events){
+    const dirs = (c.by || []).map(b=>`${escH(t(b.dir === 'inbound' ? 'db_leg_in' : 'db_leg_out'))}: ${escH(t('ev_out_' + b.outcome) || b.outcome || '—')} ×${escH(fmtNum(b.n))}`).join(' · ');
+    h += `<h4>${escH(t('ti_x_seen'))}</h4><div class="csFacts">
+      <div><b>${escH(t('ti_x_devices'))}</b><span class="evMono">${(c.local_hosts || []).map(x=>`${x.dir==='inbound'?'↘':'↗'} ${escH(x.ip)} (${escH(fmtNum(x.n))})`).join('<br>') || '—'}</span></div>
+      <div><b>${escH(t('ti_x_how'))}</b>${(c.services || []).map(x=>`${x.dir==='inbound'?'↘':'↗'} ${escH(tiSvcText(x))} ×${escH(fmtNum(x.n))}`).join('<br>') || '—'}</div>
+      <div><b>${escH(t('ti_x_firewall'))}</b>${dirs || '—'}</div>
+      <div><b>${escH(t('ti_x_when'))}</b>${escH(fmtTime(c.first_ms))} → ${escH(fmtTime(c.last_ms))}</div>
+      <div><b>${escH(t('ti_x_data'))}</b>↑ ${escH(fmtBytes(c.bytes_out) || '0 B')} · ↓ ${escH(fmtBytes(c.bytes_in) || '0 B')}</div>
+    </div>`;
+  }
+  const steps = t('ti_v_' + a.key + '_steps');
+  if(Array.isArray(steps) && steps.length){
+    h += `<h4>${escH(t('ti_x_todo'))}</h4><ol>${steps.map(x=>`<li>${(()=>{ let s2 = x; Object.entries(vars).forEach(([k,v])=>{ s2 = s2.split('{'+k+'}').join(escH(v)); }); return s2; })()}</li>`).join('')}</ol>`;
+  }
+  h += `<div class="csActions"><button data-act="events">${escH(t('ti_x_events'))}</button></div>`;
+  h += `<div class="evNote">${escH(t('ti_x_note'))}</div></div>`;
+  body.innerHTML = h;
+  body.querySelector('[data-act=events]').onclick = ()=>{ closeDrawer(); dbGoEvents({q: c.ip, range: '7d'}); };
+}
+// One listener for every badge on the page, in the capture phase so a click
+// on a badge inside a table row doesn't also expand the row.
+document.addEventListener('click', ev=>{
+  const b = ev.target.closest && ev.target.closest('.ti[data-ti-ip]');
+  if(!b || !b.dataset.tiIp) return;
+  ev.preventDefault(); ev.stopPropagation();
+  tiExplain(b.dataset.tiIp);
+}, true);
+document.addEventListener('keydown', ev=>{
+  if(ev.key !== 'Enter') return;
+  const b = ev.target.closest && ev.target.closest('.ti[data-ti-ip]');
+  if(b && b.dataset.tiIp){ ev.preventDefault(); tiExplain(b.dataset.tiIp); }
+});
 
 // Shows the running version, and marks any non-prod environment loudly.
 async function loadVersion(){

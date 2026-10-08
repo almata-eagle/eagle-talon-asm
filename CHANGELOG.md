@@ -23,11 +23,15 @@ Every change merged to `staging` adds a line under **Unreleased**.
     status and a refresh button, red rings on map dots, and callouts when
     feeds stop updating.
   - Claude triage receives the hits as `threat_intel` evidence.
+  - **Plain-language explainer:** click any ⚑ badge to see a verdict for that
+    traffic, what the list means, which of your devices talked to the address
+    and how (7 days), numbered steps, and a link to the source's listing.
+    Badges are larger and readable. `GET /api/soc/intel/explain`.
   - API: `GET /api/soc/intel`, `POST /api/soc/intel/refresh`,
-    `GET /api/soc/intel/lookup?ip=`, `GET /api/soc/intel/sightings`.
+    `GET /api/soc/intel/lookup?ip=`, `GET /api/soc/intel/sightings`, `GET /api/soc/intel/explain`.
   - New env: `SOC_INTEL` (on in prod and staging), `SOC_INTEL_FEEDS`
     (staging leaves out Spamhaus), `ABUSECH_AUTH_KEY` (optional).
-  - Tests: `backend/tests/test_soc_intel.py` (14). 89 in total.
+  - Tests: `backend/tests/test_soc_intel.py` (16). 91 in total.
 
 ### Fixed
 - Dashboard: when the API can't answer (for example an older API behind a newer

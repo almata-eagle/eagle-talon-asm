@@ -230,3 +230,22 @@ def test_api_intel(client, env):
     evs = client.get("/api/soc/events", params={"range": "1h"}).json()["events"]
     assert evs[0]["intel"]["src"][0]["category"] == "botnet_c2"
     assert client.get("/api/soc/intel/sightings", params={"range": "1h"}).json()["listed_ips"] == 1
+
+
+def test_ip_context_explains_what_we_saw(env):
+    soc_intel.refresh(fetcher=fake_fetch)
+    write(env, [ev(M(3 + i), src_ip="192.168.10.121", dst_ip="45.148.10.12", dst_country="Denmark", proto="icmp",
+                   dst_port=None, app="PING", bytes_out=60, bytes_in=60) for i in range(4)])
+    c = soc_intel.ip_context("45.148.10.12", "24h", NOW)
+    assert c["events"] == 4 and c["only_icmp"] is True and c["countries"] == ["Denmark"]
+    assert c["local_hosts"] == [{"ip": "192.168.10.121", "dir": "outbound", "n": 4}]
+    assert c["services"][0]["dir"] == "outbound" and c["services"][0]["allowed"] == 4
+    assert c["by"] == [{"dir": "outbound", "outcome": "allowed", "n": 4}]
+    hit = c["intel"][0]
+    assert hit["url"] == "https://www.blocklist.de/en/view.html?ip=45.148.10.12" and hit["listed_since"]
+
+
+def test_api_explain_validates(client, env):
+    assert client.get("/api/soc/intel/explain", params={"ip": "<script>"}).status_code == 422
+    r = client.get("/api/soc/intel/explain", params={"ip": "45.148.10.12", "range": "24h"})
+    assert r.status_code == 200 and r.json()["ip"] == "45.148.10.12"

@@ -328,13 +328,13 @@ class _Index:
         try:
             con = _db()
             try:
-                rows = con.execute("SELECT feed, value, kind, category, tag FROM ti_indicators").fetchall()
+                rows = con.execute("SELECT feed, value, kind, category, tag, first_seen FROM ti_indicators").fetchall()
             finally:
                 con.close()
         except sqlite3.Error:
             rows = []
-        for feed, value, kind, category, tag in rows:
-            hit = (feed, category, tag)
+        for feed, value, kind, category, tag, first_seen in rows:
+            hit = (feed, category, tag, first_seen, value)
             try:
                 if kind == "cidr":
                     net = ipaddress.ip_network(value)
@@ -367,17 +367,33 @@ class _Index:
                     continue
                 key = (a >> (bits - plen)) << (bits - plen) if plen else 0
                 hits.extend(table.get(key, []))
-        return [_describe(*h) for h in hits]
+        return [_describe(*h, ip=str(addr)) for h in hits]
 
 
 INDEX = _Index()
 
 
-def _describe(feed_id: str, category: str, tag: Optional[str]) -> dict:
+# Public pages where a person can check the listing themselves. The IP is
+# always a parsed ipaddress value, never raw input.
+LOOKUP_URLS = {
+    "feodo": "https://feodotracker.abuse.ch/browse/host/{ip}/",
+    "spamhaus_drop": "https://check.spamhaus.org/results/?query={ip}",
+    "spamhaus_drop_v6": "https://check.spamhaus.org/results/?query={ip}",
+    "tor_exits": "https://metrics.torproject.org/rs.html#search/{ip}",
+    "blocklist_de": "https://www.blocklist.de/en/view.html?ip={ip}",
+    "threatfox": "https://threatfox.abuse.ch/browse.php?search=ioc%3A{ip}",
+}
+
+
+def _describe(feed_id: str, category: str, tag: Optional[str], first_seen: Optional[str] = None,
+              listed: Optional[str] = None, ip: Optional[str] = None) -> dict:
     level, en, ja = CATEGORIES.get(category, ("info", category, category))
     feed = FEEDS_BY_ID.get(feed_id)
+    url = LOOKUP_URLS.get(feed_id)
     return {"feed": feed_id, "feed_name": feed.name if feed else feed_id, "category": category,
-            "level": level, "label_en": en, "label_ja": ja, "tag": tag}
+            "level": level, "label_en": en, "label_ja": ja, "tag": tag,
+            "listed_since": first_seen, "listed_as": listed,
+            "url": url.format(ip=ip) if url and ip else None}
 
 
 def lookup(ip: Optional[str]) -> list[dict]:
@@ -465,4 +481,47 @@ def sightings(range_key: str = "24h", now: Optional[dt.datetime] = None, limit: 
     rank = lambda x: (-LEVEL_ORDER.index(x["level"]), -(x["allowed"] > 0),  # noqa: E731
                       -(x["allowed"] > 0 and x["dir"] == "outbound"), -x["events"])
     out["ips"] = sorted(listed, key=rank)[:limit]
+    return out
+
+
+def ip_context(ip: str, range_key: str = "7d", now: Optional[dt.datetime] = None) -> dict:
+    """What our own logs say about one remote address: which local devices
+    talked to it, how, how often, and what the firewall did. Used to explain
+    a threat-intel hit in plain language."""
+    out = {"ip": ip, "range": range_key, "intel": lookup(ip), "events": 0, "first_ms": None, "last_ms": None,
+           "by": [], "local_hosts": [], "services": [], "countries": [], "bytes_out": 0, "bytes_in": 0,
+           "only_icmp": False}
+    since, until = soc_logs._window(range_key, now)
+    files = soc_logs._files(since, until)
+    if not files:
+        return out
+    where = (" FROM ev WHERE ts_ms BETWEEN ? AND ? AND host IS DISTINCT FROM ? AND (src_ip = ? OR dst_ip = ?)")
+    params = [files, soc_logs.COLUMNS, int(since.timestamp() * 1000), int(until.timestamp() * 1000),
+              soc_logs.SELFTEST_HOST, ip, ip]
+    base = soc_logs._base_query(files)
+    local = "CASE WHEN src_ip = ? THEN dst_ip ELSE src_ip END"
+    con = soc_logs._connect()
+    try:
+        tot = con.execute(base + " SELECT count(*), min(ts_ms), max(ts_ms), COALESCE(sum(bytes_out),0), "
+                          "COALESCE(sum(bytes_in),0), bool_and(lower(proto) IN ('icmp','icmp6','ipv6-icmp'))" + where,
+                          params).fetchone()
+        by = con.execute(base + f" SELECT direction, ({soc_logs._OUTCOME}) AS o, count(*)" + where
+                         + " GROUP BY direction, o ORDER BY 3 DESC", params).fetchall()
+        rdir = "CASE WHEN direction = 'inbound' THEN 'inbound' ELSE 'outbound' END"
+        hosts = con.execute(base + f" SELECT {local} AS h, {rdir} AS d, count(*) AS n" + where
+                            + " GROUP BY h, d ORDER BY n DESC LIMIT 12", [*params[:2], ip, *params[2:]]).fetchall()
+        svcs = con.execute(base + f" SELECT lower(proto), dst_port, app, {rdir} AS d, count(*) AS n, "
+                           f"count(*) FILTER (WHERE ({soc_logs._OUTCOME}) = 'allowed')" + where
+                           + " GROUP BY 1, 2, 3, 4 ORDER BY n DESC LIMIT 10", params).fetchall()
+        ccs = con.execute(base + " SELECT CASE WHEN src_ip = ? THEN src_country ELSE dst_country END AS c, count(*)"
+                          + where + " GROUP BY c ORDER BY 2 DESC LIMIT 3", [*params[:2], ip, *params[2:]]).fetchall()
+    finally:
+        con.close()
+    out.update({"events": tot[0], "first_ms": tot[1], "last_ms": tot[2], "bytes_out": tot[3], "bytes_in": tot[4],
+                "only_icmp": bool(tot[5]) if tot[0] else False,
+                "by": [{"dir": d, "outcome": o, "n": n} for d, o, n in by],
+                "local_hosts": [{"ip": h, "dir": d, "n": n} for h, d, n in hosts if h],
+                "services": [{"proto": p, "port": port, "app": a, "dir": d, "n": n, "allowed": k}
+                             for p, port, a, d, n, k in svcs],
+                "countries": [c for c, _ in ccs if c and c != "Reserved"]})
     return out

@@ -7,7 +7,8 @@ feed providers. The design is in [adr/0006](adr/0006-threat-intelligence.md).
 ## Where it shows up
 | Place | What you see |
 |---|---|
-| Events | A ⚑ badge next to a listed source or destination IP. Hover for the feed and tag. |
+| Anywhere | **Click any ⚑ badge** for a plain-language explanation (EN/JA): a verdict for *this* traffic (urgent / worth checking / no action), what the list means, what your network did with that address over 7 days (which of your devices, how, what the firewall did, data volume, a note when it was only pings), numbered steps to follow, and a link to check the listing on the source's own site. |
+| Events | A ⚑ badge next to a listed source or destination IP. |
 | Cases | A **Threat intelligence** section listing the case's listed addresses. New rule **Known-bad address** (`intel_match`): allowed traffic to or from a listed address. |
 | Dashboard | KPI **Known-bad IPs (24h)**, red when any were allowed. The **Known-bad addresses (24 h)** panel lists the worst first; click one to search Events. Map dots with listed IPs get a red ring and a line in the tooltip, and the country drawer badges its IPs. Callouts appear when feeds stop updating. |
 | Claude triage | Hits for the case's addresses are added to the evidence as `threat_intel` (untrusted data, supporting not proof). |
@@ -48,6 +49,13 @@ checkout that should use it):
 nano ~/eagle-talon-asm/deploy/secrets.env
 ```
 Add the line `ABUSECH_AUTH_KEY=<your key>`, save, then redeploy.
+
+## The explainer
+`GET /api/soc/intel/explain?ip=…&range=7d` returns the hits plus what our logs
+saw: per-direction outcomes, local devices, services and bytes. The verdict and
+steps are fixed text in the UI, chosen from the list category and whether
+traffic was allowed in or out. Claude isn't involved. "Check on the source"
+links open the feed's public page for that address.
 
 ## Safety
 - Feed files are third-party data. Only values that parse as IP addresses or

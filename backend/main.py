@@ -574,6 +574,20 @@ def soc_intel_lookup(ip: str = Query(..., min_length=2, max_length=45)):
     return {"ip": ip, "intel": soc_intel.lookup(ip)}
 
 
+@app.get("/api/soc/intel/explain")
+def soc_intel_explain(ip: str = Query(..., min_length=2, max_length=45),
+                      range: str = Query("7d", pattern=_RANGE_RE)):
+    """Threat-intel hits for one address plus what our logs saw it do."""
+    import ipaddress
+    try:
+        ip = str(ipaddress.ip_address(ip.strip()))
+    except ValueError:
+        raise HTTPException(422, "not an IP address")
+    if not soc_logs.available():
+        return {"ip": ip, "intel": soc_intel.lookup(ip), "connected": False}
+    return soc_intel.ip_context(ip, range)
+
+
 @app.get("/api/soc/intel/sightings")
 def soc_intel_sightings(range: str = Query("24h", pattern=_RANGE_RE)):
     if not soc_logs.available():
