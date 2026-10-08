@@ -12,8 +12,9 @@ the data directly.
 
 ## Decision
 1. **Vector 0.58** (pinned image) is the single collector. It's one container
-   per host, shared by Talon staging and prod. It runs as `eddy`, not root, plus
-   the group that owns `eve.json`.
+   per host, shared by Talon staging and prod. It runs as `eddy`, not root. It
+   joins the group that owns `eve.json` only when the file isn't world-readable,
+   and it never joins `root`.
 2. **One flat event format (schema 1)** for every source, with the original
    fields kept under `raw`. It's documented in `docs/SOC-COLLECTOR.md` and
    covered by Vector unit tests.

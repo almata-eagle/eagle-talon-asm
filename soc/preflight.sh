@@ -107,7 +107,12 @@ if sudo -n test -e "$EVE" 2>/dev/null || [[ -e "$EVE" ]]; then
   AGE_MIN=$(( ( $(date +%s) - EVE_MTIME ) / 60 ))
   read -r OWNER MODE SIZE <<<"$EVE_STAT"
   info "eve.json: owner $OWNER, mode $MODE, $(numfmt --to=iec "${SIZE:-0}" 2>/dev/null || echo "$SIZE")B, last write ${AGE_MIN} min ago"
-  if (( 8#${MODE:-0} & 8#040 )); then pass "eve.json is group-readable (collector joins group ${OWNER#*:})"
+  EVE_GROUP="${OWNER#*:}"
+  if (( 8#${MODE:-0} & 8#004 )); then pass "eve.json is world-readable — the collector reads it as $(id -un), no extra group"
+  elif (( 8#${MODE:-0} & 8#040 )) && [[ "$EVE_GROUP" != root ]]; then pass "eve.json is group-readable (collector joins group $EVE_GROUP)"
+  elif [[ "$EVE_GROUP" == root ]]; then
+    warn "eve.json is readable only by group root — the collector will NOT join root, so Suricata events are skipped"
+    fix "sudo chgrp adm $EVE && sudo chmod 640 $EVE   (and set 'filemode: 640' for eve-log in /etc/suricata/suricata.yaml)"
   else warn "eve.json is not group-readable — the collector won't see Suricata events"; fix "sudo chmod g+r $EVE   (and set 'filemode: 640' for eve-log in /etc/suricata/suricata.yaml)"; fi
   DIR_MODE="$(stat -c %a "$SURI_DIR" 2>/dev/null || sudo -n stat -c %a "$SURI_DIR" 2>/dev/null)"
   if (( (8#${DIR_MODE:-0} & 8#050) == 8#050 )); then pass "$SURI_DIR is group-traversable"

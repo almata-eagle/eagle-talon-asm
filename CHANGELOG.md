@@ -34,7 +34,8 @@ Every change merged to `staging` adds a line under **Unreleased**.
   archive on the NAS `logs` share. Includes `soc/preflight.sh` (read-only
   readiness check), `soc/deploy-collector.sh` (deploy plus self-test),
   `soc/retention.sh`, and Vector unit tests. See `docs/SOC-COLLECTOR.md` and
-  ADR 0003.
+  ADR 0003. The collector runs as `eddy`; it joins the `eve.json` group only
+  when the file isn't world-readable, and never joins `root`.
 
 ### Fixed
 - `backup-db.sh` labels each backup with the version the environment is

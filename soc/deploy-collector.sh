@@ -43,8 +43,16 @@ if ! sudo -n test -d "$SURICATA_LOG_DIR" 2>/dev/null && [[ ! -d "$SURICATA_LOG_D
   mkdir -p "$SURICATA_LOG_DIR"
   export SURICATA_LOG_DIR
 fi
-# The collector joins the group that owns eve.json, so it can read it as eddy.
-SOC_LOG_GID="$(stat -c %g "$SURICATA_LOG_DIR/eve.json" 2>/dev/null || sudo -n stat -c %g "$SURICATA_LOG_DIR/eve.json" 2>/dev/null || echo "$SOC_GID")"
+# Least privilege: if eve.json is world-readable the collector needs no extra
+# group. Otherwise it joins the file's group — but never root (gid 0).
+EVE_META="$(stat -c '%a %g' "$SURICATA_LOG_DIR/eve.json" 2>/dev/null || sudo -n stat -c '%a %g' "$SURICATA_LOG_DIR/eve.json" 2>/dev/null || echo "0 $SOC_GID")"
+EVE_MODE="${EVE_META% *}"
+EVE_GID="${EVE_META#* }"
+if (( 8#$EVE_MODE & 8#004 )) || [[ "$EVE_GID" == 0 ]]; then
+  SOC_LOG_GID="$SOC_GID"
+else
+  SOC_LOG_GID="$EVE_GID"
+fi
 export SOC_LOG_GID
 
 mkdir -p "$SOC_HOT_DIR" "$SOC_STATE_DIR" "$SOC_ARCHIVE_DIR"
