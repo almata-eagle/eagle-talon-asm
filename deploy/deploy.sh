@@ -11,6 +11,7 @@
 # Everything environment-specific comes from deploy/env/<env>.env; secrets come
 # from deploy/secrets.env (gitignored). See docs/RUNBOOK.md.
 set -euo pipefail
+trap 'echo "deploy.sh: failed at line $LINENO — nothing after this step ran" >&2' ERR
 
 ENV_NAME="${1:-}"
 shift || true

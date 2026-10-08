@@ -10,6 +10,7 @@
 # BACKUP_DIR defaults to ~/eagle-talon-backups; point it at the NAS once a
 # share is mounted (e.g. BACKUP_DIR=/mnt/nas/logs/eagle-talon-backups).
 set -euo pipefail
+trap 'echo "backup-db.sh: failed at line $LINENO" >&2' ERR
 
 ENV_NAME="${1:-}"
 case "$ENV_NAME" in
@@ -27,8 +28,10 @@ API_PORT="$(grep -E '^API_PORT=' "$ENV_FILE" | tail -n1 | cut -d= -f2-)"
 # Label the backup with the version that environment is actually RUNNING,
 # not this checkout's VERSION file (the staging checkout backs up prod too).
 # Releases before 0.2.0 have no /api/version, so they're labelled "pre-0.2.0".
-VERSION="$(curl -fsS --max-time 3 "http://127.0.0.1:$API_PORT/api/version" 2>/dev/null \
-  | sed -n 's/.*"version":"\([^"]*\)".*/\1/p')"
+# `|| true`: under `set -e -o pipefail` a failing curl (an old release answers
+# 404) would otherwise end the script here, silently.
+VERSION="$( { curl -fsS --max-time 3 "http://127.0.0.1:$API_PORT/api/version" 2>/dev/null \
+  | sed -n 's/.*"version":"\([^"]*\)".*/\1/p'; } || true)"
 if [[ -z "$VERSION" ]]; then
   if curl -fsS --max-time 3 "http://127.0.0.1:$API_PORT/api/health" >/dev/null 2>&1; then
     VERSION="pre-0.2.0"
