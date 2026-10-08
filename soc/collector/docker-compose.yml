@@ -3,7 +3,7 @@
 # first and sets every variable below. See docs/SOC-COLLECTOR.md.
 #
 # Host networking like the rest of core (Tailscale netfilter quirk). Ports are
-# fixed in vector.yaml: 5514/udp syslog in, 127.0.0.1:8686 health API.
+# fixed in vector.yaml: 5516/udp syslog in, 127.0.0.1:8686 health API.
 name: eagle-soc
 
 services:

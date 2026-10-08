@@ -12,7 +12,7 @@ Folder dates and hours are **UTC**. Retention is set in `soc/collector/collector
 The `finance` share is never used. Preflight fails if the logs mount points at it.
 
 ```
-FortiGate 60F ──syslog udp/5514──┐
+FortiGate 60F ──syslog udp/5516──┐
                                  ├─► Vector (eagle-soc-collector) ─► normalize ─┬─► hot (Core)
 Suricata eve.json on core ───────┘                                              └─► archive (NAS)
 ```
@@ -69,7 +69,7 @@ fine to start with; for example, without Suricata you still get FortiGate logs.
 
 Allow the FortiGate to send syslog. Use the exact command preflight prints; it will look like:
 ```
-sudo ufw allow in on enp0s31f6 from 192.168.10.1 to any port 5514 proto udp comment 'FortiGate syslog to eagle-soc'
+sudo ufw allow in on enp0s31f6 from 192.168.10.1 to any port 5516 proto udp comment 'FortiGate syslog to eagle-soc'
 ```
 Start the collector. It runs preflight again, starts the collector, and then
 sends a test event through the real pipeline:
@@ -85,18 +85,28 @@ Daily retention, added to eddy's crontab (`crontab -e`):
 
 ## FortiGate (FortiOS 7.4)
 
+Core's 5514/udp already receives a FortiGate feed for another tool (likely
+Wazuh), probably through the FortiGate's first syslog slot (`syslogd`). Eagle
+uses the **second slot, `syslogd2`**, on port **5516**, so neither feed disturbs
+the other. Check what the first slot holds before changing anything:
+```
+show log syslogd setting
+```
+If it shows `server "192.168.10.109"` and `port 5514`, that's the existing feed.
+Leave it as it is.
+
 **CLI** (System → CLI Console, or SSH to the FortiGate):
 ```
-config log syslogd setting
+config log syslogd2 setting
     set status enable
     set server "192.168.10.109"
     set mode udp
-    set port 5514
+    set port 5516
     set format default
 end
 ```
 ```
-config log syslogd filter
+config log syslogd2 filter
     set severity information
     set forward-traffic enable
     set local-traffic enable

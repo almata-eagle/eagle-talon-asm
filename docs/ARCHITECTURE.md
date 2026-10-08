@@ -26,7 +26,7 @@ environment needs its own ports. That's why staging uses 8098 and 8100. See
 ## SOC log pipeline (Phase 1)
 
 ```
-FortiGate ──udp/5514──┐
+FortiGate ──udp/5516──┐
 Suricata eve.json ────┴─► eagle-soc-collector (Vector) ─┬─► ~/eagle-soc/hot        (Core, 30 days)
                                                         └─► /mnt/nas/logs/eagle-soc/archive (NAS, 400 days)
 ```
@@ -73,7 +73,8 @@ releases must keep working on a newer DB so rollback stays safe.
 | 8088 / 8000 | Talon prod web / API | all / all |
 | 8098 / 8100 | Talon staging web / API | all / loopback |
 | 8089 / 8001 | Eagle Eye web / API | all / all |
-| 5514/udp | SOC collector syslog in | all (UFW: FortiGate only) |
+| 5514/udp | existing rootless container (likely Wazuh syslog) — not Eagle | — |
+| 5516/udp | SOC collector syslog in | all (UFW: FortiGate only) |
 | 8686 | SOC collector health API | loopback |
 
 ## Known limits

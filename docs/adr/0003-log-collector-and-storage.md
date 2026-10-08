@@ -28,7 +28,7 @@ the data directly.
 5. **NAS outages don't stall the hot path.** The archive sink has a 5 GB disk
    buffer that drops the newest events when full.
 6. **No environment-variable substitution inside Vector.** Ports are written
-   in `vector.yaml` (5514/udp syslog, 127.0.0.1:8686 health). Vector 0.58+
+   in `vector.yaml` (5516/udp syslog, 127.0.0.1:8686 health). Vector 0.58+
    disables substitution by default, and we keep that.
 7. **Preflight before every deploy.** `soc/preflight.sh` is read-only and its
    output is safe to paste. `deploy-collector.sh` refuses on any FAIL and ends
@@ -36,8 +36,11 @@ the data directly.
 
 ## Consequences
 - Syslog over UDP is unauthenticated, and any LAN host could spoof it. UFW
-  admits 5514/udp only from the FortiGate's address on the LAN interface.
+  admits 5516/udp only from the FortiGate's address on the LAN interface.
   Investigations must treat log content as untrusted (ADR 0002 §4).
 - Hot-store queries scan files, which is fine for a home lab. A large customer
   would need an indexed store (OpenSearch/ClickHouse); the schema is what we keep.
+- 5514/udp on core was already in use by a rootless container (very likely a
+  FortiGate → Wazuh feed). We leave it alone and use 5516. The FortiGate sends
+  a second copy through its `syslogd2` slot, so the two feeds stay independent.
 - Retention decides by the date in folder names (UTC), never by file times.

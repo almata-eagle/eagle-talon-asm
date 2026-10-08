@@ -83,8 +83,9 @@ echo "Collector healthy."
 # SOC ignores it later.
 echo "== Self-test"
 MARK="selftest-$(date +%s)"
+SYSLOG_PORT="$(grep -A4 'fortigate_syslog:' "$SOC_DIR/collector/vector.yaml" | sed -n 's/.*address: "0.0.0.0:\([0-9]*\)".*/\1/p')"
 printf '<189>date=%s time=%s devname="eagle-soc-selftest" tz="%s" type="traffic" subtype="forward" srcip=192.168.10.250 srcport=40000 srcintfrole="lan" dstip=192.0.2.10 dstport=443 dstintfrole="wan" dstcountry="Reserved" action="accept" proto=6 msg="%s"' \
-  "$(date +%F)" "$(date +%T)" "$(date +%z)" "$MARK" > /dev/udp/127.0.0.1/5514
+  "$(date +%F)" "$(date +%T)" "$(date +%z)" "$MARK" > "/dev/udp/127.0.0.1/$SYSLOG_PORT"
 FOUND=""
 for _ in $(seq 1 20); do
   if grep -rqs "$MARK" "$SOC_HOT_DIR/fortigate.traffic/" 2>/dev/null; then FOUND=1; break; fi
@@ -100,4 +101,4 @@ else
 fi
 
 echo
-echo "== Done. Next: point the FortiGate at this host (docs/SOC-COLLECTOR.md, 'FortiGate')."
+echo "== Done. Next: point the FortiGate at this host on udp/$SYSLOG_PORT (docs/SOC-COLLECTOR.md, 'FortiGate')."

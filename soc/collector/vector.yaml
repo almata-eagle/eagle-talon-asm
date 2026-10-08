@@ -11,7 +11,8 @@
 # Ports are written here directly: Vector 0.58+ does not substitute
 # environment variables unless explicitly (and "dangerously") enabled, and we
 # keep it that way. soc/preflight.sh reads these two ports from this file.
-#   syslog  5514/udp   (FortiGate → Core, LAN only)
+#   syslog  5516/udp   (FortiGate → Core, LAN only; 5514 is taken by an
+#                       existing container feed, likely Wazuh — left alone)
 #   api     127.0.0.1:8686 (health checks; loopback only)
 # Paths inside the container are fixed; soc/collector/docker-compose.yml maps
 # them to Core: /hot, /archive, /suricata, /var/lib/vector.
@@ -27,7 +28,7 @@ sources:
   fortigate_syslog:
     type: socket
     mode: udp
-    address: "0.0.0.0:5514"
+    address: "0.0.0.0:5516"
     max_length: 65535
 
   suricata_eve:
