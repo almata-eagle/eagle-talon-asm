@@ -1,0 +1,31 @@
+# Eagle SOC collector — ONE instance per host, shared by Talon staging and prod.
+# Deploy only through soc/deploy-collector.sh, which runs soc/preflight.sh
+# first and sets every variable below. See docs/SOC-COLLECTOR.md.
+#
+# Host networking like the rest of core (Tailscale netfilter quirk). Ports are
+# fixed in vector.yaml: 5514/udp syslog in, 127.0.0.1:8686 health API.
+name: eagle-soc
+
+services:
+  collector:
+    image: timberio/vector:0.58.0-debian
+    container_name: eagle-soc-collector
+    restart: unless-stopped
+    network_mode: host
+    # Run as eddy (not root) so retention jobs can manage every file, plus the
+    # group that owns Suricata's eve.json so it can be read without root.
+    user: "${SOC_UID:?run soc/deploy-collector.sh}:${SOC_GID:?run soc/deploy-collector.sh}"
+    group_add:
+      - "${SOC_LOG_GID:?run soc/deploy-collector.sh}"
+    command: ["--config", "/etc/vector/vector.yaml"]
+    volumes:
+      - ./vector.yaml:/etc/vector/vector.yaml:ro
+      - ${SOC_HOT_DIR:?}:/hot
+      - ${SOC_STATE_DIR:?}:/var/lib/vector
+      - ${SOC_ARCHIVE_DIR:?}:/archive
+      - ${SURICATA_LOG_DIR:?}:/suricata:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

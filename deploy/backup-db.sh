@@ -18,7 +18,6 @@ case "$ENV_NAME" in
 esac
 
 DEPLOY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_DIR="$(cd "$DEPLOY_DIR/.." && pwd)"
 ENV_FILE="$DEPLOY_DIR/env/$ENV_NAME.env"
 DATA_VOLUME="$(grep -E '^DATA_VOLUME=' "$ENV_FILE" | tail -n1 | cut -d= -f2-)"
 BACKUP_DIR="${BACKUP_DIR:-$HOME/eagle-talon-backups}"

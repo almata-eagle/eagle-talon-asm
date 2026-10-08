@@ -1,4 +1,4 @@
-# Eagle Talon — Architecture (as of v0.2.0-dev)
+# Eagle Talon — Architecture (as of v0.2.0-dev, SOC Phase 1 in progress)
 
 Eagle Talon is the operator console of the Eagle platform. Eagle Eye
 (`almata-eagle/eagle-eye`) is the client-facing portal and shares Talon's data.
@@ -23,6 +23,17 @@ leave Docker's bridge without NAT egress, so nginx reaches the API on
 environment needs its own ports. That's why staging uses 8098 and 8100. See
 [adr/0001](adr/0001-staging-and-release-process.md).
 
+## SOC log pipeline (Phase 1)
+
+```
+FortiGate ──udp/5514──┐
+Suricata eve.json ────┴─► eagle-soc-collector (Vector) ─┬─► ~/eagle-soc/hot        (Core, 30 days)
+                                                        └─► /mnt/nas/logs/eagle-soc/archive (NAS, 400 days)
+```
+One collector per host, shared by staging and prod. The event format, deploy
+and FortiGate setup are in [SOC-COLLECTOR.md](SOC-COLLECTOR.md); the reasoning
+is in [adr/0003](adr/0003-log-collector-and-storage.md).
+
 ## Components
 
 | Part | File | Notes |
@@ -32,6 +43,7 @@ environment needs its own ports. That's why staging uses 8098 and 8100. See
 | CVE correlation | `backend/techstack.py` | NVD API with `virtualMatchString` (not `cpeName`) for version ranges. `NVD_API_KEY` from secrets. |
 | UI | `frontend/index.html` | Single file, vanilla JS. Talon Scope radar, log view, report drawer, EN/JP i18n, monitoring page. |
 | Web | `deploy/nginx.conf.template` | Ports filled from `NGINX_PORT` and `API_PORT` at container start. |
+| Log collector | `soc/` | `collector/vector.yaml` (pipeline + schema), `collector/tests.yaml`, `preflight.sh`, `deploy-collector.sh`, `retention.sh`. |
 | Deploy | `deploy/` | `docker-compose.yml`, `env/<env>.env`, `deploy.sh`, `backup-db.sh`, `seed-staging-db.sh`. |
 
 ## Data
@@ -53,6 +65,16 @@ releases must keep working on a newer DB so rollback stays safe.
 | `EAGLE_TALON_SCHEDULER` | on | off | Background monitoring |
 | `EAGLE_TALON_VERSION`, `EAGLE_TALON_GIT_SHA` | set by deploy.sh | set by deploy.sh | `/api/version` |
 | `NVD_API_KEY` | secrets.env | secrets.env | CVE lookups |
+
+## Ports on core used by Eagle
+
+| Port | What | Bound to |
+|---|---|---|
+| 8088 / 8000 | Talon prod web / API | all / all |
+| 8098 / 8100 | Talon staging web / API | all / loopback |
+| 8089 / 8001 | Eagle Eye web / API | all / all |
+| 5514/udp | SOC collector syslog in | all (UFW: FortiGate only) |
+| 8686 | SOC collector health API | loopback |
 
 ## Known limits
 - CORS is `*` and there is no auth on the Talon API. It is reachable only over

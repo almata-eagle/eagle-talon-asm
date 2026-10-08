@@ -183,6 +183,11 @@ Eagle Eye reads the same volume, so restart it too if it misbehaves.
   `17 3 * * * $HOME/eagle-talon-asm/deploy/backup-db.sh prod >> $HOME/eagle-talon-backups/backup.log 2>&1`
 - Once a NAS share is mounted, point backups at it with `BACKUP_DIR=/mnt/nas/<share>/eagle-talon-backups`.
 
+## SOC log collector
+Deploy, the FortiGate setup, health checks and retention are in
+[SOC-COLLECTOR.md](SOC-COLLECTOR.md). There is one collector per host. Start with
+`soc/preflight.sh`; its output is safe to paste for help.
+
 ## Troubleshooting
 - **Check what's running:** `curl -s http://127.0.0.1:8000/api/version` (prod) or `:8100` (staging).
 - **Container logs:** `docker logs --tail 100 eagle-talon-staging-api`.

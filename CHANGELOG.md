@@ -28,6 +28,13 @@ Every change merged to `staging` adds a line under **Unreleased**.
   every client domain or spend the shared NVD quota.
 - Docs: `docs/RUNBOOK.md`, `docs/ARCHITECTURE.md`, `docs/ROADMAP.md`,
   decision records in `docs/adr/`, and `CLAUDE.md`.
+- **SOC Phase 1, log collector** (`soc/`): Vector 0.58 receives FortiGate
+  syslog (5514/udp) and Suricata `eve.json`, normalizes everything to one
+  event format, and writes a 30-day hot store on Core plus a 400-day gzip
+  archive on the NAS `logs` share. Includes `soc/preflight.sh` (read-only
+  readiness check), `soc/deploy-collector.sh` (deploy plus self-test),
+  `soc/retention.sh`, and Vector unit tests. See `docs/SOC-COLLECTOR.md` and
+  ADR 0003.
 
 ### Fixed
 - `backup-db.sh` labels each backup with the version the environment is

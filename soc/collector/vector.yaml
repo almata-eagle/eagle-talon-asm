@@ -1,0 +1,198 @@
+# Eagle SOC collector (Vector) — Phase 1 ingest.
+#
+#   FortiGate syslog (UDP)  ─┐                      ┌─► HOT:     $SOC_HOT_DIR      (Core NVMe, plain NDJSON, ~30 days)
+#   Suricata eve.json       ─┴─► normalize ─► route ┤             queried by Talon / Claude
+#                                                   └─► ARCHIVE: /archive (NAS `logs` share, gzip NDJSON, ~400 days)
+#
+# Every event is reshaped into ONE flat schema (see docs/SOC-COLLECTOR.md) so
+# Talon, the map and Claude never have to know which device a log came from.
+# The original parsed fields are kept under `raw`.
+#
+# Ports are written here directly: Vector 0.58+ does not substitute
+# environment variables unless explicitly (and "dangerously") enabled, and we
+# keep it that way. soc/preflight.sh reads these two ports from this file.
+#   syslog  5514/udp   (FortiGate → Core, LAN only)
+#   api     127.0.0.1:8686 (health checks; loopback only)
+# Paths inside the container are fixed; soc/collector/docker-compose.yml maps
+# them to Core: /hot, /archive, /suricata, /var/lib/vector.
+# Validate locally:  vector validate --no-environment vector.yaml
+
+data_dir: /var/lib/vector
+
+api:
+  enabled: true
+  address: "127.0.0.1:8686"
+
+sources:
+  fortigate_syslog:
+    type: socket
+    mode: udp
+    address: "0.0.0.0:5514"
+    max_length: 65535
+
+  suricata_eve:
+    type: file
+    include:
+      - /suricata/eve.json
+    # Don't replay months of old eve.json on first start.
+    ignore_older_secs: 86400
+    read_from: end
+
+transforms:
+  fortigate_normalize:
+    type: remap
+    inputs: [fortigate_syslog]
+    drop_on_error: false
+    reroute_dropped: false
+    source: |
+      msg = to_string(.message) ?? ""
+      # FortiOS "default" syslog format: optional <PRI>, then key=value pairs.
+      msg = replace(msg, r'^<\d+>', "")
+      kv = parse_key_value(msg, key_value_delimiter: "=", field_delimiter: " ") ?? {}
+
+      src_addr = to_string(.host) ?? ""
+      . = {}
+      .raw = kv
+      .collector_from = src_addr
+
+      # Time: prefer eventtime (epoch ns/us/s), else date+time+tz, else now.
+      ts = now()
+      et = if exists(kv.eventtime) { to_int(kv.eventtime) ?? 0 } else { 0 }
+      if et > 100000000000000000 {
+        ts = from_unix_timestamp(et, unit: "nanoseconds") ?? now()
+      } else if et > 100000000000000 {
+        ts = from_unix_timestamp(et, unit: "microseconds") ?? now()
+      } else if et > 1000000000 {
+        ts = from_unix_timestamp(et) ?? now()
+      } else if is_string(kv.date) && is_string(kv.time) {
+        tz = to_string(kv.tz) ?? "+0000"
+        ts = parse_timestamp(to_string!(kv.date) + " " + to_string!(kv.time) + " " + tz, "%Y-%m-%d %H:%M:%S %z") ?? now()
+      }
+      .timestamp = ts
+
+      kind = to_string(kv.type) ?? "unknown"
+      .source = "fortigate"
+      .dataset = "fortigate." + kind
+      .subtype = kv.subtype
+      .host = kv.devname
+      .action = kv.action
+      .src_ip = kv.srcip
+      .src_port = if exists(kv.srcport) { to_int(kv.srcport) ?? null } else { null }
+      .dst_ip = kv.dstip
+      .dst_port = if exists(kv.dstport) { to_int(kv.dstport) ?? null } else { null }
+      p = if exists(kv.proto) { to_int(kv.proto) ?? -1 } else { -1 }
+      .proto = if p == 6 { "tcp" } else if p == 17 { "udp" } else if p == 1 { "icmp" } else if p == -1 { null } else { to_string(p) }
+      .src_country = kv.srccountry
+      .dst_country = kv.dstcountry
+      .bytes_out = if exists(kv.sentbyte) { to_int(kv.sentbyte) ?? null } else { null }
+      .bytes_in = if exists(kv.rcvdbyte) { to_int(kv.rcvdbyte) ?? null } else { null }
+      .app = kv.app || kv.service
+      .policy = kv.policyid
+      .level = kv.level
+      .signature = kv.attack || kv.virus || kv.logdesc || kv.msg
+      # FortiOS tags each interface with a role. A hit on the firewall's own
+      # WAN IP looks "external" by address alone; the role says it's inbound.
+      sr = to_string(kv.srcintfrole) ?? ""
+      dr = to_string(kv.dstintfrole) ?? ""
+      .direction_hint = if sr == "wan" && dr != "wan" { "inbound" } else if dr == "wan" && sr != "wan" { "outbound" } else { null }
+
+  suricata_normalize:
+    type: remap
+    inputs: [suricata_eve]
+    drop_on_error: true
+    source: |
+      ev = parse_json!(string!(.message))
+      . = {}
+      .raw = ev
+      .timestamp = parse_timestamp(to_string(ev.timestamp) ?? "", "%Y-%m-%dT%H:%M:%S%.f%z") ?? now()
+      kind = to_string(ev.event_type) ?? "unknown"
+      .source = "suricata"
+      .dataset = "suricata." + kind
+      .host = ev.host || "core"
+      .src_ip = ev.src_ip
+      .src_port = ev.src_port
+      .dst_ip = ev.dest_ip
+      .dst_port = ev.dest_port
+      .proto = downcase(to_string(ev.proto) ?? "")
+      if .proto == "" { .proto = null }
+      .app = ev.app_proto
+      if kind == "alert" {
+        .action = ev.alert.action
+        .signature = ev.alert.signature
+        .level = ev.alert.severity
+        .policy = ev.alert.signature_id
+      } else if kind == "dns" {
+        .signature = ev.dns.rrname
+      } else if kind == "tls" {
+        .signature = ev.tls.sni
+      } else if kind == "http" {
+        .signature = ev.http.hostname
+      }
+
+  # Shared enrichment: direction from RFC1918/ULA ranges, so the map can tell
+  # inbound from outbound without device-specific logic.
+  enrich:
+    type: remap
+    inputs: [fortigate_normalize, suricata_normalize]
+    source: |
+      private = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16", "fc00::/7", "fe80::/10", "::1/128"]
+      src_priv = false
+      dst_priv = false
+      if is_string(.src_ip) {
+        for_each(private) -> |_i, c| { if ip_cidr_contains(c, string!(.src_ip)) ?? false { src_priv = true } }
+      }
+      if is_string(.dst_ip) {
+        for_each(private) -> |_i, c| { if ip_cidr_contains(c, string!(.dst_ip)) ?? false { dst_priv = true } }
+      }
+      hint = .direction_hint
+      del(.direction_hint)
+      .direction = if is_string(hint) {
+        hint
+      } else if !is_string(.src_ip) || !is_string(.dst_ip) {
+        null
+      } else if src_priv && dst_priv {
+        "internal"
+      } else if src_priv {
+        "outbound"
+      } else if dst_priv {
+        "inbound"
+      } else {
+        "external"
+      }
+      .schema = 1
+
+  # Suricata "flow"/"stats"/"netflow" are bulky and duplicate FortiGate traffic
+  # logs; they go to the NAS archive only, not the hot store.
+  hot_filter:
+    type: filter
+    inputs: [enrich]
+    condition: |
+      !includes(["suricata.flow", "suricata.stats", "suricata.netflow"], .dataset)
+
+sinks:
+  hot:
+    type: file
+    inputs: [hot_filter]
+    path: "/hot/{{ dataset }}/%Y-%m-%d/%H.ndjson"
+    encoding:
+      codec: json
+    framing:
+      method: newline_delimited
+    idle_timeout_secs: 60
+
+  archive:
+    type: file
+    inputs: [enrich]
+    path: "/archive/{{ dataset }}/%Y/%m/%d/%H.ndjson.gz"
+    compression: gzip
+    encoding:
+      codec: json
+    framing:
+      method: newline_delimited
+    idle_timeout_secs: 300
+    # If the NAS is unreachable, hold up to 5 GB on Core's disk, then drop the
+    # NEWEST archive events rather than stalling the hot path.
+    buffer:
+      type: disk
+      max_size: 5368709120
+      when_full: drop_newest

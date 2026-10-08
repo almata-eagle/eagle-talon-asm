@@ -1,0 +1,136 @@
+# Unit tests for vector.yaml. Run: vector test vector.yaml tests.yaml
+# Samples are shaped like real FortiOS 7.4 "default" syslog and Suricata 7 eve.json.
+
+tests:
+  - name: fortigate outbound https is normalized
+    inputs:
+      - insert_at: fortigate_normalize
+        type: log
+        log_fields:
+          host: "192.168.10.1"
+          message: '<189>date=2026-10-08 time=12:44:28 devname="FGT60F" devid="FGT60FTK0000000" eventtime=1791430668123456789 tz="+0900" logid="0000000013" type="traffic" subtype="forward" level="notice" vd="root" srcip=192.168.10.113 srcport=46352 srcintf="internal" srcintfrole="lan" dstip=142.250.196.110 dstport=443 dstintf="wan1" dstintfrole="wan" srccountry="Reserved" dstcountry="United States" action="accept" policyid=1 service="HTTPS" proto=6 sentbyte=1520 rcvdbyte=6230 app="HTTPS.BROWSER"'
+    outputs:
+      - extract_from: enrich
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.source, "fortigate")
+              assert_eq!(.dataset, "fortigate.traffic")
+              assert_eq!(.subtype, "forward")
+              assert_eq!(.host, "FGT60F")
+              assert_eq!(.action, "accept")
+              assert_eq!(.src_ip, "192.168.10.113")
+              assert_eq!(.src_port, 46352)
+              assert_eq!(.dst_ip, "142.250.196.110")
+              assert_eq!(.dst_port, 443)
+              assert_eq!(.proto, "tcp")
+              assert_eq!(.dst_country, "United States")
+              assert_eq!(.bytes_out, 1520)
+              assert_eq!(.bytes_in, 6230)
+              assert_eq!(.app, "HTTPS.BROWSER")
+              assert_eq!(.direction, "outbound")
+              assert_eq!(.schema, 1)
+              assert_eq!(format_timestamp!(.timestamp, "%Y-%m-%dT%H:%M:%SZ"), "2026-10-08T03:37:48Z")
+              assert_eq!(.raw.logid, "0000000013")
+              assert!(!exists(.direction_hint))
+
+  - name: fortigate inbound deny to the WAN IP counts as inbound
+    inputs:
+      - insert_at: fortigate_normalize
+        type: log
+        log_fields:
+          host: "192.168.10.1"
+          message: '<188>date=2026-10-08 time=12:50:01 devname="FGT60F" tz="+0900" type="traffic" subtype="local" level="warning" srcip=45.148.10.12 srcport=51234 srcintf="wan1" srcintfrole="wan" dstip=203.0.113.5 dstport=22 dstintf="root" dstintfrole="undefined" srccountry="Netherlands" dstcountry="Japan" action="deny" policyid=0 proto=6'
+    outputs:
+      - extract_from: enrich
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.action, "deny")
+              assert_eq!(.direction, "inbound")
+              assert_eq!(.src_country, "Netherlands")
+              assert_eq!(.dst_port, 22)
+              assert_eq!(.bytes_in, null)
+              assert_eq!(.bytes_out, null)
+              assert_eq!(.src_port, 51234)
+              assert_eq!(format_timestamp!(.timestamp, "%Y-%m-%dT%H:%M:%SZ"), "2026-10-08T03:50:01Z")
+
+  - name: fortigate utm/ips event keeps the attack name
+    inputs:
+      - insert_at: fortigate_normalize
+        type: log
+        log_fields:
+          host: "192.168.10.1"
+          message: '<185>date=2026-10-08 time=13:02:11 devname="FGT60F" tz="+0900" type="utm" subtype="ips" level="alert" srcip=185.220.101.4 srcintfrole="wan" dstip=192.168.10.109 dstintfrole="lan" dstport=8080 action="dropped" attack="Apache.Log4j.Error.Log.Remote.Code.Execution" proto=6'
+    outputs:
+      - extract_from: enrich
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.dataset, "fortigate.utm")
+              assert_eq!(.subtype, "ips")
+              assert_eq!(.signature, "Apache.Log4j.Error.Log.Remote.Code.Execution")
+              assert_eq!(.direction, "inbound")
+
+  - name: garbage syslog line does not crash the pipeline
+    inputs:
+      - insert_at: fortigate_normalize
+        type: log
+        log_fields:
+          message: "not a fortigate line at all"
+    outputs:
+      - extract_from: enrich
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.source, "fortigate")
+              assert!(exists(.timestamp))
+              assert_eq!(.proto, null)
+              assert_eq!(.src_port, null)
+              assert_eq!(.direction, null)
+
+  - name: suricata alert is normalized
+    inputs:
+      - insert_at: suricata_normalize
+        type: log
+        log_fields:
+          message: '{"timestamp":"2026-10-08T12:55:03.123456+0900","flow_id":123,"in_iface":"enp0s31f6","event_type":"alert","src_ip":"192.168.10.113","src_port":46352,"dest_ip":"192.168.10.109","dest_port":8080,"proto":"TCP","app_proto":"http","alert":{"action":"allowed","gid":1,"signature_id":2013028,"rev":7,"signature":"ET POLICY curl User-Agent Outbound","category":"Attempted Information Leak","severity":2}}'
+    outputs:
+      - extract_from: enrich
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.source, "suricata")
+              assert_eq!(.dataset, "suricata.alert")
+              assert_eq!(.signature, "ET POLICY curl User-Agent Outbound")
+              assert_eq!(.level, 2)
+              assert_eq!(.policy, 2013028)
+              assert_eq!(.proto, "tcp")
+              assert_eq!(.dst_port, 8080)
+              assert_eq!(.direction, "internal")
+              assert_eq!(format_timestamp!(.timestamp, "%Y-%m-%dT%H:%M:%SZ"), "2026-10-08T03:55:03Z")
+
+  - name: suricata flow events stay out of the hot store
+    inputs:
+      - insert_at: suricata_normalize
+        type: log
+        log_fields:
+          message: '{"timestamp":"2026-10-08T12:55:03.123456+0900","event_type":"flow","src_ip":"192.168.10.113","dest_ip":"8.8.8.8","proto":"UDP"}'
+    no_outputs_from:
+      - hot_filter
+
+  - name: suricata dns query keeps the name
+    inputs:
+      - insert_at: suricata_normalize
+        type: log
+        log_fields:
+          message: '{"timestamp":"2026-10-08T12:55:04.000000+0900","event_type":"dns","src_ip":"192.168.10.113","dest_ip":"1.1.1.1","dest_port":53,"proto":"UDP","dns":{"type":"query","rrname":"example.org","rrtype":"A"}}'
+    outputs:
+      - extract_from: hot_filter
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.dataset, "suricata.dns")
+              assert_eq!(.signature, "example.org")
+              assert_eq!(.direction, "outbound")
+              assert_eq!(.proto, "udp")
