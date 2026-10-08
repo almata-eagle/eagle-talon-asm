@@ -2,6 +2,7 @@
 
 The direction is in [adr/0002](adr/0002-managed-soc-direction.md). Everything is
 built and proven in **staging** first. Each phase ships as a minor version.
+Phases 0–3 were released to prod together as **v0.5.0** (2026-10-09).
 
 | Phase | Version | Scope | Done when |
 |---|---|---|---|

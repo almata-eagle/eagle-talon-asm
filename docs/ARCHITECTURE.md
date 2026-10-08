@@ -1,4 +1,4 @@
-# Eagle Talon — Architecture (as of v0.2.0-dev, SOC Phases 1–3 in staging)
+# Eagle Talon — Architecture (as of v0.5.0, SOC Phases 1–3 in prod and staging)
 
 Eagle Talon is the operator console of the Eagle platform. Eagle Eye
 (`almata-eagle/eagle-eye`) is the client-facing portal and shares Talon's data.
@@ -77,10 +77,10 @@ releases must keep working on a newer DB so rollback stays safe.
 | `EAGLE_TALON_SCHEDULER` | on | off | Background monitoring |
 | `EAGLE_TALON_VERSION`, `EAGLE_TALON_GIT_SHA` | set by deploy.sh | set by deploy.sh | `/api/version` |
 | `NVD_API_KEY` | secrets.env | secrets.env | CVE lookups |
-| `SOC_DETECT`, `SOC_DETECT_INTERVAL_S` | off, 300 | on, 300 | Background detection loop |
-| `SOC_TRIAGE`, `SOC_TRIAGE_MODEL`, `SOC_TRIAGE_MAX_PER_HOUR` | off, claude-sonnet-5-5, 20 | on, claude-sonnet-5-5, 20 | Claude triage |
-| `ANTHROPIC_API_KEY` | — | secrets.env (`eagle-soc` workspace) | Claude API |
-| `SOC_HOT_DIR` | unset (→ empty `soc/no-hot-store`) | `/home/eddy/eagle-soc/hot` | Host folder mounted read-only at `/soc-hot` for the Events view |
+| `SOC_DETECT`, `SOC_DETECT_INTERVAL_S` | on, 300 (compose default off) | on, 300 | Background detection loop |
+| `SOC_TRIAGE`, `SOC_TRIAGE_MODEL`, `SOC_TRIAGE_MAX_PER_HOUR` | on, claude-sonnet-5-5, 20 (compose default off) | on, claude-sonnet-5-5, 5 | Claude triage |
+| `ANTHROPIC_API_KEY` | secrets.env (`eagle-soc` workspace) | secrets.env (same key) | Claude API |
+| `SOC_HOT_DIR` | `/home/eddy/eagle-soc/hot` (compose default: empty `soc/no-hot-store`) | `/home/eddy/eagle-soc/hot` | Host folder mounted read-only at `/soc-hot` for the Events view |
 
 ## Ports on core used by Eagle
 

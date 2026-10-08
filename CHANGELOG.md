@@ -9,6 +9,13 @@ Every change merged to `staging` adds a line under **Unreleased**.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-09
+First release since the v0.1.0 baseline. It ships roadmap phases 0–3 together:
+the staging/release process, the SOC log collector and Events view, cases with
+Claude triage (read-only), and the Dashboard. In prod, detection and triage are
+switched on in `deploy/env/prod.env`. Staging keeps them on with a smaller
+Claude budget (5 triages an hour), so both don't spend the same amount.
+
 ### Added
 - Staging environment beside prod on core (UI `:8098`, API `127.0.0.1:8100`,
   volume `eagle-talon-staging-data`). Driven by `deploy/env/staging.env`.

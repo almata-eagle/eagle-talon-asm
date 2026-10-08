@@ -184,9 +184,23 @@ Eagle Eye reads the same volume, so restart it too if it misbehaves.
 - Once a NAS share is mounted, point backups at it with `BACKUP_DIR=/mnt/nas/<share>/eagle-talon-backups`.
 
 ## SOC cases and Claude triage
-Detection and triage run inside the staging API (`SOC_DETECT=on`, `SOC_TRIAGE=on`
-in `env/staging.env`). The Claude key is `ANTHROPIC_API_KEY` in
-`deploy/secrets.env`, using the `eagle-soc` workspace. To stop Claude calls, set
+Since v0.5.0, detection and triage run inside both the prod and the staging API
+(`SOC_DETECT=on`, `SOC_TRIAGE=on` in `env/<env>.env`). Staging gets 5 triages an
+hour, prod gets 20. The Claude key is `ANTHROPIC_API_KEY` in each checkout's
+`deploy/secrets.env`, using the `eagle-soc` workspace.
+
+First time in prod, copy the key from the staging checkout without printing it:
+```
+grep '^ANTHROPIC_API_KEY=' ~/eagle-talon-staging/deploy/secrets.env >> ~/eagle-talon-asm/deploy/secrets.env
+```
+```
+chmod 600 ~/eagle-talon-asm/deploy/secrets.env
+```
+Check that it's there (prints `1`, never the key):
+```
+grep -c '^ANTHROPIC_API_KEY=' ~/eagle-talon-asm/deploy/secrets.env
+```
+ To stop Claude calls, set
 `SOC_TRIAGE=off` and redeploy, or disable the key in the Console. Details,
 costs and kill switches are in [SOC-TRIAGE.md](SOC-TRIAGE.md).
 
