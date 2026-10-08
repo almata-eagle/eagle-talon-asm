@@ -11,7 +11,7 @@ time. Nothing in this file touches prod except the sections marked **PROD**.
 | API (behind nginx) | 0.0.0.0:8000 | 127.0.0.1:8100 (loopback only) |
 | Compose project / containers | `eagle-talon` / `eagle-talon-api`, `eagle-talon-web` | `eagle-talon-staging` / `eagle-talon-staging-api`, `-web` |
 | Data volume | `eagle-talon-data` (Eagle Eye also mounts this) | `eagle-talon-staging-data` |
-| Checkout on core | the existing prod checkout | `~/eagle-talon-staging` (branch `staging`) |
+| Checkout on core | `/home/eddy/eagle-talon-asm` | `~/eagle-talon-staging` (branch `staging`) |
 | Git | `main`, deployed only from tags `vX.Y.Z` | `staging` branch |
 | Scheduled monitoring | on | off ("Check now" still works) |
 | Identity file | `deploy/env/prod.env` | `deploy/env/staging.env` |
@@ -124,7 +124,7 @@ git tag v0.2.0
 ```
 git push origin main v0.2.0
 ```
-On core, in the **prod** checkout:
+On core, in the **prod** checkout (`cd ~/eagle-talon-asm`):
 ```
 git fetch --tags
 ```
@@ -180,7 +180,7 @@ Eagle Eye reads the same volume, so restart it too if it misbehaves.
 - `deploy/backup-db.sh prod` (or `staging`) uses SQLite's online backup API on a
   read-only mount, so it is safe on live prod. It runs an integrity check and keeps the newest 30.
 - Run it from cron daily at an off-minute (eddy's crontab):
-  `17 3 * * * $HOME/<prod checkout>/deploy/backup-db.sh prod >> $HOME/eagle-talon-backups/backup.log 2>&1`
+  `17 3 * * * $HOME/eagle-talon-asm/deploy/backup-db.sh prod >> $HOME/eagle-talon-backups/backup.log 2>&1`
 - Once a NAS share is mounted, point backups at it with `BACKUP_DIR=/mnt/nas/<share>/eagle-talon-backups`.
 
 ## Troubleshooting

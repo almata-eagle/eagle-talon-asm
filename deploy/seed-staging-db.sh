@@ -34,7 +34,14 @@ read -r -p "Type 'staging' to continue: " CONFIRM
 
 "$DEPLOY_DIR/backup-db.sh" staging || true
 
-docker volume create "$STAGING_VOLUME" >/dev/null
+# Create the volume with the labels Docker Compose puts on volumes it owns,
+# so `deploy.sh staging` adopts it without an "already exists" warning.
+if ! docker volume inspect "$STAGING_VOLUME" >/dev/null 2>&1; then
+  docker volume create \
+    --label com.docker.compose.project="$STAGING_STACK" \
+    --label com.docker.compose.volume=eagle-talon-data \
+    "$STAGING_VOLUME" >/dev/null
+fi
 docker stop "$STAGING_STACK-api" >/dev/null 2>&1 || true
 
 docker run --rm \

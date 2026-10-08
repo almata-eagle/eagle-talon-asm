@@ -23,7 +23,20 @@ ENV_FILE="$DEPLOY_DIR/env/$ENV_NAME.env"
 DATA_VOLUME="$(grep -E '^DATA_VOLUME=' "$ENV_FILE" | tail -n1 | cut -d= -f2-)"
 BACKUP_DIR="${BACKUP_DIR:-$HOME/eagle-talon-backups}"
 BACKUP_KEEP="${BACKUP_KEEP:-30}"
-VERSION="$(tr -d '[:space:]' < "$REPO_DIR/VERSION" 2>/dev/null || echo unknown)"
+API_PORT="$(grep -E '^API_PORT=' "$ENV_FILE" | tail -n1 | cut -d= -f2-)"
+
+# Label the backup with the version that environment is actually RUNNING,
+# not this checkout's VERSION file (the staging checkout backs up prod too).
+# Releases before 0.2.0 have no /api/version, so they're labelled "pre-0.2.0".
+VERSION="$(curl -fsS --max-time 3 "http://127.0.0.1:$API_PORT/api/version" 2>/dev/null \
+  | sed -n 's/.*"version":"\([^"]*\)".*/\1/p')"
+if [[ -z "$VERSION" ]]; then
+  if curl -fsS --max-time 3 "http://127.0.0.1:$API_PORT/api/health" >/dev/null 2>&1; then
+    VERSION="pre-0.2.0"
+  else
+    VERSION="unknown"
+  fi
+fi
 
 if ! docker volume inspect "$DATA_VOLUME" >/dev/null 2>&1; then
   echo "No volume $DATA_VOLUME yet — nothing to back up." >&2

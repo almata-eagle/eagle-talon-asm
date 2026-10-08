@@ -29,6 +29,13 @@ Every change merged to `staging` adds a line under **Unreleased**.
 - Docs: `docs/RUNBOOK.md`, `docs/ARCHITECTURE.md`, `docs/ROADMAP.md`,
   decision records in `docs/adr/`, and `CLAUDE.md`.
 
+### Fixed
+- `backup-db.sh` labels each backup with the version the environment is
+  actually running (from `/api/version`, or `pre-0.2.0`), not the version in
+  the checkout running the script.
+- `seed-staging-db.sh` creates the staging volume with Compose's labels, so
+  `deploy.sh staging` no longer warns that the volume "already exists".
+
 ### Changed
 - `docker-compose.yml`, the nginx template and the API Dockerfile take names,
   ports and the volume from environment variables. Every default is the prod
