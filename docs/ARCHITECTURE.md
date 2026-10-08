@@ -53,7 +53,7 @@ is in [adr/0003](adr/0003-log-collector-and-storage.md).
 | Web | `deploy/nginx.conf.template` | Ports filled from `NGINX_PORT` and `API_PORT` at container start. |
 | SOC search | `backend/soc_logs.py` | Read-only DuckDB queries over the hot store (mounted at `/soc-hot`). `/api/soc/status`, `/api/soc/events`, `/api/soc/summary`. |
 | SOC cases | `backend/soc_rules.py`, `soc_cases.py`, `soc_triage.py`, `soc_context.md` | Detection rules → cases (SQLite `soc_cases`) → Claude triage. Read-only. See [SOC-TRIAGE.md](SOC-TRIAGE.md). |
-| SOC dashboard | `backend/soc_dashboard.py`, `soc_geo.py`, `soc_geo_countries.json`, `frontend/world-110m.json` | Traffic map, callouts, MTTD/MTTR, ATT&CK tally. `/api/soc/map`, `/api/soc/dashboard`. Read-only. Geo data built by `tools/build-world-map.js`. |
+| SOC dashboard | `backend/soc_dashboard.py`, `soc_geo.py`, `soc_geo_countries.json`, `frontend/world-110m.json` | Traffic map, callouts, MTTD/MTTR, ATT&CK tally. `/api/soc/map`, `/api/soc/map/country`, `/api/soc/dashboard`. Read-only. Geo data built by `tools/build-world-map.js`. |
 | Log collector | `soc/` | `collector/vector.yaml` (pipeline + schema), `collector/tests.yaml`, `preflight.sh`, `deploy-collector.sh`, `retention.sh`. |
 | Deploy | `deploy/` | `docker-compose.yml`, `env/<env>.env`, `deploy.sh`, `backup-db.sh`, `seed-staging-db.sh`. |
 

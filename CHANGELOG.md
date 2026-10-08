@@ -83,13 +83,19 @@ Every change merged to `staging` adds a line under **Unreleased**.
     each with steps to fix.
   - **MITRE ATT&CK heatmap** by tactic from triaged cases, and a top remote
     countries table.
-  - API: `GET /api/soc/map`, `GET /api/soc/dashboard` (`backend/soc_dashboard.py`).
+  - **Interactive map**: zoom (wheel, pinch, double-click, + / − / reset),
+    drag to pan, country labels when zoomed in, and hover to highlight a
+    country's arcs. Clicking a country, arc, dot or table row opens a
+    **country details drawer** with totals per direction, an activity timeline,
+    related cases, top remote IPs and ports, and the latest events (click one
+    to see all its fields). Every item there links on to Events or Cases.
+  - API: `GET /api/soc/map`, `GET /api/soc/map/country`, `GET /api/soc/dashboard` (`backend/soc_dashboard.py`).
   - Country lookup (`backend/soc_geo.py`) and map outlines are generated
     offline from Natural Earth by `tools/build-world-map.js` and committed,
     so nothing is fetched at runtime.
   - DB: new `soc_cases.resolved_at` column (additive migration), set when a
     case is resolved, for MTTR.
-  - Tests: `backend/tests/test_soc_dashboard.py` (27 tests). 70 in total.
+  - Tests: `backend/tests/test_soc_dashboard.py` (32 tests). 75 in total.
 
 ### Fixed
 - Top bar: the domain search box could shrink to nothing and cover the

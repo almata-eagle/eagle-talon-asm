@@ -381,3 +381,122 @@ def dashboard(now: Optional[dt.datetime] = None) -> dict:
                                 >= (now - dt.timedelta(days=KPI_WINDOW_DAYS)).timestamp() or c["status"] == "open"]),
         "callouts": callouts(cases, sensor_list, engine),
     }
+
+
+# ------------------------------------------------------------------ map drill-down
+
+DETAIL_TOP_IPS = 15      # per direction
+DETAIL_TOP_PORTS = 10
+DETAIL_RECENT = 25
+MAX_COUNTRY_LEN = 80
+
+
+def _cases_for_country(country: str, place: Optional[dict], limit: int = 10) -> list[dict]:
+    """Open cases, and cases seen in the last 7 days, whose evidence names this country."""
+    names = {country.lower()}
+    if place:
+        names |= {place["name"].lower(), place["iso2"].lower()}
+    since = (soc_logs._utcnow() - dt.timedelta(days=7)).timestamp() * 1000
+    con = soc_cases._db()
+    try:
+        rows = con.execute(
+            "SELECT id, rule, title_en, title_ja, rule_severity, status, event_count, last_seen_ms, stats, triage "
+            "FROM soc_cases WHERE status = 'open' OR last_seen_ms >= ? ORDER BY last_seen_ms DESC LIMIT 500",
+            (since,),
+        ).fetchall()
+    finally:
+        con.close()
+    out = []
+    for r in rows:
+        try:
+            st = json.loads(r["stats"]) if r["stats"] else {}
+            tri = json.loads(r["triage"]) if r["triage"] else {}
+        except (TypeError, ValueError):
+            continue
+        seen = {str(x).lower() for x in [*(st.get("src_countries") or []), *(st.get("dst_countries") or [])]}
+        if not seen & names:
+            continue
+        sev = (tri or {}).get("severity") or r["rule_severity"] or "info"
+        out.append({"id": r["id"], "rule": r["rule"], "status": r["status"], "severity": sev,
+                    "title_en": r["title_en"], "title_ja": r["title_ja"],
+                    "headline_en": ((tri or {}).get("en") or {}).get("headline"),
+                    "headline_ja": ((tri or {}).get("ja") or {}).get("headline"),
+                    "event_count": r["event_count"], "last_seen_ms": r["last_seen_ms"]})
+    out.sort(key=lambda c: (c["status"] != "open", -_sev_rank(c["severity"]), -(c["last_seen_ms"] or 0)))
+    return out[:limit]
+
+
+def country_detail(country: str, range_key: str = "24h", now: Optional[dt.datetime] = None) -> dict:
+    """Everything the map knows about one remote country: totals per direction,
+    a timeline, top remote IPs and ports, the latest events and related cases.
+    `country` is the firewall's own spelling, exactly as /api/soc/map returns it."""
+    country = (country or "").strip()[:MAX_COUNTRY_LEN]
+    place = soc_geo.lookup(country)
+    out: dict[str, Any] = {
+        "country": country, "place": place, "range": range_key,
+        "bucket_minutes": soc_logs._bucket_minutes(range_key),
+        "directions": {d: {"events": 0, "blocked": 0, "bytes": 0, "remote_ips": 0, "first_ms": None, "last_ms": None}
+                       for d in ("inbound", "outbound")},
+        "timeline": [], "top_ips": [], "top_ports": [], "recent": [], "cases": [],
+    }
+    if not country or not soc_geo.is_country(country):
+        return out
+    out["cases"] = _cases_for_country(country, place)
+    since, until = soc_logs._window(range_key, now)
+    files = soc_logs._files(since, until)
+    if not files:
+        return out
+    where = (" WHERE ts_ms BETWEEN ? AND ? AND host IS DISTINCT FROM ? AND dir IS NOT NULL AND country = ?")
+    params = [int(since.timestamp() * 1000), int(until.timestamp() * 1000), soc_logs.SELFTEST_HOST, country]
+    base = (soc_logs._base_query(files)
+            + f", m AS (SELECT *, {_MAP_DIR} AS dir, {soc_logs._REMOTE_COUNTRY} AS country, "
+            + f"{soc_logs._REMOTE_IP} AS remote_ip, ({soc_logs._OUTCOME}) AS outcome FROM ev)")
+    head = [files, soc_logs.COLUMNS, *params]
+    bucket_ms = out["bucket_minutes"] * 60_000
+    nbytes = "COALESCE(bytes_in,0) + COALESCE(bytes_out,0)"
+    con = soc_logs._connect()
+    try:
+        dirs = con.execute(
+            base + f" SELECT dir, count(*), count(*) FILTER (WHERE outcome = 'blocked'), COALESCE(sum({nbytes}),0), "
+            "count(DISTINCT remote_ip), min(ts_ms), max(ts_ms) FROM m" + where + " GROUP BY dir", head).fetchall()
+        timeline = con.execute(
+            base + f" SELECT (ts_ms // {bucket_ms}) * {bucket_ms} AS b, "
+            "count(*) FILTER (WHERE dir = 'inbound'), count(*) FILTER (WHERE dir = 'outbound'), "
+            "count(*) FILTER (WHERE outcome = 'blocked') FROM m" + where + " GROUP BY b ORDER BY b", head).fetchall()
+        # Top-N per direction, so a busy inbound side can't crowd out outbound.
+        ips = con.execute(
+            base + " SELECT ip, dir, n, k, b, ports, last FROM ("
+            " SELECT *, row_number() OVER (PARTITION BY dir ORDER BY n DESC, ip) AS r FROM ("
+            f"  SELECT remote_ip AS ip, dir, count(*) AS n, count(*) FILTER (WHERE outcome = 'blocked') AS k, "
+            f"  COALESCE(sum({nbytes}),0) AS b, list(DISTINCT dst_port ORDER BY dst_port)[1:6] AS ports, max(ts_ms) AS last"
+            "  FROM m" + where + " AND remote_ip IS NOT NULL GROUP BY remote_ip, dir)) WHERE r <= ? ORDER BY dir, n DESC, ip",
+            [*head, DETAIL_TOP_IPS]).fetchall()
+        ports = con.execute(
+            base + " SELECT p, dir, n, k FROM ("
+            " SELECT *, row_number() OVER (PARTITION BY dir ORDER BY n DESC, p) AS r FROM ("
+            "  SELECT dst_port AS p, dir, count(*) AS n, count(*) FILTER (WHERE outcome = 'blocked') AS k"
+            "  FROM m" + where + " AND dst_port IS NOT NULL GROUP BY dst_port, dir)) WHERE r <= ? ORDER BY n DESC, p",
+            [*head, DETAIL_TOP_PORTS]).fetchall()
+        # Latest events, per direction. (One query per direction: DuckDB 1.5.6
+        # fails internally on a row_number() filter over read_json here.)
+        recent_rows: list = []
+        rnames: list = []
+        for d in ("inbound", "outbound"):
+            cur = con.execute(
+                base + " SELECT ts_ms, dataset, action, outcome, dir, src_ip, src_port, dst_ip, dst_port, proto, app, "
+                "signature, bytes_out, bytes_in FROM m" + where + " AND dir = ? ORDER BY ts_ms DESC LIMIT ?",
+                [*head, d, DETAIL_RECENT])
+            rnames = [x[0] for x in cur.description]
+            recent_rows += cur.fetchall()
+        recent_rows.sort(key=lambda r: -(r[0] or 0))
+    finally:
+        con.close()
+    for d, n, k, b, r, first, last in dirs:
+        out["directions"][d] = {"events": n, "blocked": k, "bytes": b, "remote_ips": r, "first_ms": first, "last_ms": last}
+    out["timeline"] = [{"t": b, "inbound": i, "outbound": o, "blocked": k} for b, i, o, k in timeline]
+    out["top_ips"] = [{"ip": ip, "dir": d, "events": n, "blocked": k, "bytes": b,
+                       "ports": [p for p in (pl or []) if p is not None], "last_ms": last}
+                      for ip, d, n, k, b, pl, last in ips]
+    out["top_ports"] = [{"port": p, "dir": d, "events": n, "blocked": k} for p, d, n, k in ports]
+    out["recent"] = [dict(zip(rnames, r)) for r in recent_rows]
+    return out

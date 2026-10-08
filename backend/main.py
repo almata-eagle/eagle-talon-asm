@@ -521,6 +521,18 @@ def soc_map(range: str = Query("24h", pattern=_RANGE_RE)):
     return res
 
 
+@app.get("/api/soc/map/country")
+def soc_map_country(country: str = Query(..., min_length=1, max_length=soc_dashboard.MAX_COUNTRY_LEN),
+                    range: str = Query("24h", pattern=_RANGE_RE)):
+    """Drill-down for one country on the map. `country` is matched exactly
+    (as a bound parameter) against the firewall's own spelling."""
+    if not soc_logs.available():
+        return {"connected": False}
+    res = soc_dashboard.country_detail(country, range)
+    res["connected"] = True
+    return res
+
+
 @app.get("/api/soc/dashboard")
 def soc_dashboard_view():
     return soc_dashboard.dashboard()

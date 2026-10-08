@@ -395,7 +395,47 @@
   .dbMapWrap .node:hover{stroke:var(--text); stroke-width:1.5;}
   .dbMapWrap .home{fill:var(--clear);}
   .dbMapWrap .homeRing{fill:none; stroke:var(--clear); stroke-width:1.2; animation:dbPulse 2.4s ease-out infinite; transform-box:fill-box; transform-origin:center;}
-  .dbMapWrap .arcHit{fill:none; stroke:transparent; stroke-width:10; cursor:pointer;}
+  .dbMapWrap .arcHit{fill:none; stroke:transparent; stroke-width:10px; vector-effect:non-scaling-stroke; cursor:pointer;}
+  .dbMapHost{position:absolute; inset:0; touch-action:none; cursor:grab; user-select:none;}
+  .dbMapHost.dragging{cursor:grabbing;}
+  .dbMapHost svg{position:absolute; inset:0; width:100%; height:100%;}
+  .dbMapWrap .land, .dbMapWrap .arc, .dbMapWrap .flow, .dbMapWrap .node, .dbMapWrap .homeRing{vector-effect:non-scaling-stroke;}
+  .dbMapWrap .land:hover{stroke:var(--muted);}
+  .dbMapWrap .lbl{fill:var(--text); font-family:var(--font-body); text-anchor:middle; paint-order:stroke; stroke:var(--bg); stroke-width:3px; stroke-linejoin:round; vector-effect:non-scaling-stroke; pointer-events:none; opacity:0; transition:opacity .15s;}
+  .dbMapWrap.zoomed .lbl{opacity:.9;}
+  .dbMapHost.focus .arc, .dbMapHost.focus .flow, .dbMapHost.focus .node{opacity:.12;}
+  .dbMapHost.focus .arc.hl{opacity:.95;} .dbMapHost.focus .flow.hl, .dbMapHost.focus .node.hl{opacity:1;}
+  .dbMapHost.focus .lbl.hl{opacity:1;}
+  .dbMapHost.focus .land.hl{stroke:var(--signal); stroke-width:1.2;}
+  .dbZoom{position:absolute; top:10px; right:10px; display:flex; flex-direction:column; gap:4px; align-items:center; z-index:2;}
+  .dbZoom button{width:28px; height:28px; border-radius:7px; border:1px solid var(--line); background:var(--panel); color:var(--text); font-size:15px; line-height:1; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,.2);}
+  .dbZoom button:hover{border-color:var(--signal); color:var(--signal);}
+  .dbZoom span{font-family:var(--font-mono); font-size:10px; color:var(--muted);}
+  .dbLegend .hint{color:var(--dim);}
+  .drawer.socWide{width:600px;}
+  @media (max-width:700px){ .drawer.socWide{width:100vw;} }
+  .dbDSeg{margin-bottom:14px; display:inline-flex;}
+  .dbDSeg button{padding:5px 11px; font-size:12px;}
+  .dbDTiles{display:grid; gap:10px;}
+  .dbDTile{background:var(--panel-2); border-radius:10px; padding:10px 12px; border-left:3px solid var(--line);}
+  .dbDTile.in{border-left-color:var(--high);} .dbDTile.out{border-left-color:var(--signal);}
+  .dbDTile .h{font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); font-weight:600; margin-bottom:6px;}
+  .dbDTile .row{display:grid; grid-template-columns:repeat(4, 1fr); gap:8px;}
+  .dbDTile .n{font-family:var(--font-mono); font-size:16px; font-weight:600; white-space:nowrap;}
+  .dbDTile .l{font-size:10px; color:var(--dim); text-transform:uppercase; letter-spacing:.05em;}
+  .dbDTile .m{font-size:11px; color:var(--dim); font-family:var(--font-mono); margin-top:6px;}
+  .dbDTl{display:flex; gap:2px; height:74px; flex-direction:row; align-items:stretch; padding:4px 6px; background:var(--panel-2); border-radius:8px;}
+  .dbDTl .b{flex:1; display:flex; flex-direction:column; min-width:2px;}
+  .dbDTl .u, .dbDTl .dn{flex:1; display:flex;}
+  .dbDTl .u{align-items:flex-end; border-bottom:1px solid var(--line);} .dbDTl .dn{align-items:flex-start;}
+  .dbDTl .u span, .dbDTl .dn span{display:block; width:100%; border-radius:2px;}
+  .dbDTl .u span{background:var(--high);} .dbDTl .dn span{background:var(--signal);}
+  .dbDKey{float:right; text-transform:none; letter-spacing:0; font-weight:400; color:var(--muted);}
+  .dbDKey i{display:inline-block; width:8px; height:8px; border-radius:2px; margin:0 3px 0 8px; vertical-align:middle;}
+  .dbDKey i.in{background:var(--high);} .dbDKey i.out{background:var(--signal);}
+  .dbDCases{display:flex; flex-direction:column; gap:6px;}
+  .dbDTable td{font-size:11.5px;}
+  #dbDRecent td{padding:5px 8px; font-size:11px;} #dbDRecent th{padding:6px 8px;}
   @keyframes dbFlow{to{stroke-dashoffset:-15;}}
   @keyframes dbPulse{0%{transform:scale(.6); opacity:.9;} 100%{transform:scale(2.6); opacity:0;}}
   @media (prefers-reduced-motion: reduce){ .dbMapWrap .flow, .dbMapWrap .homeRing{animation:none;} }
@@ -647,7 +687,10 @@
                 </div>
                 <select id="dbRange"></select>
               </h3>
-              <div class="dbMapWrap" id="dbMap"><div class="dbMapMsg" id="dbMapMsg"></div></div>
+              <div class="dbMapWrap" id="dbMapWrap">
+                <div class="dbMapHost" id="dbMap"></div>
+                <div class="dbZoom"><button id="dbZoomIn" data-i18n-title="db_zoom_in" title="Zoom in">+</button><button id="dbZoomOut" data-i18n-title="db_zoom_out" title="Zoom out">−</button><button id="dbZoomReset" data-i18n-title="db_zoom_reset" title="Reset">⟲</button><span id="dbZoomLvl"></span></div>
+              </div>
               <div class="dbLegend" id="dbLegend"></div>
             </div>
             <div class="dbLower">
@@ -810,13 +853,21 @@ const STR = {
     db_map_nogeo:"The map outlines (world-110m.json) couldn't be loaded.",
     db_not_connected:"The SOC log store isn't connected in this environment.",
     db_tip_in:"Inbound from {c}", db_tip_out:"Outbound to {c}", db_tip_events:"{n} events · {k} blocked", db_tip_ips:"{n} remote IPs",
-    db_tip_ports:"Ports", db_tip_top_ips:"Top IPs", db_tip_click:"Click to open these events",
+    db_tip_ports:"Ports", db_tip_top_ips:"Top IPs", db_tip_click:"Click for details",
     db_th_country:"Country", db_th_events:"Events", db_th_blocked:"Blocked", db_unmapped:"Not on the map: {list}",
     db_top_none:"No traffic in this range.",
     db_open_case:"Open case", db_view_events:"View events", db_resolve:"Mark resolved", db_view_cases:"Open Cases",
     db_resolve_confirm:"Mark this case resolved? You can reopen it from Cases.",
     db_claude_rec:"Claude recommends", db_awaiting:"Waiting for Claude's explanation.", db_no_triage:"Not explained by Claude (triage is off).",
     db_all_clear_t:"All clear", db_all_clear_b:"No open cases need a decision, and every sensor is reporting.",
+    db_zoom_in:"Zoom in", db_zoom_out:"Zoom out", db_zoom_reset:"Reset view",
+    db_zoom_hint:"Scroll or pinch to zoom · drag to move · click for details",
+    db_tip_none:"No traffic in this range",
+    db_d_meta:"{range} · from the firewall's country tag", db_d_ips:"Remote IPs", db_d_bytes:"Data",
+    db_d_seen:"first {first} · last {last}", db_d_none:"No traffic in this direction",
+    db_d_activity:"Activity", db_d_cases:"Related cases", db_d_top_ips:"Remote IPs", db_d_ports:"Ports",
+    db_d_recent:"Latest events", db_d_last:"Last", db_d_all_events:"Open all events", db_d_zoom:"Zoom to it on the map",
+    db_d_note:"Click an IP or a port to search for it in Events, or an event to see all its fields.",
     db_co_events:"{n} events", db_kind_sensor:"sensor", db_kind_system:"system",
     db_co_sensor_stale_t:"{ds}: no new logs for {age}",
     db_co_stale_fortigate_b:"The firewall normally logs every few seconds. Until it resumes, detection can't see traffic.",
@@ -978,13 +1029,21 @@ const STR = {
     db_map_nogeo:"地図データ（world-110m.json）を読み込めませんでした。",
     db_not_connected:"この環境ではSOCログストアが接続されていません。",
     db_tip_in:"{c}からの受信", db_tip_out:"{c}への送信", db_tip_events:"{n}件 · うち遮断{k}件", db_tip_ips:"通信相手IP {n}件",
-    db_tip_ports:"ポート", db_tip_top_ips:"主なIP", db_tip_click:"クリックでイベントを表示",
+    db_tip_ports:"ポート", db_tip_top_ips:"主なIP", db_tip_click:"クリックで詳細を表示",
     db_th_country:"国", db_th_events:"件数", db_th_blocked:"遮断", db_unmapped:"地図に表示できない値：{list}",
     db_top_none:"この期間の通信はありません。",
     db_open_case:"ケースを開く", db_view_events:"イベントを見る", db_resolve:"解決済みにする", db_view_cases:"ケース一覧へ",
     db_resolve_confirm:"このケースを解決済みにしますか？ケース画面から再オープンできます。",
     db_claude_rec:"Claudeの推奨", db_awaiting:"Claudeの解説を待っています。", db_no_triage:"Claudeによる解説はありません（トリアージ無効）。",
     db_all_clear_t:"問題なし", db_all_clear_b:"判断が必要な未解決ケースはなく、すべてのセンサーが稼働しています。",
+    db_zoom_in:"拡大", db_zoom_out:"縮小", db_zoom_reset:"表示をリセット",
+    db_zoom_hint:"スクロール／ピンチで拡大 · ドラッグで移動 · クリックで詳細",
+    db_tip_none:"この期間の通信はありません",
+    db_d_meta:"{range} · ファイアウォールの国情報による", db_d_ips:"相手IP", db_d_bytes:"データ量",
+    db_d_seen:"最初 {first} · 最後 {last}", db_d_none:"この方向の通信はありません",
+    db_d_activity:"推移", db_d_cases:"関連するケース", db_d_top_ips:"通信相手のIP", db_d_ports:"ポート",
+    db_d_recent:"最新のイベント", db_d_last:"最終", db_d_all_events:"すべてのイベントを開く", db_d_zoom:"地図でこの国に移動",
+    db_d_note:"IPやポートをクリックするとイベント画面で検索できます。イベントをクリックすると全項目を表示します。",
     db_co_events:"{n}件", db_kind_sensor:"センサー", db_kind_system:"システム",
     db_co_sensor_stale_t:"{ds}：{age}間ログが届いていません",
     db_co_stale_fortigate_b:"ファイアウォールは通常数秒ごとにログを送信します。再開するまで通信を検知できません。",
@@ -1310,6 +1369,10 @@ function applyStaticI18n(){
   document.querySelectorAll('[data-i18n]').forEach(el=>{
     const key = el.getAttribute('data-i18n');
     if(STR[LANG][key] !== undefined) el.textContent = STR[LANG][key];
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach(el=>{
+    const key = el.getAttribute('data-i18n-title');
+    if(STR[LANG][key] !== undefined) el.title = STR[LANG][key];
   });
   document.querySelectorAll('[data-i18n-placeholder]').forEach(el=>{
     const key = el.getAttribute('data-i18n-placeholder');
@@ -1815,6 +1878,7 @@ function hideTooltip(){ tooltip.style.opacity = 0; }
 
 // ---------- Drawer ----------
 function openDrawer(d){
+  document.getElementById('drawer').classList.remove('socWide');
   document.getElementById('drawerFullscreenBtn').title = t('drawer_fullscreen');
   document.getElementById('drawerDomain').textContent = d.domain;
   document.getElementById('drawerMeta').textContent =
@@ -2005,7 +2069,8 @@ async function renderMonitorSection(domain){
 }
 let drawerIsFullscreen = false;
 function closeDrawer(){
-  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawer').classList.remove('open', 'socWide');
+  if(typeof DB !== 'undefined') DB.detail = null;
   document.getElementById('overlay').classList.remove('show');
   // reset to compact side-panel for next time it opens
   drawerIsFullscreen = false;
@@ -2811,31 +2876,38 @@ function dbArc(a, b){
   return `M${x0.toFixed(1)},${y0.toFixed(1)} Q${cx.toFixed(1)},${cy.toFixed(1)} ${x1.toFixed(1)},${y1.toFixed(1)}`;
 }
 
+// The map: a pan/zoom SVG. Zoom with the wheel, the +/− buttons, a
+// double-click or a pinch; drag to pan. Hover shows the numbers; click a
+// country, arc or dot to open its details in the side drawer.
+DB.view = DB.view || {k:1, x:0, y:0};
+const DB_ZMAX = 16;
+
 function dbRenderMap(){
-  const wrap = document.getElementById('dbMap');
+  const host = document.getElementById('dbMap');
   const legend = document.getElementById('dbLegend');
   const m = DB.map;
-  const msg = text => { wrap.innerHTML = `<div class="dbMapMsg">${escH(text)}</div>`; };
+  const msg = text => { host.innerHTML = `<div class="dbMapMsg">${escH(text)}</div>`; };
   if(!m){ msg(t('db_map_loading')); legend.innerHTML = ''; return; }
   if(m.connected === false){ msg(t('db_not_connected')); legend.innerHTML = ''; return; }
   if(!DB.world){ msg(DB.worldFailed ? t('db_map_nogeo') : t('db_map_loading')); return; }
   const W = DB.world; const [vx, vy, vw, vh] = W.viewBox;
   const flows = (m.flows || []).filter(f=>!DB.dir || f.dir === DB.dir);
+  DB.flowsShown = flows;
   const byIso = {};
   flows.forEach(f=>{ byIso[f.iso2] = (byIso[f.iso2] || 0) + f.events; });
   const maxIso = Math.max(1, ...Object.values(byIso));
   const maxEv = Math.max(1, ...flows.map(f=>f.events));
   const home = dbProject(m.home.lon, m.home.lat);
 
-  let svg = `<svg viewBox="${vx} ${vy} ${vw} ${vh}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${escH(t('db_map_h'))}">`;
-  svg += W.countries.map(c=>{
+  let svg = `<svg viewBox="${vx} ${vy} ${vw} ${vh}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${escH(t('db_map_h'))}"><g class="zoomG">`;
+  svg += W.countries.map((c,ci)=>{
     const n = c.iso2 && byIso[c.iso2];
     const style = n ? ` style="fill:color-mix(in srgb, var(--signal) ${(5 + 17*Math.log(1+n)/Math.log(1+maxIso)).toFixed(0)}%, var(--line-soft))"` : '';
-    return `<path class="land${n?' hit':''}" d="${escH(c.d)}"${style}${n?` data-iso="${escH(c.iso2)}"`:''}></path>`;
+    return `<path class="land${n?' hit':''}" d="${escH(c.d)}"${style} data-c="${ci}"${c.iso2?` data-iso="${escH(c.iso2)}"`:''}></path>`;
   }).join('');
   // Biggest flows last so they draw on top.
   const order = flows.map((f,i)=>i).sort((a,b)=>flows[a].events - flows[b].events);
-  let arcs = '', nodes = '';
+  let arcs = '', nodes = '', labels = '';
   order.forEach(i=>{
     const f = flows[i];
     const pt = dbProject(f.lon, f.lat);
@@ -2843,50 +2915,280 @@ function dbRenderMap(){
     const r = (2 + 4.5*Math.log(1+f.events)/Math.log(1+maxEv)).toFixed(1);
     const cls = f.dir === 'inbound' ? 'in' : 'out';
     const far = Math.hypot(pt[0]-home[0], pt[1]-home[1]) > 14;
+    const iso = escH(f.iso2);
     if(far){
       const d = f.dir === 'inbound' ? dbArc(pt, home) : dbArc(home, pt);
       const allBlocked = f.blocked >= f.events && f.events > 0;
-      arcs += `<path class="arc ${cls}${allBlocked?' blockedAll':''}" d="${d}" stroke-width="${w}"></path>`;
-      if(!allBlocked) arcs += `<path class="flow ${cls}" d="${d}" stroke-width="${(Number(w)+1).toFixed(2)}"></path>`;
+      arcs += `<path class="arc ${cls}${allBlocked?' blockedAll':''}" d="${d}" stroke-width="${w}" data-iso="${iso}"></path>`;
+      if(!allBlocked) arcs += `<path class="flow ${cls}" d="${d}" stroke-width="${(Number(w)+1).toFixed(2)}" data-iso="${iso}"></path>`;
       arcs += `<path class="arcHit" d="${d}" data-f="${i}"></path>`;
     }
-    nodes += `<circle class="node ${cls}" cx="${pt[0].toFixed(1)}" cy="${pt[1].toFixed(1)}" r="${r}" data-f="${i}"></circle>`;
+    nodes += `<circle class="node ${cls}" cx="${pt[0].toFixed(1)}" cy="${pt[1].toFixed(1)}" r="${r}" data-r="${r}" data-f="${i}" data-iso="${iso}"></circle>`;
+    if(!labels.includes(`data-iso="${iso}"`))
+      labels += `<text class="lbl" x="${pt[0].toFixed(1)}" y="${(pt[1]-8).toFixed(1)}" data-x="${pt[0].toFixed(1)}" data-y="${pt[1].toFixed(1)}" data-iso="${iso}">${escH(dbCountryName(f))}</text>`;
   });
-  svg += arcs + nodes;
-  svg += `<circle class="homeRing" cx="${home[0].toFixed(1)}" cy="${home[1].toFixed(1)}" r="6"></circle>`
-       + `<circle class="home" cx="${home[0].toFixed(1)}" cy="${home[1].toFixed(1)}" r="4"><title>${escH(LANG==='ja' ? m.home.label_ja : m.home.label)}</title></circle></svg>`;
-  wrap.innerHTML = svg + (flows.length ? '' : `<div class="dbMapMsg">${escH(t('db_map_none'))}</div>`);
-
-  const tip = document.getElementById('dbTip');
-  const showTip = (ev, list)=>{
-    tip.innerHTML = list.map(f=>{
-      const ports = (f.top_ports||[]).map(p=>escH(p.port)).join(', ');
-      const ips = (f.top_ips||[]).map(p=>`${escH(p.ip)} (${escH(fmtNum(p.n))})`).join('<br>');
-      return `<div style="margin-bottom:6px"><b>${escH(tf(f.dir==='inbound'?'db_tip_in':'db_tip_out', {c: dbCountryName(f)}))}</b>
-        <div>${escH(tf('db_tip_events', {n: fmtNum(f.events), k: fmtNum(f.blocked)}))} · ${escH(fmtBytes(f.bytes))}</div>
-        <div class="m">${escH(tf('db_tip_ips', {n: fmtNum(f.remote_ips)}))}${ports ? ` · ${escH(t('db_tip_ports'))} ${ports}` : ''}</div>
-        ${ips ? `<div class="m">${ips}</div>` : ''}</div>`;
-    }).join('') + `<div class="m">${escH(t('db_tip_click'))}</div>`;
-    tip.style.opacity = 1;
-    const x = Math.min(ev.clientX + 14, window.innerWidth - 310);
-    tip.style.left = x + 'px'; tip.style.top = Math.min(ev.clientY + 14, window.innerHeight - tip.offsetHeight - 8) + 'px';
-  };
-  const hideTip = ()=>{ tip.style.opacity = 0; };
-  const go = f => dbGoEvents({q: f.country, direction: f.dir, range: DB.range});
-  wrap.querySelectorAll('[data-f]').forEach(el=>{
-    const f = flows[Number(el.dataset.f)];
-    el.onmousemove = ev=>showTip(ev, [f]); el.onmouseleave = hideTip; el.onclick = ()=>{ hideTip(); go(f); };
-  });
-  wrap.querySelectorAll('.land.hit').forEach(el=>{
-    const list = flows.filter(f=>f.iso2 === el.dataset.iso);
-    el.onmousemove = ev=>showTip(ev, list); el.onmouseleave = hideTip;
-    el.onclick = ()=>{ hideTip(); if(list.length === 1) go(list[0]); else dbGoEvents({q: list[0].country, range: DB.range}); };
-  });
+  svg += arcs + nodes + `<g class="lbls">${labels}</g>`;
+  svg += `<circle class="homeRing" cx="${home[0].toFixed(1)}" cy="${home[1].toFixed(1)}" r="6" data-r="6"></circle>`
+       + `<circle class="home" cx="${home[0].toFixed(1)}" cy="${home[1].toFixed(1)}" r="4" data-r="4"><title>${escH(LANG==='ja' ? m.home.label_ja : m.home.label)}</title></circle></g></svg>`;
+  host.innerHTML = svg + (flows.length ? '' : `<div class="dbMapMsg">${escH(t('db_map_none'))}</div>`);
+  dbApplyView();
 
   const n = flows.reduce((a,f)=>a+f.events, 0);
   legend.innerHTML = `<span class="in"><i></i>${escH(t('db_leg_in'))}</span><span class="out"><i></i>${escH(t('db_leg_out'))}</span>`
     + `<span class="bl"><i></i>${escH(t('db_leg_blocked'))}</span>`
+    + `<span class="hint">${escH(t('db_zoom_hint'))}</span>`
     + `<span class="sum">${escH(tf('db_leg_sum', {c: fmtNum(new Set(flows.map(f=>f.iso2)).size), n: fmtNum(n)}))}</span>`;
+}
+
+// Keep the map covering the frame: you can't pan past the edges of the world.
+function dbClampView(v){
+  const [vx, vy, vw, vh] = DB.world.viewBox;
+  v.k = Math.max(1, Math.min(DB_ZMAX, v.k));
+  v.x = Math.min(vx - vx*v.k, Math.max(vx + vw - (vx + vw)*v.k, v.x));
+  v.y = Math.min(vy - vy*v.k, Math.max(vy + vh - (vy + vh)*v.k, v.y));
+  return v;
+}
+function dbApplyView(){
+  const host = document.getElementById('dbMap'); const g = host.querySelector('.zoomG');
+  if(!g || !DB.world) return;
+  const v = dbClampView(DB.view);
+  g.setAttribute('transform', `translate(${v.x.toFixed(2)},${v.y.toFixed(2)}) scale(${v.k.toFixed(3)})`);
+  // Dots grow a little when zoomed, but much less than the map; labels stay the same size on screen.
+  const rs = Math.pow(v.k, 0.75);
+  host.querySelectorAll('circle[data-r]').forEach(c=>c.setAttribute('r', (Number(c.dataset.r)/rs).toFixed(2)));
+  host.querySelectorAll('text.lbl').forEach(tx=>{
+    tx.setAttribute('font-size', (11/v.k).toFixed(2));
+    tx.setAttribute('y', (Number(tx.dataset.y) - 9/v.k).toFixed(2));
+  });
+  document.getElementById('dbMapWrap').classList.toggle('zoomed', v.k >= 2.2);
+  const z = document.getElementById('dbZoomLvl'); if(z) z.textContent = v.k > 1.01 ? `×${v.k.toFixed(1)}` : '';
+}
+// Screen point → SVG (viewBox) point.
+function dbSvgPoint(clientX, clientY){
+  const svg = document.querySelector('#dbMap svg'); if(!svg) return null;
+  const p = svg.createSVGPoint(); p.x = clientX; p.y = clientY;
+  return p.matrixTransform(svg.getScreenCTM().inverse());
+}
+function dbZoomAt(factor, clientX, clientY){
+  if(!DB.world) return;
+  const v = DB.view; const [vx, vy, vw, vh] = DB.world.viewBox;
+  const pt = (clientX == null) ? {x: vx + vw/2, y: vy + vh/2} : dbSvgPoint(clientX, clientY);
+  if(!pt) return;
+  const k2 = Math.max(1, Math.min(DB_ZMAX, v.k * factor));
+  v.x = pt.x - (pt.x - v.x) * (k2 / v.k);
+  v.y = pt.y - (pt.y - v.y) * (k2 / v.k);
+  v.k = k2;
+  dbApplyView();
+}
+function dbZoomTo(iso){
+  // Centre on a country's dot and zoom in, used from the drawer and the table.
+  const f = (DB.flowsShown || []).find(x=>x.iso2 === iso); if(!f || !DB.world) return;
+  const [vx, vy, vw, vh] = DB.world.viewBox; const [px, py] = dbProject(f.lon, f.lat);
+  const k = Math.max(DB.view.k, 3);
+  DB.view = {k, x: vx + vw/2 - px*k, y: vy + vh/2 - py*k};
+  dbApplyView();
+}
+
+function dbShowTip(ev, html){
+  const tip = document.getElementById('dbTip');
+  tip.innerHTML = html; tip.style.opacity = 1;
+  const x = Math.min(ev.clientX + 14, window.innerWidth - 310);
+  tip.style.left = x + 'px'; tip.style.top = Math.min(ev.clientY + 14, window.innerHeight - tip.offsetHeight - 8) + 'px';
+}
+function dbHideTip(){ document.getElementById('dbTip').style.opacity = 0; }
+function dbFlowTip(list){
+  return list.map(f=>{
+    const ports = (f.top_ports||[]).map(p=>escH(p.port)).join(', ');
+    const ips = (f.top_ips||[]).map(p=>`${escH(p.ip)} (${escH(fmtNum(p.n))})`).join('<br>');
+    return `<div style="margin-bottom:6px"><b>${escH(tf(f.dir==='inbound'?'db_tip_in':'db_tip_out', {c: dbCountryName(f)}))}</b>
+      <div>${escH(tf('db_tip_events', {n: fmtNum(f.events), k: fmtNum(f.blocked)}))} · ${escH(fmtBytes(f.bytes))}</div>
+      <div class="m">${escH(tf('db_tip_ips', {n: fmtNum(f.remote_ips)}))}${ports ? ` · ${escH(t('db_tip_ports'))} ${ports}` : ''}</div>
+      ${ips ? `<div class="m">${ips}</div>` : ''}</div>`;
+  }).join('') + `<div class="m">${escH(t('db_tip_click'))}</div>`;
+}
+function dbHighlight(iso){
+  const host = document.getElementById('dbMap');
+  host.classList.toggle('focus', !!iso);
+  host.querySelectorAll('.hl').forEach(e=>e.classList.remove('hl'));
+  if(iso) host.querySelectorAll(`[data-iso="${CSS.escape(iso)}"]`).forEach(e=>e.classList.add('hl'));
+}
+
+// One set of listeners on the host; the SVG inside is replaced on every refresh.
+(function dbMapInteractions(){
+  const host = document.getElementById('dbMap');
+  const ptrs = new Map(); let drag = null, pinch = null, moved = false;
+  const target = ev => {
+    const el = ev.target.closest && ev.target.closest('[data-f], .land');
+    if(!el) return null;
+    const flows = DB.flowsShown || [];
+    if(el.dataset.f != null) return {iso: flows[Number(el.dataset.f)].iso2, list: [flows[Number(el.dataset.f)]]};
+    const iso = el.dataset.iso; const c = DB.world && DB.world.countries[Number(el.dataset.c)];
+    return {iso, list: iso ? flows.filter(f=>f.iso2 === iso) : [], land: c};
+  };
+  host.addEventListener('wheel', ev=>{
+    if(!DB.world || !host.querySelector('svg')) return;
+    ev.preventDefault();
+    dbHideTip();
+    dbZoomAt(Math.exp(-ev.deltaY * (ev.ctrlKey ? 0.01 : 0.0012)), ev.clientX, ev.clientY);
+  }, {passive:false});
+  host.addEventListener('dblclick', ev=>{ ev.preventDefault(); dbZoomAt(ev.shiftKey ? 0.5 : 2, ev.clientX, ev.clientY); });
+  host.addEventListener('pointerdown', ev=>{
+    if(!host.querySelector('svg')) return;
+    ptrs.set(ev.pointerId, {x: ev.clientX, y: ev.clientY});
+    moved = false;
+    if(ptrs.size === 1) drag = {x: ev.clientX, y: ev.clientY, vx: DB.view.x, vy: DB.view.y};
+    if(ptrs.size === 2){
+      const [a, b] = [...ptrs.values()];
+      pinch = {d: Math.hypot(a.x-b.x, a.y-b.y), k: DB.view.k}; drag = null;
+    }
+  });
+  host.addEventListener('pointermove', ev=>{
+    if(ptrs.has(ev.pointerId)) ptrs.set(ev.pointerId, {x: ev.clientX, y: ev.clientY});
+    if(pinch && ptrs.size === 2){
+      const [a, b] = [...ptrs.values()];
+      const want = pinch.k * Math.hypot(a.x-b.x, a.y-b.y) / Math.max(pinch.d, 1);
+      dbZoomAt(want / DB.view.k, (a.x+b.x)/2, (a.y+b.y)/2); moved = true; return;
+    }
+    if(drag && (Math.abs(ev.clientX-drag.x) + Math.abs(ev.clientY-drag.y) > 4)){
+      if(!moved){ moved = true; host.setPointerCapture(ev.pointerId); host.classList.add('dragging'); dbHideTip(); }
+      const svg = host.querySelector('svg'); const s = svg.getScreenCTM().a;   // screen px per viewBox unit
+      DB.view.x = drag.vx + (ev.clientX - drag.x) / s;
+      DB.view.y = drag.vy + (ev.clientY - drag.y) / s;
+      dbApplyView(); return;
+    }
+    if(drag || pinch) return;
+    const hit = target(ev);
+    if(!hit){ dbHideTip(); dbHighlight(null); return; }
+    dbHighlight(hit.list.length ? hit.iso : null);
+    if(hit.list.length) dbShowTip(ev, dbFlowTip(hit.list));
+    else if(hit.land) dbShowTip(ev, `<b>${escH(LANG==='ja' ? (hit.land.ja || hit.land.name) : hit.land.name)}</b><div class="m">${escH(t('db_tip_none'))}</div>`);
+    else dbHideTip();
+  });
+  const end = ev=>{
+    ptrs.delete(ev.pointerId);
+    if(ptrs.size < 2) pinch = null;
+    if(ptrs.size === 0){ drag = null; host.classList.remove('dragging'); }
+  };
+  host.addEventListener('pointerup', end); host.addEventListener('pointercancel', end);
+  host.addEventListener('pointerleave', ()=>{ if(!drag){ dbHideTip(); dbHighlight(null); } });
+  host.addEventListener('click', ev=>{
+    if(moved){ moved = false; return; }          // the end of a drag isn't a click
+    const hit = target(ev);
+    if(!hit || !hit.list.length) return;
+    dbHideTip();
+    dbOpenCountry(hit.list[0].country, hit.list.length === 1 ? hit.list[0].dir : '');
+  });
+  document.getElementById('dbZoomIn').onclick = ()=>dbZoomAt(1.6);
+  document.getElementById('dbZoomOut').onclick = ()=>dbZoomAt(1/1.6);
+  document.getElementById('dbZoomReset').onclick = ()=>{ DB.view = {k:1, x:0, y:0}; dbApplyView(); };
+})();
+
+// ---------- Country details (side drawer) ----------
+async function dbOpenCountry(country, dir){
+  const drawer = document.getElementById('drawer');
+  const flow = (DB.map && DB.map.flows || []).find(f=>f.country === country) || {country};
+  document.getElementById('drawerFullscreenBtn').title = t('drawer_fullscreen');
+  document.getElementById('drawerDomain').textContent = dbCountryName(flow);
+  document.getElementById('drawerMeta').textContent = tf('db_d_meta', {range: t('ev_range_'+DB.range) || DB.range});
+  document.getElementById('drawerBody').innerHTML = `<div class="evEmpty">${escH(t('ev_loading'))}</div>`;
+  drawer.classList.add('open', 'socWide');
+  document.getElementById('overlay').classList.add('show');
+  DB.detail = {country, dir: dir || ''};
+  try{
+    const r = await fetch(`${API_BASE}/api/soc/map/country?country=${encodeURIComponent(country)}&range=${encodeURIComponent(DB.range)}`);
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    if(!DB.detail || DB.detail.country !== country) return;
+    DB.detail.data = d;
+    dbRenderCountry();
+  }catch(e){
+    document.getElementById('drawerBody').innerHTML = `<div class="evEmpty">${escH(tf('ev_error', {msg: e.message || e}))}</div>`;
+  }
+}
+
+function dbRenderCountry(){
+  const st = DB.detail; const d = st && st.data; if(!d) return;
+  const body = document.getElementById('drawerBody');
+  const dirs = ['inbound','outbound'];
+  const show = x => !st.dir || x === st.dir;
+  const name = d.place ? (LANG==='ja' ? d.place.name_ja : d.country) : d.country;
+  document.getElementById('drawerDomain').textContent = name + (d.place ? `  ${d.place.iso2}` : '');
+
+  const seg = `<div class="viewToggle dbDSeg">${[['', 'db_both'], ['inbound','ev_inbound'], ['outbound','ev_outbound']].map(([v,k])=>
+    `<button data-d="${v}" class="${st.dir===v?'active':''}">${escH(t(k))}</button>`).join('')}</div>`;
+
+  const tiles = dirs.filter(show).map(x=>{
+    const s = d.directions[x];
+    const pct = s.events ? Math.round(s.blocked/s.events*100) + '%' : '—';
+    return `<div class="dbDTile ${x==='inbound'?'in':'out'}"><div class="h">${escH(t(x==='inbound'?'db_leg_in':'db_leg_out'))}</div>
+      <div class="row"><div><div class="n">${escH(fmtNum(s.events))}</div><div class="l">${escH(t('db_th_events'))}</div></div>
+      <div><div class="n">${escH(pct)}</div><div class="l">${escH(t('db_th_blocked'))}</div></div>
+      <div><div class="n">${escH(fmtNum(s.remote_ips))}</div><div class="l">${escH(t('db_d_ips'))}</div></div>
+      <div><div class="n">${escH(fmtBytes(s.bytes) || '0 B')}</div><div class="l">${escH(t('db_d_bytes'))}</div></div></div>
+      <div class="m">${s.last_ms ? escH(tf('db_d_seen', {first: fmtTime(s.first_ms), last: fmtTime(s.last_ms)})) : escH(t('db_d_none'))}</div></div>`;
+  }).join('');
+
+  // Timeline: inbound up, outbound down, around a centre line.
+  const tl = d.timeline || [];
+  let tlHtml = '';
+  if(tl.length){
+    const max = Math.max(1, ...tl.map(b=>Math.max(show('inbound') ? b.inbound : 0, show('outbound') ? b.outbound : 0)));
+    tlHtml = `<div class="dbDTl">` + tl.map(b=>{
+      const i = show('inbound') ? b.inbound : 0, o = show('outbound') ? b.outbound : 0;
+      return `<div class="b" title="${escH(fmtTime(b.t))} — ↘ ${escH(fmtNum(b.inbound))} · ↗ ${escH(fmtNum(b.outbound))} · ${escH(t('db_th_blocked'))} ${escH(fmtNum(b.blocked))}">
+        <div class="u"><span style="height:${(i/max*100).toFixed(1)}%"></span></div><div class="dn"><span style="height:${(o/max*100).toFixed(1)}%"></span></div></div>`;
+    }).join('') + `</div>`;
+  }
+
+  const cases = (d.cases || []).map(c=>{
+    const head = (LANG==='ja' ? c.headline_ja : c.headline_en) || (LANG==='ja' ? c.title_ja : c.title_en) || c.title_en || c.rule;
+    return `<div class="csItem sev-${escH(c.severity)}" data-case="${escH(c.id)}"><div class="t">${escH(head)}</div>
+      <div class="m"><span class="csBadge sev-${escH(c.severity)}">${escH(t('sev_'+c.severity) || c.severity)}</span>
+      <span>${escH(t('rule_'+c.rule) || c.rule)}</span><span>${escH(tf('cs_events', {n: fmtNum(c.event_count)}))}</span>
+      <span>${escH(csAge(c.last_seen_ms))}</span>${c.status==='resolved' ? '<span>✓</span>' : ''}</div></div>`;
+  }).join('');
+
+  const ips = (d.top_ips || []).filter(x=>show(x.dir));
+  const ipRows = ips.map((x,i)=>`<tr data-ip="${i}"><td class="evMono"><span class="evDir ${escH(x.dir)}">${x.dir==='inbound'?'↘':'↗'}</span> ${escH(x.ip)}</td>
+      <td class="num">${escH(fmtNum(x.events))}</td><td class="num">${x.events ? escH(Math.round(x.blocked/x.events*100)) + '%' : '—'}</td>
+      <td class="evMono evDim">${escH((x.ports||[]).join(', ') || '—')}</td><td class="evDim evMono">${escH(csAge(x.last_ms))}</td></tr>`).join('');
+
+  const ports = (d.top_ports || []).filter(x=>show(x.dir));
+  const portChips = ports.map((p,i)=>`<button class="evChip" data-port="${i}"><span class="evDir ${escH(p.dir)}">${p.dir==='inbound'?'↘':'↗'}</span> ${escH(p.port)}<span class="c">${escH(fmtNum(p.events))}</span></button>`).join('');
+
+  const rec = (d.recent || []).filter(x=>show(x.dir));
+  const recRows = rec.map((e,i)=>{
+    const out = e.outcome ? `<span class="evOutcome ${e.outcome==='blocked'?'blocked':'allowed'}">${escH(t('ev_out_'+e.outcome) || e.outcome)}</span>` : `<span class="evDim">${escH(e.action || '—')}</span>`;
+    return `<tr data-ev="${i}"><td class="evMono evTime">${escH(fmtTime(e.ts_ms))}</td><td>${out}</td>
+      <td class="evMono">${escH(e.src_ip || '—')}${e.src_port!=null ? '<span class="evDim">:' + escH(e.src_port) + '</span>' : ''}</td>
+      <td class="evMono">${escH(e.dst_ip || '—')}${e.dst_port!=null ? '<span class="evDim">:' + escH(e.dst_port) + '</span>' : ''}</td>
+      <td><div class="evSig" style="max-width:150px" title="${escH(e.signature || e.app)}">${escH(e.signature || [e.proto, e.app].filter(Boolean).join(' · ') || '—')}</div></td></tr>`;
+  }).join('');
+
+  const sec = (title, inner, extra) => inner ? `<div class="csSec"><h4>${escH(title)}${extra||''}</h4>${inner}</div>` : '';
+  body.innerHTML = seg + `<div class="dbDTiles">${tiles}</div>`
+    + sec(t('db_d_activity'), tlHtml, `<span class="dbDKey"><i class="in"></i>↘ <i class="out"></i>↗</span>`)
+    + sec(t('db_d_cases'), cases ? `<div class="dbDCases">${cases}</div>` : '')
+    + sec(t('db_d_top_ips'), ipRows ? `<table class="dbTop dbDTable"><tr style="cursor:default"><td class="evDim">IP</td><td class="num evDim">${escH(t('db_th_events'))}</td><td class="num evDim">${escH(t('db_th_blocked'))}</td><td class="evDim">${escH(t('db_tip_ports'))}</td><td class="evDim">${escH(t('db_d_last'))}</td></tr>${ipRows}</table>` : '')
+    + sec(t('db_d_ports'), portChips ? `<div class="evChipsRow">${portChips}</div>` : '')
+    + sec(t('db_d_recent'), recRows ? `<table class="logtable dbDTable" id="dbDRecent"><thead><tr><th>${escH(t('ev_col_time'))}</th><th>${escH(t('ev_col_action'))}</th><th>${escH(t('ev_col_src'))}</th><th>${escH(t('ev_col_dst'))}</th><th>${escH(t('ev_col_sig'))}</th></tr></thead><tbody>${recRows}</tbody></table>` : '')
+    + `<div class="csActions"><button data-act="events">${escH(t('db_d_all_events'))}</button><button data-act="zoom">${escH(t('db_d_zoom'))}</button></div>`
+    + `<div class="evNote">${escH(t('db_d_note'))}</div>`;
+
+  body.querySelectorAll('.dbDSeg button').forEach(b=>b.onclick = ()=>{ st.dir = b.dataset.d; dbRenderCountry(); });
+  body.querySelectorAll('[data-case]').forEach(el=>el.onclick = ()=>{ closeDrawer(); dbGoCases(el.dataset.case); });
+  body.querySelectorAll('tr[data-ip]').forEach(tr=>tr.onclick = ()=>{ const x = ips[Number(tr.dataset.ip)]; closeDrawer(); dbGoEvents({q: x.ip, direction: x.dir, range: DB.range}); });
+  body.querySelectorAll('[data-port]').forEach(b=>b.onclick = ()=>{ const p = ports[Number(b.dataset.port)]; closeDrawer(); dbGoEvents({q: d.country, direction: p.dir, range: DB.range}); });
+  body.querySelectorAll('tr[data-ev]').forEach(tr=>tr.onclick = ()=>{
+    const next = tr.nextElementSibling;
+    if(next && next.classList.contains('evRawRow')){ next.remove(); return; }
+    const raw = document.createElement('tr'); raw.className = 'evRawRow';
+    const td = document.createElement('td'); td.colSpan = 5;
+    const pre = document.createElement('pre'); pre.textContent = JSON.stringify(rec[Number(tr.dataset.ev)], null, 2);
+    td.appendChild(pre); raw.appendChild(td); tr.after(raw);
+  });
+  body.querySelector('[data-act=events]').onclick = ()=>{ closeDrawer(); dbGoEvents({q: d.country, direction: st.dir, range: DB.range}); };
+  body.querySelector('[data-act=zoom]').onclick = ()=>{ closeDrawer(); if(d.place) dbZoomTo(d.place.iso2); };
 }
 
 function dbRenderAttack(){
@@ -2920,7 +3222,11 @@ function dbRenderTop(){
         <td class="num">${escH(fmtNum(f.events))}</td>
         <td class="num">${f.events ? escH(Math.round(f.blocked/f.events*100)) + '%' : '—'}</td>
         <td class="num evDim">${escH(fmtBytes(f.bytes))}</td></tr>`).join('');
-    el.querySelectorAll('tr[data-i]').forEach(tr=>tr.onclick = ()=>{ const f = flows[Number(tr.dataset.i)]; dbGoEvents({q: f.country, direction: f.dir, range: DB.range}); });
+    el.querySelectorAll('tr[data-i]').forEach(tr=>{
+      const f = flows[Number(tr.dataset.i)];
+      tr.onclick = ()=>dbOpenCountry(f.country, f.dir);
+      tr.onmouseenter = ()=>dbHighlight(f.iso2); tr.onmouseleave = ()=>dbHighlight(null);
+    });
   }
   const um = (m.unmapped||[]).filter(u=>!DB.dir || u.dir === DB.dir);
   note.textContent = um.length ? tf('db_unmapped', {list: um.map(u=>`${u.country} (${fmtNum(u.events)})`).join(', ')}) : '';

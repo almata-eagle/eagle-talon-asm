@@ -246,3 +246,73 @@ def test_api_map_and_dashboard(client, env):
     assert client.get("/api/soc/map?range=1h;DROP").status_code == 422
     r = client.get("/api/soc/dashboard")
     assert r.status_code == 200 and "kpis" in r.json() and "callouts" in r.json()
+
+
+# ------------------------------------------------------------------- country drill-down
+
+def _nl_traffic(env):
+    write(env, [
+        *[ev(M(10) + dt.timedelta(seconds=i), action="deny", direction="inbound", src_ip=f"45.148.10.{i % 3}",
+             src_country="Netherlands", dst_ip="203.0.113.5", dst_country="Japan", dst_port=22 if i % 2 else 3389,
+             subtype="local") for i in range(9)],
+        ev(M(4), dst_country="Netherlands", dst_ip="93.184.216.34", dst_port=443),
+        ev(M(3), action="deny", direction="inbound", src_ip="61.82.3.1", src_country="Korea, Republic of"),
+    ])
+
+
+def test_country_detail_totals_ips_ports_recent(env):
+    _nl_traffic(env)
+    d = soc_dashboard.country_detail("Netherlands", "24h", now=NOW)
+    assert d["place"]["iso2"] == "NL"
+    assert d["directions"]["inbound"]["events"] == 9 and d["directions"]["inbound"]["blocked"] == 9
+    assert d["directions"]["inbound"]["remote_ips"] == 3
+    assert d["directions"]["outbound"]["events"] == 1 and d["directions"]["outbound"]["bytes"] == 300
+    top = {(x["ip"], x["dir"]): x for x in d["top_ips"]}
+    assert top[("45.148.10.0", "inbound")]["events"] == 3 and set(top[("45.148.10.0", "inbound")]["ports"]) <= {22, 3389}
+    assert ("93.184.216.34", "outbound") in top
+    assert {(p["port"], p["dir"]) for p in d["top_ports"]} >= {(22, "inbound"), (3389, "inbound"), (443, "outbound")}
+    assert len(d["recent"]) == 10 and d["recent"][0]["dst_ip"] == "93.184.216.34"   # newest first
+    assert sum(b["inbound"] for b in d["timeline"]) == 9
+    assert all(r["src_ip"] != "61.82.3.1" for r in d["recent"])                     # other countries excluded
+
+
+def test_country_detail_lists_related_cases(env):
+    _nl_traffic(env)
+    con = soc_cases._db()
+    for cid, countries in (("case_00000000000b", ["Netherlands"]), ("case_00000000000c", ["China"])):
+        con.execute("INSERT INTO soc_cases (id, rule, entity, title_en, rule_severity, status, last_seen_ms, "
+                    "event_count, stats, triage_status) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                    (cid, "inbound_port_scan", "[]", "t", "low", "open", int(M(5).timestamp() * 1000), 9,
+                     json.dumps({"src_countries": countries}), "pending"))
+    con.commit()
+    con.close()
+    d = soc_dashboard.country_detail("Netherlands", "24h", now=NOW)
+    assert [c["id"] for c in d["cases"]] == ["case_00000000000b"]
+
+
+def test_country_detail_ignores_non_countries_and_is_exact_match(env):
+    _nl_traffic(env)
+    assert soc_dashboard.country_detail("Reserved", "24h", now=NOW)["recent"] == []
+    assert soc_dashboard.country_detail("Nether%", "24h", now=NOW)["recent"] == []      # no LIKE wildcards
+    assert soc_dashboard.country_detail("' OR 1=1 --", "24h", now=NOW)["recent"] == []
+
+
+def test_api_country_detail_validation(client, env):
+    _nl_traffic(env)
+    r = client.get("/api/soc/map/country", params={"country": "Netherlands", "range": "1h"})
+    assert r.status_code == 200 and r.json()["directions"]["inbound"]["events"] == 9
+    assert client.get("/api/soc/map/country", params={"country": "x" * 81}).status_code == 422
+    assert client.get("/api/soc/map/country").status_code == 422
+    assert client.get("/api/soc/map/country", params={"country": "Japan", "range": "2y"}).status_code == 422
+
+
+def test_country_detail_top_lists_are_per_direction(env, monkeypatch):
+    monkeypatch.setattr(soc_dashboard, "DETAIL_TOP_IPS", 2)
+    monkeypatch.setattr(soc_dashboard, "DETAIL_RECENT", 2)
+    write(env, [*[ev(M(20) + dt.timedelta(seconds=i), action="deny", direction="inbound", src_ip=f"9.9.9.{i % 4}",
+                     src_country="United States", dst_ip="203.0.113.5", dst_country="Japan") for i in range(40)],
+                ev(M(30), dst_ip="8.8.8.8"), ev(M(31), dst_ip="8.8.4.4"), ev(M(32), dst_ip="1.0.0.1")])
+    d = soc_dashboard.country_detail("United States", "24h", now=NOW)
+    by_dir = lambda xs: {x["dir"] for x in xs}  # noqa: E731
+    assert by_dir(d["top_ips"]) == {"inbound", "outbound"} and len(d["top_ips"]) == 4
+    assert by_dir(d["recent"]) == {"inbound", "outbound"} and len(d["recent"]) == 4

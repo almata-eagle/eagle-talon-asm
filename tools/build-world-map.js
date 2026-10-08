@@ -57,7 +57,7 @@ for (const f of fc.features) {
   const iso2 = name in MANUAL_ISO ? MANUAL_ISO[name] : (iso.numericToAlpha2(f.id) || null);
   const [[, y0], [, y1]] = pathGen.bounds(f);
   ymin = Math.min(ymin, y0); ymax = Math.max(ymax, y1);
-  shapes.push({ iso2, name, d: round(pathGen(f)) });
+  shapes.push({ iso2, name, ja: (iso2 && iso.getName(iso2, "ja")) || null, d: round(pathGen(f)) });
   if (iso2 && !centroids[iso2]) {
     const [lon, lat] = mainCentroid(f);
     centroids[iso2] = [Math.round(lat * 100) / 100, Math.round(lon * 100) / 100];
