@@ -11,3 +11,8 @@ deploy/.env
 
 # OS
 .DS_Store
+
+# Deploy secrets (NVD_API_KEY, ANTHROPIC_API_KEY, ...)
+deploy/secrets.env
+backend/tests/.test-talon.db
+.pytest_cache/

@@ -72,6 +72,11 @@
     height:26px; width:auto; flex-shrink:0; margin-right:2px; object-fit:contain;
   }
   .brand .sub{color:var(--muted); font-weight:500; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; margin-left:2px;}
+  /* Environment + version marker (filled from /api/version). Staging gets a
+     loud chip and a stripe across the top so it can't be mistaken for prod. */
+  .envChip{font-family:var(--font-mono); font-size:10px; font-weight:600; letter-spacing:0.06em; padding:2px 7px; border-radius:999px; border:1px solid var(--line); color:var(--muted); margin-left:4px; white-space:nowrap;}
+  .envChip.nonprod{background:var(--watch); border-color:var(--watch); color:#141A21;}
+  .envStripe{position:fixed; top:0; left:0; right:0; height:3px; background:repeating-linear-gradient(135deg, var(--watch) 0 12px, transparent 12px 24px); z-index:100; pointer-events:none;}
 
   .searchwrap{flex:1; max-width:520px; position:relative;}
   .searchwrap input{
@@ -244,6 +249,242 @@
 
   /* ---------- Grid view ---------- */
   #gridStage, #trendsStage{position:absolute; inset:0; overflow-y:auto; display:none; padding:18px 20px 60px;}
+
+  /* ---------- Security events (SOC Phase 1) ---------- */
+  #eventsStage{position:absolute; inset:0; overflow-y:auto; display:none; padding:14px 20px 60px;}
+  .app.wideMode{grid-template-columns:0 1fr;}
+  .app.wideMode .rail{display:none;}
+  .app.wideMode .main{grid-column:2;}           /* rail is hidden: keep main in the wide column */
+  .app.wideMode .searchwrap{visibility:hidden;} /* the top search box filters domains, not events */
+  /* Top bar: never wrap button labels; drop the brand subtitle when space is tight. */
+  .viewToggle{flex-shrink:0;}
+  .viewToggle button, .addbtn{white-space:nowrap;}
+  .searchwrap{min-width:120px;}
+  @media (max-width:1640px){ .brand .sub{display:none;} .topbar{gap:10px;} .addbtn{padding-left:12px; padding-right:12px;} }
+  @media (max-width:1460px){ .topbar{gap:8px; padding:0 12px;} .viewToggle button{padding:6px 9px;} }
+  /* Compact top bar: set by fitTopbar() only when the bar would overflow
+     (works for any language and width). The logo stays; the wordmark and
+     the two action-button labels collapse to icons with tooltips. */
+  .topbar.compact .brand{font-size:0; gap:6px;}
+  .topbar.compact .addbtn{font-size:0; padding:6px 11px;}
+  .topbar.compact .addbtn::before{content:attr(data-icon); font-size:15px; font-weight:700;}
+  .topbar.compact .searchwrap{min-width:90px;}
+  .topbar.compact .viewToggle button{padding:6px 7px;}
+  .searchwrap{overflow:hidden;} /* a squeezed search box must never cover the buttons beside it */
+  .evBar{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:12px;}
+  .evBar select, .evBar input[type=text]{background:var(--panel-2); border:1px solid var(--line); color:var(--text); padding:7px 10px; border-radius:8px; font-size:12.5px; outline:none;}
+  .evBar input[type=text]{flex:1; min-width:200px; max-width:380px; font-family:var(--font-mono);}
+  .evBar input[type=text]:focus, .evBar select:focus{box-shadow:var(--shadow); border-color:var(--signal);}
+  .evBar .btnPrimary{padding:7px 14px; font-size:12.5px;}
+  .evLive{display:flex; align-items:center; gap:5px; font-size:12px; color:var(--muted); cursor:pointer; user-select:none;}
+  .evStatus{margin-left:auto; font-size:11px; color:var(--dim); font-family:var(--font-mono);}
+  .evStatus.stale{color:var(--watch);}
+  .evStatus .dot{display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--clear); margin-right:6px; vertical-align:middle;}
+  .evStatus.stale .dot{background:var(--watch);}
+  .evTiles{display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:10px; margin-bottom:10px;}
+  .evTile{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px 12px; cursor:default;}
+  .evTile.clickable{cursor:pointer;}
+  .evTile.clickable:hover{border-color:var(--signal);}
+  .evTile .n{font-family:var(--font-mono); font-size:20px; font-weight:600; line-height:1.2;}
+  .evTile .l{font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; margin-top:2px;}
+  .evTile.blocked .n{color:var(--critical);}
+  .evTimeline{display:flex; align-items:flex-end; gap:2px; height:46px; margin-bottom:12px; padding:6px 8px; background:var(--panel); border:1px solid var(--line); border-radius:10px;}
+  .evTimeline .b{flex:1; display:flex; flex-direction:column-reverse; min-width:2px; height:100%;}
+  .evTimeline .b .a{background:var(--line); border-radius:2px 2px 0 0;}
+  .evTimeline .b .k{background:var(--critical);}
+  .evChipsRow{display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:6px; font-size:11.5px;}
+  .evChipsRow .lbl{color:var(--dim); text-transform:uppercase; letter-spacing:0.06em; font-size:10px; margin-right:4px;}
+  .evChip{border:1px solid var(--line); border-radius:999px; padding:3px 9px; cursor:pointer; background:var(--panel-2); color:var(--text); font-size:11.5px;}
+  .evChip:hover{border-color:var(--signal);}
+  .evChip .c{font-family:var(--font-mono); color:var(--muted); margin-left:5px;}
+  #evTable{margin-top:10px;}
+  #evTable td{padding:7px 12px; font-size:12px; vertical-align:top;}
+  #evTable thead th{padding:8px 12px;}
+  .evMono{font-family:var(--font-mono);}
+  .evTime{white-space:nowrap;}
+  .evBytes{font-size:10.5px; color:var(--dim); margin-top:2px; white-space:nowrap;}
+  .evDim{color:var(--dim);}
+  .evOutcome{font-family:var(--font-mono); font-size:10.5px; font-weight:600; padding:2px 8px; border-radius:999px; white-space:nowrap;}
+  .evOutcome.blocked{background:color-mix(in srgb, var(--critical) 16%, transparent); color:var(--critical);}
+  .evOutcome.allowed{background:color-mix(in srgb, var(--clear) 14%, transparent); color:var(--clear);}
+  .evDir{font-family:var(--font-mono); font-size:11px; white-space:nowrap;}
+  .evDir.inbound{color:var(--high);}
+  .evDir.outbound{color:var(--signal);}
+  .evSig{max-width:360px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .evRawRow td{background:var(--panel); cursor:default;}
+  .evRawRow pre{font-family:var(--font-mono); font-size:11px; white-space:pre-wrap; word-break:break-all; margin:0; color:var(--muted); max-height:320px; overflow:auto;}
+  .evEmpty{padding:40px 20px; text-align:center; color:var(--muted); font-size:13px; line-height:1.6;}
+  .evNote{font-size:11px; color:var(--dim); margin-top:10px;}
+
+  /* ---------- Cases + Claude triage (SOC Phase 2) ---------- */
+  #casesStage{position:absolute; inset:0; display:none; flex-direction:column; padding:14px 20px 0;}
+  .csBar{display:flex; align-items:center; gap:12px; margin-bottom:12px; flex-wrap:wrap;}
+  .csBar .btnGhost{padding:6px 12px; font-size:12px; margin-left:auto;}
+  .csEngine{font-size:11px; color:var(--muted); font-family:var(--font-mono);}
+  .csEngine .on{color:var(--clear);} .csEngine .off{color:var(--dim);} .csEngine .warn{color:var(--watch);}
+  .csWrap{flex:1; display:grid; grid-template-columns:minmax(300px, 380px) 1fr; gap:14px; min-height:0; padding-bottom:16px;}
+  .csList{overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding-right:4px;}
+  .csItem{background:var(--panel); border:1px solid var(--line); border-left:4px solid var(--dim); border-radius:10px; padding:10px 12px; cursor:pointer;}
+  .csItem:hover{border-color:var(--signal);}
+  .csItem.active{border-color:var(--signal); box-shadow:var(--shadow);}
+  .csItem.sev-critical{border-left-color:var(--critical);} .csItem.sev-high{border-left-color:var(--high);}
+  .csItem.sev-medium{border-left-color:var(--watch);} .csItem.sev-low{border-left-color:var(--signal);}
+  .csItem .t{font-size:12.5px; font-weight:600; line-height:1.35; word-break:break-word;}
+  .csItem .m{display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; font-size:10.5px; color:var(--muted); font-family:var(--font-mono); align-items:center;}
+  .csBadge{font-family:var(--font-mono); font-size:10px; font-weight:600; padding:1px 7px; border-radius:999px; border:1px solid var(--line); color:var(--muted); white-space:nowrap;}
+  .csBadge.sev-critical{background:var(--critical); color:#fff; border-color:var(--critical);}
+  .csBadge.sev-high{background:color-mix(in srgb, var(--high) 20%, transparent); color:var(--high); border-color:var(--high);}
+  .csBadge.sev-medium{background:color-mix(in srgb, var(--watch) 18%, transparent); color:var(--watch); border-color:var(--watch);}
+  .csBadge.sev-low{color:var(--signal); border-color:var(--signal);}
+  .csBadge.ai{color:var(--signal);} .csBadge.ai.pending{color:var(--watch);} .csBadge.ai.error{color:var(--critical);}
+  .csDetail{overflow-y:auto; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:18px 20px;}
+  .csDetail h3{font-family:var(--font-display); font-size:16px; line-height:1.35; margin:0 0 8px; word-break:break-word;}
+  .csChips{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px;}
+  .csHeadline{font-size:15px; font-weight:600; line-height:1.5; margin:4px 0 12px; padding:12px 14px; background:var(--panel-2); border-radius:10px; border-left:3px solid var(--signal);}
+  .csSec{margin:14px 0;}
+  .csSec h4{font-size:10.5px; text-transform:uppercase; letter-spacing:0.08em; color:var(--dim); margin:0 0 6px; font-weight:600;}
+  .csSec p{font-size:13px; line-height:1.65; margin:0; color:var(--text); white-space:pre-wrap;}
+  .csWarn{background:color-mix(in srgb, var(--critical) 12%, transparent); border:1px solid var(--critical); color:var(--text); border-radius:10px; padding:10px 12px; font-size:12.5px; margin:10px 0;}
+  .csOpts{display:grid; gap:8px;}
+  .csOpt{border:1px solid var(--line); border-radius:10px; padding:10px 12px; background:var(--panel-2);}
+  .csOpt.rec{border-color:var(--signal); box-shadow:inset 3px 0 0 var(--signal);}
+  .csOpt .ot{font-weight:600; font-size:13px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
+  .csOpt .od{font-size:12.5px; line-height:1.55; margin-top:4px;}
+  .csOpt .oi{font-size:11.5px; color:var(--muted); margin-top:4px;}
+  .csRec{font-size:10px; font-weight:700; color:#0B0F14; background:var(--signal); padding:1px 7px; border-radius:999px; text-transform:uppercase; letter-spacing:0.05em;}
+  .csActions{display:flex; flex-wrap:wrap; gap:8px; margin:16px 0 4px; align-items:center;}
+  .csActions button{padding:7px 12px; font-size:12px; border-radius:8px; cursor:pointer; border:1px solid var(--line); background:var(--panel-2); color:var(--text);}
+  .csActions button.on{border-color:var(--signal); color:var(--signal);}
+  .csActions button:disabled{opacity:.5; cursor:not-allowed;}
+  .csFacts{display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:8px; font-size:12px;}
+  .csFacts div{background:var(--panel-2); border-radius:8px; padding:8px 10px; word-break:break-word;}
+  .csFacts b{display:block; font-size:10px; color:var(--dim); text-transform:uppercase; letter-spacing:0.06em; font-weight:600; margin-bottom:2px;}
+  .csEmpty{padding:40px 20px; text-align:center; color:var(--muted); font-size:13px; line-height:1.7;}
+  .csFoot{font-size:10.5px; color:var(--dim); font-family:var(--font-mono); margin-top:14px;}
+  #csEvidence td{padding:6px 10px; font-size:11.5px;}
+  @media (max-width:1100px){ .csWrap{grid-template-columns:1fr;} }
+  /* ---------- SOC dashboard (Phase 3) ---------- */
+  #dashStage{position:absolute; inset:0; overflow-y:auto; display:none; padding:14px 20px 60px;}
+  .dbKpis{display:grid; grid-template-columns:repeat(auto-fit, minmax(132px, 1fr)); gap:10px; margin-bottom:12px;}
+  .dbKpi{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px 12px; min-width:0;}
+  .dbKpi.clickable{cursor:pointer;} .dbKpi.clickable:hover{border-color:var(--signal);}
+  .dbKpi .n{font-family:var(--font-mono); font-size:20px; font-weight:600; line-height:1.2; white-space:nowrap;}
+  .dbKpi .n small{font-size:11px; color:var(--dim); font-weight:400; margin-left:4px;}
+  .dbKpi .l{font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; margin-top:2px;}
+  .dbKpi .sevs{display:flex; gap:3px; margin-top:6px; height:5px; border-radius:3px; overflow:hidden; background:var(--line-soft);}
+  .dbKpi .sevs span{display:block; height:100%;}
+  .dbKpi.alert .n{color:var(--critical);}
+  .dbMain{display:grid; grid-template-columns:minmax(0, 1fr) minmax(320px, 400px); gap:14px; align-items:start;}
+  .dbMain > div:last-child{position:sticky; top:0;}
+  .dbPanel{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 16px; min-width:0;}
+  .dbPanel h3{font-family:var(--font-display); font-size:13px; font-weight:600; margin:0 0 10px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  .dbPanel h3 .spacer{flex:1;}
+  .dbPanel h3 select{background:var(--panel-2); border:1px solid var(--line); color:var(--text); padding:4px 8px; border-radius:7px; font-size:11.5px; font-family:var(--font-body); font-weight:400;}
+  .dbPanel h3 .viewToggle button{padding:4px 9px; font-size:11.5px;}
+  .dbMapWrap{position:relative; width:100%; aspect-ratio:1000/430; max-height:60vh; background:radial-gradient(ellipse at 50% 40%, var(--panel-2), var(--panel)); border-radius:10px; overflow:hidden;}
+  .dbMapWrap svg{position:absolute; inset:0; width:100%; height:100%;}
+  .dbMapWrap .land{fill:var(--line-soft); stroke:var(--line); stroke-width:0.5;}
+  .dbMapWrap .land.hit{cursor:pointer;}
+  .dbMapWrap .arc{fill:none; stroke-linecap:round; opacity:.55;}
+  .dbMapWrap .arc.in{stroke:var(--high);} .dbMapWrap .arc.out{stroke:var(--signal);}
+  .dbMapWrap .arc.blockedAll{stroke-dasharray:3 4; opacity:.45;}
+  .dbMapWrap .flow{fill:none; stroke-linecap:round; stroke-dasharray:1 14; opacity:.95; animation:dbFlow 1.6s linear infinite; pointer-events:none;}
+  .dbMapWrap .flow.in{stroke:var(--high);} .dbMapWrap .flow.out{stroke:var(--signal);}
+  .dbMapWrap .node{stroke:var(--bg); stroke-width:1; cursor:pointer;}
+  .dbMapWrap .node.in{fill:var(--high);} .dbMapWrap .node.out{fill:var(--signal);}
+  .dbMapWrap .node:hover{stroke:var(--text); stroke-width:1.5;}
+  .dbMapWrap .home{fill:var(--clear);}
+  .dbMapWrap .homeRing{fill:none; stroke:var(--clear); stroke-width:1.2; animation:dbPulse 2.4s ease-out infinite; transform-box:fill-box; transform-origin:center;}
+  .dbMapWrap .arcHit{fill:none; stroke:transparent; stroke-width:10px; vector-effect:non-scaling-stroke; cursor:pointer;}
+  .dbMapHost{position:absolute; inset:0; touch-action:none; cursor:grab; user-select:none;}
+  .dbMapHost.dragging{cursor:grabbing;}
+  .dbMapHost svg{position:absolute; inset:0; width:100%; height:100%;}
+  .dbMapWrap .land, .dbMapWrap .arc, .dbMapWrap .flow, .dbMapWrap .node, .dbMapWrap .homeRing{vector-effect:non-scaling-stroke;}
+  .dbMapWrap .land:hover{stroke:var(--muted);}
+  .dbMapWrap .lbl{fill:var(--text); font-family:var(--font-body); text-anchor:middle; paint-order:stroke; stroke:var(--bg); stroke-width:3px; stroke-linejoin:round; vector-effect:non-scaling-stroke; pointer-events:none; opacity:0; transition:opacity .15s;}
+  .dbMapWrap.zoomed .lbl{opacity:.9;}
+  .dbMapHost.focus .arc, .dbMapHost.focus .flow, .dbMapHost.focus .node{opacity:.12;}
+  .dbMapHost.focus .arc.hl{opacity:.95;} .dbMapHost.focus .flow.hl, .dbMapHost.focus .node.hl{opacity:1;}
+  .dbMapHost.focus .lbl.hl{opacity:1;}
+  .dbMapHost.focus .land.hl{stroke:var(--signal); stroke-width:1.2;}
+  .dbZoom{position:absolute; top:10px; right:10px; display:flex; flex-direction:column; gap:4px; align-items:center; z-index:2;}
+  .dbZoom button{width:28px; height:28px; border-radius:7px; border:1px solid var(--line); background:var(--panel); color:var(--text); font-size:15px; line-height:1; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,.2);}
+  .dbZoom button:hover{border-color:var(--signal); color:var(--signal);}
+  .dbZoom span{font-family:var(--font-mono); font-size:10px; color:var(--muted);}
+  .dbLegend .hint{color:var(--dim);}
+  .drawer.socWide{width:600px;}
+  @media (max-width:700px){ .drawer.socWide{width:100vw;} }
+  .dbDSeg{margin-bottom:14px; display:inline-flex;}
+  .dbDSeg button{padding:5px 11px; font-size:12px;}
+  .dbDTiles{display:grid; gap:10px;}
+  .dbDTile{background:var(--panel-2); border-radius:10px; padding:10px 12px; border-left:3px solid var(--line);}
+  .dbDTile.in{border-left-color:var(--high);} .dbDTile.out{border-left-color:var(--signal);}
+  .dbDTile .h{font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); font-weight:600; margin-bottom:6px;}
+  .dbDTile .row{display:grid; grid-template-columns:repeat(4, 1fr); gap:8px;}
+  .dbDTile .n{font-family:var(--font-mono); font-size:16px; font-weight:600; white-space:nowrap;}
+  .dbDTile .l{font-size:10px; color:var(--dim); text-transform:uppercase; letter-spacing:.05em;}
+  .dbDTile .m{font-size:11px; color:var(--dim); font-family:var(--font-mono); margin-top:6px;}
+  .dbDTl{display:flex; gap:2px; height:74px; flex-direction:row; align-items:stretch; padding:4px 6px; background:var(--panel-2); border-radius:8px;}
+  .dbDTl .b{flex:1; display:flex; flex-direction:column; min-width:2px;}
+  .dbDTl .u, .dbDTl .dn{flex:1; display:flex;}
+  .dbDTl .u{align-items:flex-end; border-bottom:1px solid var(--line);} .dbDTl .dn{align-items:flex-start;}
+  .dbDTl .u span, .dbDTl .dn span{display:block; width:100%; border-radius:2px;}
+  .dbDTl .u span{background:var(--high);} .dbDTl .dn span{background:var(--signal);}
+  .dbDKey{float:right; text-transform:none; letter-spacing:0; font-weight:400; color:var(--muted);}
+  .dbDKey i{display:inline-block; width:8px; height:8px; border-radius:2px; margin:0 3px 0 8px; vertical-align:middle;}
+  .dbDKey i.in{background:var(--high);} .dbDKey i.out{background:var(--signal);}
+  .dbDCases{display:flex; flex-direction:column; gap:6px;}
+  .dbDTable td{font-size:11.5px;}
+  #dbDRecent td{padding:5px 8px; font-size:11px;} #dbDRecent th{padding:6px 8px;}
+  @keyframes dbFlow{to{stroke-dashoffset:-15;}}
+  @keyframes dbPulse{0%{transform:scale(.6); opacity:.9;} 100%{transform:scale(2.6); opacity:0;}}
+  @media (prefers-reduced-motion: reduce){ .dbMapWrap .flow, .dbMapWrap .homeRing{animation:none;} }
+  .dbMapMsg{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:13px; text-align:center; padding:20px;}
+  .dbLegend{display:flex; flex-wrap:wrap; gap:14px; font-size:11px; color:var(--muted); margin-top:8px; align-items:center;}
+  .dbLegend i{display:inline-block; width:18px; height:0; border-top:2px solid; vertical-align:middle; margin-right:5px;}
+  .dbLegend .in i{border-color:var(--high);} .dbLegend .out i{border-color:var(--signal);}
+  .dbLegend .bl i{border-top:2px dashed var(--muted);}
+  .dbLegend .sum{margin-left:auto; font-family:var(--font-mono); color:var(--dim);}
+  .dbTip{position:fixed; pointer-events:none; background:var(--panel-2); border:1px solid var(--line); border-radius:8px; padding:9px 11px; font-size:11.5px; z-index:70; opacity:0; transition:opacity .1s; max-width:300px; line-height:1.5; box-shadow:0 6px 18px rgba(0,0,0,.25);}
+  .dbTip b{font-family:var(--font-display);} .dbTip .m{font-family:var(--font-mono); color:var(--muted); font-size:11px;}
+  .dbCallouts{display:flex; flex-direction:column; gap:10px; max-height:calc(100vh - 290px); min-height:200px; overflow-y:auto; padding-right:2px;}
+  .dbCo{background:var(--panel); border:1px solid var(--line); border-left:4px solid var(--dim); border-radius:10px; padding:11px 13px;}
+  .dbCo.sev-critical{border-left-color:var(--critical);} .dbCo.sev-high{border-left-color:var(--high);}
+  .dbCo.sev-medium{border-left-color:var(--watch);} .dbCo.sev-low{border-left-color:var(--signal);}
+  .dbCo .hd{display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:10.5px; color:var(--muted); font-family:var(--font-mono);}
+  .dbCo .hd .age{margin-left:auto;}
+  .dbCo .tt{font-size:13px; font-weight:600; line-height:1.4; margin:6px 0 4px; word-break:break-word;}
+  .dbCo .bd{font-size:12px; color:var(--muted); line-height:1.55; word-break:break-word;}
+  .dbCo .rec{margin-top:8px; padding:8px 10px; border-radius:8px; background:var(--panel-2); box-shadow:inset 3px 0 0 var(--signal); font-size:12px; line-height:1.5;}
+  .dbCo .rec .k{font-size:10px; font-weight:700; color:var(--signal); text-transform:uppercase; letter-spacing:.06em;}
+  .dbCo .rec .d{color:var(--muted); margin-top:2px;}
+  .dbCo ul{margin:6px 0 0 18px; font-size:12px; color:var(--muted); line-height:1.55;}
+  .dbCo .acts{display:flex; flex-wrap:wrap; gap:6px; margin-top:9px;}
+  .dbCo .acts button{padding:5px 10px; font-size:11.5px; border-radius:7px; cursor:pointer; border:1px solid var(--line); background:var(--panel-2); color:var(--text);}
+  .dbCo .acts button:hover{border-color:var(--signal); color:var(--signal);}
+  .dbCo .acts button.primary{border-color:var(--signal); color:var(--signal);}
+  .dbCo code{font-family:var(--font-mono); font-size:11px; background:var(--panel-2); padding:1px 5px; border-radius:4px;}
+  .dbAllClear{padding:22px 14px; text-align:center; color:var(--muted); font-size:12.5px; line-height:1.6; background:var(--panel); border:1px dashed var(--line); border-radius:10px;}
+  .dbAllClear b{display:block; color:var(--clear); font-size:14px; margin-bottom:4px;}
+  .dbLeft{display:flex; flex-direction:column; gap:14px; min-width:0;}
+  .dbLower{display:grid; grid-template-columns:minmax(0, 1.4fr) minmax(280px, 1fr); gap:14px;}
+  .dbAttack{display:grid; grid-template-columns:repeat(auto-fill, minmax(118px, 1fr)); gap:6px;}
+  .dbTac{background:var(--panel-2); border-radius:8px; padding:7px 8px; min-height:64px; border:1px solid transparent;}
+  .dbTac.hit{border-color:color-mix(in srgb, var(--critical) 40%, transparent);}
+  .dbTac .tn{font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--dim); font-weight:600; display:flex; justify-content:space-between; gap:4px;}
+  .dbTac.hit .tn{color:var(--text);}
+  .dbTech{margin-top:5px; font-size:10.5px; padding:3px 6px; border-radius:5px; line-height:1.3; display:flex; justify-content:space-between; gap:4px;}
+  .dbTech .id{font-family:var(--font-mono); font-weight:600;}
+  .dbTech .c{font-family:var(--font-mono);}
+  .dbTop{width:100%; border-collapse:collapse; font-size:12px;}
+  .dbTop td{padding:6px 6px; border-bottom:1px solid var(--line-soft); white-space:nowrap;}
+  .dbTop tr{cursor:pointer;} .dbTop tr:hover td{background:var(--panel-2);}
+  .dbTop td.num{text-align:right; font-family:var(--font-mono);}
+  .dbTop .bar{height:4px; border-radius:2px; background:var(--line); margin-top:3px; overflow:hidden;}
+  .dbTop .bar span{display:block; height:100%;}
+  .dbNote{font-size:11px; color:var(--dim); margin-top:8px; line-height:1.5;}
+  @media (max-width:1180px){ .dbMain{grid-template-columns:1fr;} .dbCallouts{max-height:none;} }
+  @media (max-width:1500px){ .dbLower{grid-template-columns:1fr;} }
   .cardGrid{display:grid; grid-template-columns:repeat(auto-fill, minmax(230px,1fr)); gap:12px;}
   .domCard{
     background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--line);
@@ -350,7 +591,7 @@
 
 <div class="app">
   <div class="topbar">
-    <div class="brand"><img class="mark" src="logo-icon.png" alt="Eagle Talon">EAGLE TALON <span class="sub">Attack Surface Console</span></div>
+    <div class="brand"><img class="mark" src="logo-icon.png" alt="Eagle Talon">EAGLE TALON <span class="sub">Attack Surface Console</span><span class="envChip" id="envChip" hidden></span></div>
     <div class="viewToggle" id="clientSwitchWrap">
       <select id="clientSelect" style="background:transparent; border:none; color:var(--text); font-size:12.5px; font-weight:600; padding:6px 8px; cursor:pointer; outline:none;"></select>
       <button id="newClientBtn" data-i18n="new_client_btn" style="padding:6px 10px;">+ Client</button>
@@ -383,10 +624,13 @@
       <button id="btnLog" data-i18n="view_log">Log</button>
       <button id="btnGrid" data-i18n="view_grid">Grid</button>
       <button id="btnTrends" data-i18n="view_trends">Trends</button>
+      <button id="btnDash" data-i18n="view_dash">Dashboard</button>
+      <button id="btnEvents" data-i18n="view_events">Events</button>
+      <button id="btnCases" data-i18n="view_cases">Cases</button>
     </div>
     <div class="spacer"></div>
-    <button class="addbtn" id="openAdd" data-i18n="add_domain">+ Analyze Domain</button>
-    <button class="addbtn" id="openBulk" style="background:var(--panel-2); color:var(--text); border:1px solid var(--line);" data-i18n="bulk_upload">⬆ Bulk Upload</button>
+    <button class="addbtn" id="openAdd" data-icon="+" data-i18n="add_domain">+ Analyze Domain</button>
+    <button class="addbtn" id="openBulk" data-icon="⬆" style="background:var(--panel-2); color:var(--text); border:1px solid var(--line);" data-i18n="bulk_upload">⬆ Bulk Upload</button>
   </div>
 
   <div class="rail">
@@ -430,6 +674,88 @@
       </div>
       <div id="gridStage"></div>
       <div id="trendsStage"></div>
+      <div id="dashStage">
+        <div class="dbKpis" id="dbKpis"></div>
+        <div class="dbMain">
+          <div class="dbLeft">
+            <div class="dbPanel">
+              <h3><span data-i18n="db_map_h">Traffic map</span><span class="spacer"></span>
+                <div class="viewToggle" id="dbDir">
+                  <button data-d="" class="active" data-i18n="db_both">Both</button>
+                  <button data-d="inbound" data-i18n="ev_inbound">Inbound</button>
+                  <button data-d="outbound" data-i18n="ev_outbound">Outbound</button>
+                </div>
+                <select id="dbRange"></select>
+              </h3>
+              <div class="dbMapWrap" id="dbMapWrap">
+                <div class="dbMapHost" id="dbMap"></div>
+                <div class="dbZoom"><button id="dbZoomIn" data-i18n-title="db_zoom_in" title="Zoom in">+</button><button id="dbZoomOut" data-i18n-title="db_zoom_out" title="Zoom out">−</button><button id="dbZoomReset" data-i18n-title="db_zoom_reset" title="Reset">⟲</button><span id="dbZoomLvl"></span></div>
+              </div>
+              <div class="dbLegend" id="dbLegend"></div>
+            </div>
+            <div class="dbLower">
+              <div class="dbPanel">
+                <h3><span data-i18n="db_attack_h">MITRE ATT&amp;CK (last 30 days)</span></h3>
+                <div class="dbAttack" id="dbAttack"></div>
+                <div class="dbNote" data-i18n="db_attack_note">Techniques Claude named on triaged cases, by tactic. Darker = more cases.</div>
+              </div>
+              <div class="dbPanel">
+                <h3><span data-i18n="db_top_h">Top remote countries</span></h3>
+                <table class="dbTop" id="dbTop"></table>
+                <div class="dbNote" id="dbTopNote"></div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div class="dbPanel" style="padding-bottom:10px">
+              <h3><span data-i18n="db_attention_h">Needs attention</span><span class="spacer"></span><span class="csEngine" id="dbUpdated"></span></h3>
+              <div class="dbCallouts" id="dbCallouts"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="eventsStage">
+        <div class="evBar">
+          <select id="evRange"></select>
+          <select id="evDataset"></select>
+          <select id="evOutcome"></select>
+          <select id="evDirection"></select>
+          <input type="text" id="evQuery" autocomplete="off" spellcheck="false" maxlength="200">
+          <button class="btnPrimary" id="evGo" data-i18n="ev_search">Search</button>
+          <label class="evLive"><input type="checkbox" id="evLive" checked> <span data-i18n="ev_live">Live</span></label>
+          <span class="evStatus" id="evStatus"></span>
+        </div>
+        <div class="evTiles" id="evTiles"></div>
+        <div class="evTimeline" id="evTimeline"></div>
+        <div id="evChips"></div>
+        <table class="logtable" id="evTable">
+          <thead>
+            <tr>
+              <th data-i18n="ev_col_time">Time</th><th data-i18n="ev_col_action">Action</th><th data-i18n="ev_col_dir">Direction</th>
+              <th data-i18n="ev_col_src">From</th><th data-i18n="ev_col_dst">To</th><th data-i18n="ev_col_app">Service</th>
+              <th data-i18n="ev_col_sig">Detail</th><th data-i18n="ev_col_source">Source</th>
+            </tr>
+          </thead>
+          <tbody id="evBody"></tbody>
+        </table>
+        <div class="evEmpty" id="evEmpty" hidden></div>
+        <div class="evNote" id="evNote"></div>
+      </div>
+      <div id="casesStage">
+        <div class="csBar">
+          <div class="viewToggle" id="csFilter">
+            <button data-f="open" class="active" data-i18n="cs_open">Open</button>
+            <button data-f="resolved" data-i18n="cs_resolved">Resolved</button>
+            <button data-f="" data-i18n="cs_all">All</button>
+          </div>
+          <span class="csEngine" id="csEngine"></span>
+          <button class="btnGhost" id="csRun" data-i18n="cs_run">Run detection now</button>
+        </div>
+        <div class="csWrap">
+          <div class="csList" id="csList"></div>
+          <div class="csDetail" id="csDetail"></div>
+        </div>
+      </div>
       <div class="legend">
         <div class="item"><span class="dot" style="background:var(--clear)"></span><span data-i18n="legend_clear">Clear (80–100)</span></div>
         <div class="item"><span class="dot" style="background:var(--watch)"></span><span data-i18n="legend_watch">Watch (60–79)</span></div>
@@ -492,6 +818,7 @@
 <div id="printReport"></div>
 
 <div class="tooltip" id="tooltip"></div>
+<div class="dbTip" id="dbTip"></div>
 
 <script>
 // Local two-terminal dev (python -m http.server) has no reverse proxy, so it
@@ -509,8 +836,102 @@ let LANG = "en";
 
 const STR = {
   en: {
-    view_scope:"Scope", view_log:"Log", view_grid:"Grid", view_trends:"Trends",
+    view_scope:"Scope", view_log:"Log", view_grid:"Grid", view_trends:"Trends", view_events:"Events",
+    view_cases:"Cases",
+    view_dash:"Dashboard",
+    dash_title:"Security Dashboard", dash_desc:"Where traffic comes from and goes to · what needs a decision · nothing is changed automatically",
+    db_map_h:"Traffic map", db_both:"Both", db_attention_h:"Needs attention", db_attack_h:"MITRE ATT&CK (last 30 days)",
+    db_attack_note:"Techniques Claude named on triaged cases, by tactic. Darker = more cases.", db_top_h:"Top remote countries",
+    db_attack_none:"No techniques yet. Claude names ATT&CK techniques when it explains a case.",
+    db_k_open:"Open cases", db_k_new:"New (24h)", db_k_mttd:"Time to detect", db_k_mttt:"Time to explain", db_k_mttr:"Time to resolve",
+    db_k_events:"Events (24h)", db_k_blocked:"Blocked (24h)", db_k_sensors:"Sensors OK",
+    db_k_mttd_tip:"Median time from a case's first event until the case was opened (last 30 days).",
+    db_k_mttt_tip:"Median time from a case opening until Claude's explanation (last 30 days).",
+    db_k_mttr_tip:"Median time from a case opening until a person resolved it (last 30 days).",
+    db_updated:"updated {age} ago", db_leg_in:"Inbound to us", db_leg_out:"Outbound from us", db_leg_blocked:"All blocked",
+    db_leg_sum:"{c} countries · {n} events", db_map_loading:"Loading map…", db_map_none:"No traffic with a known country in this range.",
+    db_map_nogeo:"The map outlines (world-110m.json) couldn't be loaded.",
+    db_not_connected:"The SOC log store isn't connected in this environment.",
+    db_tip_in:"Inbound from {c}", db_tip_out:"Outbound to {c}", db_tip_events:"{n} events · {k} blocked", db_tip_ips:"{n} remote IPs",
+    db_tip_ports:"Ports", db_tip_top_ips:"Top IPs", db_tip_click:"Click for details",
+    db_th_country:"Country", db_th_events:"Events", db_th_blocked:"Blocked", db_unmapped:"Not on the map: {list}",
+    db_top_none:"No traffic in this range.",
+    db_open_case:"Open case", db_view_events:"View events", db_resolve:"Mark resolved", db_view_cases:"Open Cases",
+    db_resolve_confirm:"Mark this case resolved? You can reopen it from Cases.",
+    db_claude_rec:"Claude recommends", db_awaiting:"Waiting for Claude's explanation.", db_no_triage:"Not explained by Claude (triage is off).",
+    db_all_clear_t:"All clear", db_all_clear_b:"No open cases need a decision, and every sensor is reporting.",
+    db_zoom_in:"Zoom in", db_zoom_out:"Zoom out", db_zoom_reset:"Reset view",
+    db_zoom_hint:"Scroll or pinch to zoom · drag to move · click for details",
+    db_tip_none:"No traffic in this range",
+    db_d_meta:"{range} · from the firewall's country tag", db_d_ips:"Remote IPs", db_d_bytes:"Data",
+    db_d_seen:"first {first} · last {last}", db_d_none:"No traffic in this direction",
+    db_d_activity:"Activity", db_d_cases:"Related cases", db_d_top_ips:"Remote IPs", db_d_ports:"Ports",
+    db_d_recent:"Latest events", db_d_last:"Last", db_d_all_events:"Open all events", db_d_zoom:"Zoom to it on the map",
+    db_d_note:"Click an IP or a port to search for it in Events, or an event to see all its fields.",
+    db_co_events:"{n} events", db_kind_sensor:"sensor", db_kind_system:"system",
+    db_co_sensor_stale_t:"{ds}: no new logs for {age}",
+    db_co_stale_fortigate_b:"The firewall normally logs every few seconds. Until it resumes, detection can't see traffic.",
+    db_co_stale_fortigate_o:["Check the collector on core: <code>soc/preflight.sh</code>", "Confirm the FortiGate still sends syslog to core on 5516/udp"],
+    db_co_stale_suricata_b:"The IDS sensor has gone quiet. Port scans still show up from the firewall, but exploit attempts inside allowed traffic won't.",
+    db_co_stale_suricata_o:["On the sensor, check the service: <code>sudo systemctl status suricata</code>", "Restart it if it's stopped: <code>sudo systemctl restart suricata</code>", "If it was stopped on purpose, ignore this card. It clears when logs arrive."],
+    db_co_no_ids_t:"No IDS sensor connected", db_co_no_ids_b:"Only firewall logs are coming in. An IDS such as Suricata sees attacks hidden inside allowed traffic.",
+    db_co_no_ids_o:["Send Suricata's eve.json to the collector (docs/SOC-COLLECTOR.md)"],
+    db_co_hot_store_missing_t:"Log store not connected", db_co_hot_store_missing_b:"This environment can't read the SOC hot store, so there's nothing to analyse.",
+    db_co_hot_store_missing_o:["Set <code>SOC_HOT_DIR</code> in <code>deploy/env/&lt;env&gt;.env</code> and redeploy"],
+    db_co_triage_off_t:"Claude triage is off", db_co_triage_off_b:"Cases are detected but not explained.",
+    db_co_triage_off_o:["Set <code>SOC_TRIAGE=on</code> and <code>ANTHROPIC_API_KEY</code>, then redeploy"],
+    db_co_triage_errors_t:"Claude couldn't explain {n} case(s)", db_co_triage_errors_b:"Open Cases to see the error and retry.",
+    tac_reconnaissance:"Reconnaissance", "tac_resource-development":"Resource Dev.", "tac_initial-access":"Initial Access",
+    tac_execution:"Execution", tac_persistence:"Persistence", "tac_privilege-escalation":"Priv. Escalation",
+    "tac_defense-evasion":"Defense Evasion", "tac_credential-access":"Credential Access", tac_discovery:"Discovery",
+    "tac_lateral-movement":"Lateral Movement", tac_collection:"Collection", "tac_command-and-control":"Command & Control",
+    tac_exfiltration:"Exfiltration", tac_impact:"Impact", tac_other:"Other",
+    cases_title:"Cases", cases_desc:"Suspicious activity grouped into cases · explained by Claude · nothing is changed automatically",
+    cs_open:"Open", cs_resolved:"Resolved", cs_all:"All", cs_run:"Run detection now", cs_running:"Running…",
+    cs_detect_on:"Detection on", cs_detect_off:"Detection off", cs_last_run:"last run {age} ago", cs_new:"{n} new",
+    cs_ai_on:"Claude triage on · {model}", cs_ai_off:"Claude triage off", cs_ai_usage:"{n} triaged / 24h",
+    cs_none_open:"No open cases. Detection checks your logs every 5 minutes; anything suspicious appears here.",
+    cs_none:"No cases yet.", cs_pick:"Select a case to see Claude's assessment and your options.",
+    cs_not_connected:"The SOC log store isn't connected to this environment yet.",
+    cs_events:"{n} events", cs_ai_done:"Claude", cs_ai_pending:"triage pending", cs_ai_stale:"update pending",
+    cs_ai_error:"triage failed", cs_ai_skipped:"no AI triage",
+    sev_info:"info", sev_low:"low", sev_medium:"medium", sev_high:"high", sev_critical:"critical",
+    verdict_likely_malicious:"likely malicious", verdict_suspicious:"suspicious", verdict_likely_benign:"likely benign", verdict_needs_more_data:"needs more data",
+    conf_low:"low confidence", conf_medium:"medium confidence", conf_high:"high confidence",
+    cs_rule_sev:"Rule severity", cs_ai_sev:"Claude severity",
+    cs_what:"What happened", cs_why:"Why it matters", cs_unknowns:"What we don't know", cs_options:"Response options",
+    cs_recommended:"Recommended", cs_manual_note:"Options are suggestions. Nothing is changed on your network automatically — automated, approved actions arrive in a later phase.",
+    cs_injection:"Claude flagged text in these logs that looks like an attempt to manipulate an AI analyst. Treat this case with extra suspicion.",
+    cs_useful:"👍 Useful", cs_noise:"👎 Noise", cs_resolve:"Mark resolved", cs_reopen:"Reopen", cs_retriage:"Ask Claude again",
+    cs_evidence:"Evidence", cs_first:"First seen", cs_last:"Last seen", cs_ports:"Ports", cs_sources:"Sources",
+    cs_targets:"Targets", cs_countries:"Countries", cs_actions_seen:"Firewall actions", cs_signatures:"Signatures",
+    cs_blocked_allowed:"Blocked / allowed", cs_triage_waiting:"Claude hasn't assessed this case yet. It's in the queue (at most {n} per hour).",
+    cs_triage_off:"Claude triage isn't configured here, so this case has the rule's description only.",
+    cs_triage_failed:"Claude triage failed: {err}", cs_mitre:"MITRE ATT&CK",
+    cs_foot:"Rule {rule} · case {id} · triaged by {model} · {tin} in / {tout} out tokens",
+    act_no_action:"no action", act_monitor:"monitor", act_investigate:"investigate", act_block_ip:"block IP",
+    act_block_country:"block country", act_isolate_host:"isolate host", act_harden_config:"harden config",
+    act_patch_or_update:"patch / update", act_contact_vendor:"contact vendor",
+    rule_inbound_port_scan:"Port scan", rule_inbound_brute_force:"Repeated login attempts", rule_ids_alert:"IDS/IPS alert",
+    rule_allowed_inbound:"Inbound allowed", rule_outbound_volume:"Large upload", rule_outbound_new_country:"New country",
     search_placeholder:"Search domains, sectors, watchlists…",
+    events_title:"Security Events", events_desc:"Firewall and IDS logs from the SOC collector · newest first",
+    ev_range_1h:"Last hour", ev_range_6h:"Last 6 hours", ev_range_24h:"Last 24 hours", ev_range_7d:"Last 7 days",
+    ev_all_sources:"All sources", ev_any_outcome:"Allowed + blocked", ev_allowed_only:"Allowed only", ev_blocked_only:"Blocked only",
+    ev_any_direction:"Any direction", ev_inbound:"Inbound (internet → us)", ev_outbound:"Outbound (us → internet)", ev_internal:"Internal",
+    ev_search_placeholder:"IP, country, port, signature, app…", ev_search:"Search", ev_live:"Live",
+    ev_t_total:"Events", ev_t_blocked:"Blocked", ev_t_inbound:"Inbound", ev_t_outbound:"Outbound", ev_t_remote:"Remote IPs",
+    ev_top_countries:"Remote countries", ev_top_ports:"Inbound ports",
+    ev_col_time:"Time", ev_col_action:"Action", ev_col_dir:"Direction", ev_col_src:"From", ev_col_dst:"To",
+    ev_col_app:"Service", ev_col_sig:"Detail", ev_col_source:"Source",
+    ev_out_allowed:"allowed", ev_out_blocked:"blocked",
+    ev_dir_inbound:"← in", ev_dir_outbound:"→ out", ev_dir_internal:"⇄ internal", ev_dir_external:"↔ external",
+    ev_not_connected:"The SOC log store isn't connected to this environment yet. It's live in staging; see docs/SOC-COLLECTOR.md.",
+    ev_none:"No events match these filters in this time range.",
+    ev_last_write:"last log {age} ago", ev_stale:"no new logs for {age} — check the collector",
+    ev_truncated:"Showing the newest {n}. Narrow the filters to see older events.",
+    ev_loading:"Loading…", ev_error:"Couldn't load events: {msg}",
+    ev_bucket:"{n} events, {k} blocked", ev_click_row:"Click a row to see the full original log.",
     add_domain:"+ Analyze Domain",
     rail_watchlists:"Watchlists", rail_tier:"Risk Tier", rail_sector:"Sector", rail_signals:"Signals",
     rail_domains_in_view:"domains in view", all_watchlists:"All watchlists",
@@ -591,8 +1012,102 @@ const STR = {
     report_footer:"Passive/OSINT reconnaissance only. This report reflects a point-in-time scan and should be re-run periodically.",
   },
   ja: {
-    view_scope:"スコープ", view_log:"ログ", view_grid:"グリッド", view_trends:"トレンド",
+    view_scope:"スコープ", view_log:"ログ", view_grid:"グリッド", view_trends:"トレンド", view_events:"イベント",
+    view_cases:"ケース",
+    view_dash:"ダッシュボード",
+    dash_title:"セキュリティダッシュボード", dash_desc:"通信の発信元・宛先 · 判断が必要な項目 · 自動での変更は行いません",
+    db_map_h:"通信マップ", db_both:"両方", db_attention_h:"要対応", db_attack_h:"MITRE ATT&CK（過去30日）",
+    db_attack_note:"Claudeが解説したケースで挙げた手法を戦術別に表示。色が濃いほどケースが多いことを示します。", db_top_h:"通信相手の国（上位）",
+    db_attack_none:"まだ手法はありません。Claudeがケースを解説するとATT&CKの手法が表示されます。",
+    db_k_open:"未解決ケース", db_k_new:"新規（24時間）", db_k_mttd:"検知までの時間", db_k_mttt:"解説までの時間", db_k_mttr:"解決までの時間",
+    db_k_events:"イベント（24時間）", db_k_blocked:"遮断（24時間）", db_k_sensors:"正常なセンサー",
+    db_k_mttd_tip:"ケースの最初のイベントからケース作成までの中央値（過去30日）。",
+    db_k_mttt_tip:"ケース作成からClaudeの解説までの中央値（過去30日）。",
+    db_k_mttr_tip:"ケース作成から担当者が解決するまでの中央値（過去30日）。",
+    db_updated:"{age}前に更新", db_leg_in:"当方への受信", db_leg_out:"当方からの送信", db_leg_blocked:"すべて遮断",
+    db_leg_sum:"{c}か国 · {n}件", db_map_loading:"マップを読み込み中…", db_map_none:"この期間に国が判明している通信はありません。",
+    db_map_nogeo:"地図データ（world-110m.json）を読み込めませんでした。",
+    db_not_connected:"この環境ではSOCログストアが接続されていません。",
+    db_tip_in:"{c}からの受信", db_tip_out:"{c}への送信", db_tip_events:"{n}件 · うち遮断{k}件", db_tip_ips:"通信相手IP {n}件",
+    db_tip_ports:"ポート", db_tip_top_ips:"主なIP", db_tip_click:"クリックで詳細を表示",
+    db_th_country:"国", db_th_events:"件数", db_th_blocked:"遮断", db_unmapped:"地図に表示できない値：{list}",
+    db_top_none:"この期間の通信はありません。",
+    db_open_case:"ケースを開く", db_view_events:"イベントを見る", db_resolve:"解決済みにする", db_view_cases:"ケース一覧へ",
+    db_resolve_confirm:"このケースを解決済みにしますか？ケース画面から再オープンできます。",
+    db_claude_rec:"Claudeの推奨", db_awaiting:"Claudeの解説を待っています。", db_no_triage:"Claudeによる解説はありません（トリアージ無効）。",
+    db_all_clear_t:"問題なし", db_all_clear_b:"判断が必要な未解決ケースはなく、すべてのセンサーが稼働しています。",
+    db_zoom_in:"拡大", db_zoom_out:"縮小", db_zoom_reset:"表示をリセット",
+    db_zoom_hint:"スクロール／ピンチで拡大 · ドラッグで移動 · クリックで詳細",
+    db_tip_none:"この期間の通信はありません",
+    db_d_meta:"{range} · ファイアウォールの国情報による", db_d_ips:"相手IP", db_d_bytes:"データ量",
+    db_d_seen:"最初 {first} · 最後 {last}", db_d_none:"この方向の通信はありません",
+    db_d_activity:"推移", db_d_cases:"関連するケース", db_d_top_ips:"通信相手のIP", db_d_ports:"ポート",
+    db_d_recent:"最新のイベント", db_d_last:"最終", db_d_all_events:"すべてのイベントを開く", db_d_zoom:"地図でこの国に移動",
+    db_d_note:"IPやポートをクリックするとイベント画面で検索できます。イベントをクリックすると全項目を表示します。",
+    db_co_events:"{n}件", db_kind_sensor:"センサー", db_kind_system:"システム",
+    db_co_sensor_stale_t:"{ds}：{age}間ログが届いていません",
+    db_co_stale_fortigate_b:"ファイアウォールは通常数秒ごとにログを送信します。再開するまで通信を検知できません。",
+    db_co_stale_fortigate_o:["coreでコレクターを確認：<code>soc/preflight.sh</code>", "FortiGateがcoreの5516/udpへsyslogを送信しているか確認"],
+    db_co_stale_suricata_b:"IDSセンサーが停止しています。ポートスキャンはファイアウォールで見えますが、許可された通信に紛れた攻撃は検知できません。",
+    db_co_stale_suricata_o:["センサーでサービスを確認：<code>sudo systemctl status suricata</code>", "停止していれば再起動：<code>sudo systemctl restart suricata</code>", "意図的に停止している場合はこのカードを無視してください。ログが届くと消えます。"],
+    db_co_no_ids_t:"IDSセンサーが未接続です", db_co_no_ids_b:"ファイアウォールのログのみ受信しています。SuricataなどのIDSは、許可された通信に紛れた攻撃を検知できます。",
+    db_co_no_ids_o:["Suricataのeve.jsonをコレクターへ送る（docs/SOC-COLLECTOR.md）"],
+    db_co_hot_store_missing_t:"ログストアが未接続です", db_co_hot_store_missing_b:"この環境からSOCのホットストアを読めないため、分析できるデータがありません。",
+    db_co_hot_store_missing_o:["<code>deploy/env/&lt;env&gt;.env</code> に <code>SOC_HOT_DIR</code> を設定して再デプロイ"],
+    db_co_triage_off_t:"Claudeトリアージは無効です", db_co_triage_off_b:"ケースは検知されていますが、解説はされていません。",
+    db_co_triage_off_o:["<code>SOC_TRIAGE=on</code> と <code>ANTHROPIC_API_KEY</code> を設定して再デプロイ"],
+    db_co_triage_errors_t:"Claudeが{n}件のケースを解説できませんでした", db_co_triage_errors_b:"ケース画面でエラーを確認し、再実行してください。",
+    tac_reconnaissance:"偵察", "tac_resource-development":"リソース開発", "tac_initial-access":"初期アクセス",
+    tac_execution:"実行", tac_persistence:"永続化", "tac_privilege-escalation":"権限昇格",
+    "tac_defense-evasion":"防御回避", "tac_credential-access":"認証情報アクセス", tac_discovery:"探索",
+    "tac_lateral-movement":"水平展開", tac_collection:"収集", "tac_command-and-control":"C2通信",
+    tac_exfiltration:"持ち出し", tac_impact:"影響", tac_other:"その他",
+    cases_title:"ケース", cases_desc:"不審な活動をケースにまとめ、Claudeが解説 · 自動での変更は行いません",
+    cs_open:"未対応", cs_resolved:"対応済み", cs_all:"すべて", cs_run:"今すぐ検知を実行", cs_running:"実行中…",
+    cs_detect_on:"検知 稼働中", cs_detect_off:"検知 停止中", cs_last_run:"最終実行 {age}前", cs_new:"新規 {n}件",
+    cs_ai_on:"Claude分析 稼働中 · {model}", cs_ai_off:"Claude分析 停止中", cs_ai_usage:"24時間で{n}件分析",
+    cs_none_open:"未対応のケースはありません。5分ごとにログを確認し、不審な活動があればここに表示します。",
+    cs_none:"ケースはまだありません。", cs_pick:"ケースを選択すると、Claudeの評価と対応案が表示されます。",
+    cs_not_connected:"この環境にはまだSOCログストアが接続されていません。",
+    cs_events:"{n}件", cs_ai_done:"Claude", cs_ai_pending:"分析待ち", cs_ai_stale:"更新待ち",
+    cs_ai_error:"分析失敗", cs_ai_skipped:"AI分析なし",
+    sev_info:"情報", sev_low:"低", sev_medium:"中", sev_high:"高", sev_critical:"緊急",
+    verdict_likely_malicious:"悪意の可能性大", verdict_suspicious:"不審", verdict_likely_benign:"おそらく無害", verdict_needs_more_data:"情報不足",
+    conf_low:"確度 低", conf_medium:"確度 中", conf_high:"確度 高",
+    cs_rule_sev:"ルールの重大度", cs_ai_sev:"Claudeの重大度",
+    cs_what:"何が起きたか", cs_why:"なぜ重要か", cs_unknowns:"不明な点", cs_options:"対応案",
+    cs_recommended:"推奨", cs_manual_note:"対応案は提案のみです。ネットワークが自動で変更されることはありません（承認制の自動対応は今後のフェーズで追加予定）。",
+    cs_injection:"このログには、AIアナリストを操作しようとする文言が含まれているとClaudeが判断しました。特に注意して扱ってください。",
+    cs_useful:"👍 役に立った", cs_noise:"👎 ノイズ", cs_resolve:"対応済みにする", cs_reopen:"未対応に戻す", cs_retriage:"Claudeに再分析を依頼",
+    cs_evidence:"根拠となるイベント", cs_first:"初回検知", cs_last:"最終検知", cs_ports:"ポート", cs_sources:"送信元",
+    cs_targets:"宛先", cs_countries:"国", cs_actions_seen:"ファイアウォールの処理", cs_signatures:"シグネチャ",
+    cs_blocked_allowed:"ブロック／許可", cs_triage_waiting:"このケースはまだClaudeの分析待ちです（1時間あたり最大{n}件）。",
+    cs_triage_off:"この環境ではClaude分析が設定されていないため、ルールによる説明のみ表示しています。",
+    cs_triage_failed:"Claude分析に失敗しました: {err}", cs_mitre:"MITRE ATT&CK",
+    cs_foot:"ルール {rule} · ケース {id} · 分析モデル {model} · 入力 {tin} / 出力 {tout} トークン",
+    act_no_action:"対応不要", act_monitor:"監視", act_investigate:"調査", act_block_ip:"IPを遮断",
+    act_block_country:"国を遮断", act_isolate_host:"端末を隔離", act_harden_config:"設定を強化",
+    act_patch_or_update:"更新・パッチ", act_contact_vendor:"ベンダーへ連絡",
+    rule_inbound_port_scan:"ポートスキャン", rule_inbound_brute_force:"ログイン試行の繰り返し", rule_ids_alert:"IDS/IPSアラート",
+    rule_allowed_inbound:"受信通信の許可", rule_outbound_volume:"大量送信", rule_outbound_new_country:"初めての国",
     search_placeholder:"ドメイン、業種、ウォッチリストを検索…",
+    events_title:"セキュリティイベント", events_desc:"SOCコレクターが収集したファイアウォール・IDSログ（新しい順）",
+    ev_range_1h:"過去1時間", ev_range_6h:"過去6時間", ev_range_24h:"過去24時間", ev_range_7d:"過去7日間",
+    ev_all_sources:"すべてのソース", ev_any_outcome:"許可＋ブロック", ev_allowed_only:"許可のみ", ev_blocked_only:"ブロックのみ",
+    ev_any_direction:"すべての方向", ev_inbound:"受信（インターネット→自社）", ev_outbound:"送信（自社→インターネット）", ev_internal:"内部",
+    ev_search_placeholder:"IP、国、ポート、シグネチャ、アプリ…", ev_search:"検索", ev_live:"自動更新",
+    ev_t_total:"イベント", ev_t_blocked:"ブロック", ev_t_inbound:"受信", ev_t_outbound:"送信", ev_t_remote:"外部IP",
+    ev_top_countries:"接続先・接続元の国", ev_top_ports:"受信ポート",
+    ev_col_time:"時刻", ev_col_action:"アクション", ev_col_dir:"方向", ev_col_src:"送信元", ev_col_dst:"宛先",
+    ev_col_app:"サービス", ev_col_sig:"詳細", ev_col_source:"ソース",
+    ev_out_allowed:"許可", ev_out_blocked:"ブロック",
+    ev_dir_inbound:"← 受信", ev_dir_outbound:"→ 送信", ev_dir_internal:"⇄ 内部", ev_dir_external:"↔ 外部",
+    ev_not_connected:"この環境にはまだSOCログストアが接続されていません。ステージングで稼働中です（docs/SOC-COLLECTOR.md 参照）。",
+    ev_none:"この期間・条件に一致するイベントはありません。",
+    ev_last_write:"最終受信 {age}前", ev_stale:"{age}間新しいログがありません — コレクターを確認してください",
+    ev_truncated:"新しい{n}件を表示中。条件を絞り込むと古いイベントも確認できます。",
+    ev_loading:"読み込み中…", ev_error:"イベントを読み込めませんでした: {msg}",
+    ev_bucket:"{n}件（ブロック {k}件）", ev_click_row:"行をクリックすると元のログ全体を表示します。",
     add_domain:"＋ ドメインを分析",
     rail_watchlists:"ウォッチリスト", rail_tier:"リスクレベル", rail_sector:"業種", rail_signals:"シグナル",
     rail_domains_in_view:"件のドメインを表示中", all_watchlists:"すべてのウォッチリスト",
@@ -854,6 +1369,10 @@ function applyStaticI18n(){
   document.querySelectorAll('[data-i18n]').forEach(el=>{
     const key = el.getAttribute('data-i18n');
     if(STR[LANG][key] !== undefined) el.textContent = STR[LANG][key];
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach(el=>{
+    const key = el.getAttribute('data-i18n-title');
+    if(STR[LANG][key] !== undefined) el.title = STR[LANG][key];
   });
   document.querySelectorAll('[data-i18n-placeholder]').forEach(el=>{
     const key = el.getAttribute('data-i18n-placeholder');
@@ -1132,6 +1651,7 @@ function render(){
   else if(currentView==="log") renderLog(data);
   else if(currentView==="grid") renderGrid(data);
   else if(currentView==="trends") renderTrends(data);
+  // "events" renders from its own fetches (eventsLoad), not from domain data.
 }
 
 // ---------- Talon Scope (radar) ----------
@@ -1358,6 +1878,7 @@ function hideTooltip(){ tooltip.style.opacity = 0; }
 
 // ---------- Drawer ----------
 function openDrawer(d){
+  document.getElementById('drawer').classList.remove('socWide');
   document.getElementById('drawerFullscreenBtn').title = t('drawer_fullscreen');
   document.getElementById('drawerDomain').textContent = d.domain;
   document.getElementById('drawerMeta').textContent =
@@ -1548,7 +2069,8 @@ async function renderMonitorSection(domain){
 }
 let drawerIsFullscreen = false;
 function closeDrawer(){
-  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawer').classList.remove('open', 'socWide');
+  if(typeof DB !== 'undefined') DB.detail = null;
   document.getElementById('overlay').classList.remove('show');
   // reset to compact side-panel for next time it opens
   drawerIsFullscreen = false;
@@ -1571,24 +2093,36 @@ const VIEW_STAGES = {
   log:   {btn:'btnLog',   stage:'logStage',   titleKey:'log_title',   descKey:'log_desc'},
   grid:  {btn:'btnGrid',  stage:'gridStage',  titleKey:'grid_title',  descKey:'grid_desc'},
   trends:{btn:'btnTrends',stage:'trendsStage',titleKey:'trends_title',descKey:'trends_desc'},
+  events:{btn:'btnEvents',stage:'eventsStage',titleKey:'events_title',descKey:'events_desc'},
+  cases: {btn:'btnCases', stage:'casesStage', titleKey:'cases_title', descKey:'cases_desc'},
+  dash:  {btn:'btnDash',  stage:'dashStage',  titleKey:'dash_title',  descKey:'dash_desc'},
 };
 function switchView(view){
   currentView = view;
   Object.entries(VIEW_STAGES).forEach(([key,cfg])=>{
     document.getElementById(cfg.btn).classList.toggle('active', key===view);
-    document.getElementById(cfg.stage).style.display = (key===view) ? 'block' : 'none';
+    document.getElementById(cfg.stage).style.display = (key===view) ? (key==='cases' ? 'flex' : 'block') : 'none';
   });
   const cfg = VIEW_STAGES[view];
   document.getElementById('viewTitle').textContent = t(cfg.titleKey);
   document.getElementById('viewDesc').textContent = t(cfg.descKey);
   document.querySelector('.legend').style.display = (view==='scope'||view==='log') ? 'flex' : 'none';
   document.getElementById('scopeHint').style.display = (view==='scope') ? 'block' : 'none';
+  const soc = view==='events' || view==='cases' || view==='dash';
+  document.querySelector('.app').classList.toggle('wideMode', soc);
+  document.getElementById('sortSelect').style.display = soc ? 'none' : '';
   render();
+  if(view==='events') eventsEnter(); else eventsLeave();
+  if(view==='cases') casesEnter(); else casesLeave();
+  if(view==='dash') dashEnter(); else dashLeave();
 }
 document.getElementById('btnScope').onclick = ()=>switchView('scope');
 document.getElementById('btnLog').onclick = ()=>switchView('log');
 document.getElementById('btnGrid').onclick = ()=>switchView('grid');
 document.getElementById('btnTrends').onclick = ()=>switchView('trends');
+document.getElementById('btnEvents').onclick = ()=>switchView('events');
+document.getElementById('btnCases').onclick = ()=>switchView('cases');
+document.getElementById('btnDash').onclick = ()=>switchView('dash');
 
 // ---------- Theme toggle ----------
 function setTheme(theme){
@@ -1639,9 +2173,13 @@ function setLang(lang){
   document.getElementById('btnLangEn').classList.toggle('active', lang==='en');
   document.getElementById('btnLangJa').classList.toggle('active', lang==='ja');
   applyStaticI18n();
+  fitTopbar();
   const cfg = VIEW_STAGES[currentView];
   document.getElementById('viewTitle').textContent = t(cfg.titleKey);
   document.getElementById('viewDesc').textContent = t(cfg.descKey);
+  if(currentView==='events'){ eventsControls(); eventsLoad(); }
+  if(currentView==='cases'){ casesLoad(); }
+  if(currentView==='dash'){ dashControls(); dashRender(); }
   buildRail();
   render();
   closeDrawer();
@@ -1776,9 +2314,997 @@ document.getElementById('bulkGo').onclick = async ()=>{
 };
 
 window.addEventListener('resize', render);
+// ---------- Security events (SOC Phase 1) ----------
+// Reads /api/soc/* (backend/soc_logs.py). EVERY value shown here comes from
+// logs and is attacker-controlled (signatures, DNS names, app strings…), so it
+// is always passed through escH() or set with textContent — never raw innerHTML.
+function escH(v){
+  return String(v ?? '').replace(/[&<>"'`]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;'}[c]));
+}
+function tf(key, vars){ let s = t(key) || key; Object.entries(vars||{}).forEach(([k,v])=>{ s = s.split('{'+k+'}').join(String(v)); }); return s; }
+function fmtAge(sec){
+  if(sec == null) return '—';
+  if(sec < 90) return sec + 's';
+  if(sec < 5400) return Math.round(sec/60) + (LANG==='ja' ? '分' : 'm');
+  if(sec < 172800) return Math.round(sec/3600) + (LANG==='ja' ? '時間' : 'h');
+  return Math.round(sec/86400) + (LANG==='ja' ? '日' : 'd');
+}
+function fmtNum(n){ return (n ?? 0).toLocaleString(LANG==='ja' ? 'ja-JP' : 'en-US'); }
+function fmtTime(ms){
+  // Viewer's local time, compact and unambiguous: MM-DD HH:MM:SS
+  if(ms == null) return '—';
+  const d = new Date(ms), p = n=>String(n).padStart(2,'0');
+  return `${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+function fmtBytes(b){
+  if(b == null) return '';
+  const u = ['B','KB','MB','GB','TB']; let i = 0; let x = Number(b);
+  while(x >= 1024 && i < u.length-1){ x /= 1024; i++; }
+  return (i ? x.toFixed(1) : x) + ' ' + u[i];
+}
+
+const EV = { timer:null, datasets:[], lastEvents:[], loading:false, seq:0 };
+
+function eventsControls(){
+  const sel = (id, opts, keep)=>{
+    const el = document.getElementById(id); const cur = keep ? el.value : '';
+    el.innerHTML = opts.map(([v,label])=>`<option value="${escH(v)}">${escH(label)}</option>`).join('');
+    if(cur && opts.some(o=>o[0]===cur)) el.value = cur;
+  };
+  sel('evRange', [['1h',t('ev_range_1h')],['6h',t('ev_range_6h')],['24h',t('ev_range_24h')],['7d',t('ev_range_7d')]], true);
+  if(!document.getElementById('evRange').value || document.getElementById('evRange').dataset.init!=='1'){
+    document.getElementById('evRange').value = '24h'; document.getElementById('evRange').dataset.init = '1';
+  }
+  sel('evDataset', [['',t('ev_all_sources')], ...EV.datasets.map(d=>[d,d])], true);
+  sel('evOutcome', [['',t('ev_any_outcome')],['allowed',t('ev_allowed_only')],['blocked',t('ev_blocked_only')]], true);
+  sel('evDirection', [['',t('ev_any_direction')],['inbound',t('ev_inbound')],['outbound',t('ev_outbound')],['internal',t('ev_internal')]], true);
+  document.getElementById('evQuery').placeholder = t('ev_search_placeholder');
+}
+
+function eventsParams(){
+  const p = new URLSearchParams();
+  p.set('range', document.getElementById('evRange').value || '24h');
+  [['dataset','evDataset'],['outcome','evOutcome'],['direction','evDirection']].forEach(([k,id])=>{
+    const v = document.getElementById(id).value; if(v) p.set(k, v);
+  });
+  const q = document.getElementById('evQuery').value.trim(); if(q) p.set('q', q.slice(0,200));
+  return p;
+}
+
+async function eventsStatus(){
+  const el = document.getElementById('evStatus');
+  try{
+    const st = await (await fetch(`${API_BASE}/api/soc/status`)).json();
+    if(!st.connected){ el.textContent = ''; return st; }
+    if(JSON.stringify(st.datasets) !== JSON.stringify(EV.datasets)){ EV.datasets = st.datasets || []; eventsControls(); }
+    const age = st.newest_file_age_s;
+    const stale = age == null || age > 900;
+    el.className = 'evStatus' + (stale ? ' stale' : '');
+    el.innerHTML = '<span class="dot"></span>';
+    el.appendChild(document.createTextNode(stale ? tf('ev_stale', {age: fmtAge(age)}) : tf('ev_last_write', {age: fmtAge(age)})));
+    return st;
+  }catch(e){ el.textContent = ''; return null; }
+}
+
+async function eventsLoad(){
+  if(currentView !== 'events') return;
+  const seq = ++EV.seq;
+  const empty = document.getElementById('evEmpty');
+  const p = eventsParams();
+  if(!EV.lastEvents.length){ empty.hidden = false; empty.textContent = t('ev_loading'); }
+  try{
+    const st = await eventsStatus();
+    if(st && st.connected === false){ eventsRenderDisconnected(); return; }
+    const [evR, sumR] = await Promise.all([
+      fetch(`${API_BASE}/api/soc/events?${p}&limit=200`),
+      fetch(`${API_BASE}/api/soc/summary?${p}`),
+    ]);
+    if(!evR.ok) throw new Error('HTTP ' + evR.status);
+    const ev = await evR.json(); const sum = sumR.ok ? await sumR.json() : null;
+    if(seq !== EV.seq) return;              // a newer search started meanwhile
+    if(ev.connected === false){ eventsRenderDisconnected(); return; }
+    EV.lastEvents = ev.events || [];
+    eventsRenderSummary(sum);
+    eventsRenderTable(ev);
+  }catch(e){
+    if(seq !== EV.seq) return;
+    empty.hidden = false; empty.textContent = tf('ev_error', {msg: e.message || e});
+  }
+}
+
+function eventsRenderDisconnected(){
+  ['evTiles','evTimeline','evChips','evBody'].forEach(id=>document.getElementById(id).innerHTML='');
+  document.getElementById('evTimeline').style.display = 'none';
+  document.getElementById('evTable').style.display = 'none';
+  document.getElementById('evNote').textContent = '';
+  const empty = document.getElementById('evEmpty'); empty.hidden = false; empty.textContent = t('ev_not_connected');
+}
+
+function eventsRenderSummary(s){
+  const tiles = document.getElementById('evTiles');
+  const tl = document.getElementById('evTimeline');
+  const chips = document.getElementById('evChips');
+  if(!s || !s.connected){ tiles.innerHTML = tl.innerHTML = chips.innerHTML = ''; tl.style.display='none'; return; }
+  const tile = (n,label,cls,set)=>`<div class="evTile ${cls||''} ${set?'clickable':''}" ${set?`data-set="${escH(set)}"`:''}><div class="n">${escH(fmtNum(n))}</div><div class="l">${escH(label)}</div></div>`;
+  tiles.innerHTML = tile(s.total, t('ev_t_total')) + tile(s.blocked, t('ev_t_blocked'), 'blocked', 'outcome:blocked')
+    + tile(s.inbound, t('ev_t_inbound'), '', 'direction:inbound') + tile(s.outbound, t('ev_t_outbound'), '', 'direction:outbound')
+    + tile(s.remote_ips, t('ev_t_remote'));
+  tiles.querySelectorAll('.evTile.clickable').forEach(el=>el.onclick = ()=>{
+    const [k,v] = el.dataset.set.split(':');
+    document.getElementById(k==='outcome' ? 'evOutcome' : 'evDirection').value = v;
+    eventsLoad();
+  });
+
+  // Timeline: one bar per bucket, blocked share in red.
+  const pts = s.timeline || [];
+  if(pts.length){
+    const max = Math.max(...pts.map(p=>p.total), 1);
+    tl.style.display = 'flex'; tl.innerHTML = '';
+    pts.forEach(p=>{
+      const b = document.createElement('div'); b.className = 'b';
+      b.title = fmtTime(p.t) + ' — ' + tf('ev_bucket', {n: fmtNum(p.total), k: fmtNum(p.blocked)});
+      const k = document.createElement('div'); k.className = 'k'; k.style.height = (p.blocked/max*100) + '%';
+      const a = document.createElement('div'); a.className = 'a'; a.style.height = ((p.total-p.blocked)/max*100) + '%';
+      b.appendChild(k); b.appendChild(a); tl.appendChild(b);
+    });
+  } else { tl.style.display = 'none'; tl.innerHTML = ''; }
+
+  const row = (label, items)=> items.length ? `<div class="evChipsRow"><span class="lbl">${escH(label)}</span>${items.join('')}</div>` : '';
+  chips.innerHTML =
+      row(t('ev_top_countries'), (s.top_countries||[]).map(c=>`<button class="evChip" data-q="${escH(c.country)}">${escH(c.country)}<span class="c">${escH(fmtNum(c.count))}</span></button>`))
+    + row(t('ev_top_ports'), (s.top_ports_inbound||[]).map(p=>`<button class="evChip" data-q="${escH(p.port)}">${escH(p.port)}<span class="c">${escH(fmtNum(p.count))}</span></button>`));
+  chips.querySelectorAll('.evChip').forEach(el=>el.onclick = ()=>{ document.getElementById('evQuery').value = el.dataset.q; eventsLoad(); });
+}
+
+function eventsRenderTable(res){
+  const body = document.getElementById('evBody');
+  const empty = document.getElementById('evEmpty');
+  const note = document.getElementById('evNote');
+  document.getElementById('evTable').style.display = '';
+  const evs = res.events || [];
+  if(!evs.length){
+    body.innerHTML = ''; empty.hidden = false; empty.textContent = t('ev_none'); note.textContent = ''; return;
+  }
+  empty.hidden = true;
+  const ep = (ip, port, country)=> {
+    if(!ip) return '<span class="evDim">—</span>';
+    const c = country && country !== 'Reserved' ? ` <span class="evDim">${escH(country)}</span>` : '';
+    return `<span class="evMono">${escH(ip)}${port != null ? '<span class="evDim">:' + escH(port) + '</span>' : ''}</span>${c}`;
+  };
+  body.innerHTML = evs.map((e,i)=>{
+    const out = e.outcome ? `<span class="evOutcome ${e.outcome==='blocked'?'blocked':'allowed'}" title="${escH(e.action)}">${escH(t('ev_out_'+e.outcome) || e.outcome)}</span>` : `<span class="evDim">${escH(e.action || '—')}</span>`;
+    const dir = e.direction ? `<span class="evDir ${escH(e.direction)}">${escH(t('ev_dir_'+e.direction) || e.direction)}</span>` : '<span class="evDim">—</span>';
+    const svc = [e.proto, e.app].filter(Boolean).join(' · ');
+    const bytes = (e.bytes_in != null || e.bytes_out != null) ? `<div class="evBytes">↑ ${escH(fmtBytes(e.bytes_out))} &nbsp;↓ ${escH(fmtBytes(e.bytes_in))}</div>` : '';
+    return `<tr data-i="${i}">
+      <td class="evMono evTime" title="${escH(e.timestamp)}">${escH(fmtTime(e.ts_ms))}</td>
+      <td>${out}</td><td>${dir}</td>
+      <td>${ep(e.src_ip, e.src_port, e.src_country)}</td>
+      <td>${ep(e.dst_ip, e.dst_port, e.dst_country)}</td>
+      <td class="evMono">${escH(svc) || '<span class="evDim">—</span>'}${bytes}</td>
+      <td><div class="evSig" title="${escH(e.signature)}">${e.signature ? escH(e.signature) : '<span class="evDim">—</span>'}</div></td>
+      <td class="evDim evMono">${escH(e.dataset)}</td>
+    </tr>`;
+  }).join('');
+  body.querySelectorAll('tr[data-i]').forEach(tr=>tr.onclick = ()=>{
+    const next = tr.nextElementSibling;
+    if(next && next.classList.contains('evRawRow')){ next.remove(); return; }
+    const e = EV.lastEvents[Number(tr.dataset.i)];
+    const raw = document.createElement('tr'); raw.className = 'evRawRow';
+    const td = document.createElement('td'); td.colSpan = 8;
+    const pre = document.createElement('pre');
+    pre.textContent = JSON.stringify(e, null, 2);   // textContent: never interpreted as HTML
+    td.appendChild(pre); raw.appendChild(td); tr.after(raw);
+  });
+  note.textContent = (res.truncated ? tf('ev_truncated', {n: fmtNum(evs.length)}) + ' ' : '') + t('ev_click_row');
+}
+
+function eventsEnter(){
+  eventsControls();
+  eventsLoad();
+  clearInterval(EV.timer);
+  EV.timer = setInterval(()=>{
+    if(currentView==='events' && document.getElementById('evLive').checked && document.visibilityState==='visible') eventsLoad();
+  }, 30000);
+}
+function eventsLeave(){ clearInterval(EV.timer); EV.timer = null; }
+
+document.getElementById('evGo').onclick = ()=>eventsLoad();
+document.getElementById('evQuery').addEventListener('keydown', e=>{ if(e.key==='Enter') eventsLoad(); });
+['evRange','evDataset','evOutcome','evDirection'].forEach(id=>document.getElementById(id).onchange = ()=>eventsLoad());
+
+// ---------- Cases + Claude triage (SOC Phase 2) ----------
+// Case titles, Claude's explanations and evidence can all contain text that
+// came from attacker-controlled logs. Everything goes through escH().
+const CS = { filter:'open', cases:[], selected:null, timer:null, engine:null, busy:false };
+
+function csSev(c){ return (c.triage && c.triage.severity) || c.rule_severity || 'low'; }
+function csLang(o){ return o ? (o[LANG] || o.en || {}) : {}; }
+function csTitle(c){ return (LANG==='ja' ? c.title_ja : c.title_en) || c.title_en || c.rule; }
+function csAge(ms){ return ms ? fmtAge(Math.max(0, Math.round((Date.now()-ms)/1000))) : '—'; }
+
+async function casesLoad(){
+  if(currentView !== 'cases') return;
+  try{
+    const [engR, listR] = await Promise.all([
+      fetch(`${API_BASE}/api/soc/engine`),
+      fetch(`${API_BASE}/api/soc/cases${CS.filter ? '?status='+encodeURIComponent(CS.filter) : ''}`),
+    ]);
+    CS.engine = engR.ok ? await engR.json() : null;
+    CS.cases = listR.ok ? ((await listR.json()).cases || []) : [];
+  }catch(e){ CS.engine = null; CS.cases = []; }
+  casesRenderEngine();
+  casesRenderList();
+  if(CS.selected && CS.cases.some(c=>c.id===CS.selected)) casesOpen(CS.selected, true);
+  else if(CS.cases.length) casesOpen(CS.cases[0].id, true);
+  else casesRenderDetailEmpty();
+}
+
+function casesRenderEngine(){
+  const el = document.getElementById('csEngine'); const e = CS.engine;
+  if(!e){ el.textContent = ''; return; }
+  const parts = [];
+  const lr = e.last_run || {};
+  let d = e.detect_enabled ? `<span class="on">●</span> ${escH(t('cs_detect_on'))}` : `<span class="off">●</span> ${escH(t('cs_detect_off'))}`;
+  if(lr.at) d += ' · ' + escH(tf('cs_last_run', {age: fmtAge(Math.max(0, Math.round((Date.now()-Date.parse(lr.at))/1000)))}));
+  if(lr.created) d += ' · ' + escH(tf('cs_new', {n: lr.created}));
+  if(lr.error) d += ` · <span class="warn">${escH(lr.error)}</span>`;
+  parts.push(d);
+  const tr = e.triage || {};
+  parts.push(tr.enabled
+    ? `<span class="on">●</span> ${escH(tf('cs_ai_on', {model: tr.model}))} · ${escH(tf('cs_ai_usage', {n: (e.usage||{}).cases_triaged_24h || 0}))}`
+    : `<span class="off">●</span> ${escH(t('cs_ai_off'))}`);
+  el.innerHTML = parts.join(' &nbsp;|&nbsp; ');
+  document.getElementById('csRun').disabled = !e.hot_store_connected;
+}
+
+function casesAiBadge(c){
+  const st = c.triage_status;
+  const key = {done:'cs_ai_done', pending:'cs_ai_pending', stale:'cs_ai_stale', error:'cs_ai_error', skipped:'cs_ai_skipped'}[st] || 'cs_ai_pending';
+  const cls = st==='done' ? 'ai' : st==='error' ? 'ai error' : 'ai pending';
+  return `<span class="csBadge ${cls}">${st==='done' ? '✦ ' : ''}${escH(t(key))}</span>`;
+}
+
+function casesRenderList(){
+  const list = document.getElementById('csList');
+  if(CS.engine && CS.engine.hot_store_connected === false && !CS.cases.length){
+    list.innerHTML = `<div class="csEmpty">${escH(t('cs_not_connected'))}</div>`; return;
+  }
+  if(!CS.cases.length){
+    list.innerHTML = `<div class="csEmpty">${escH(CS.filter==='open' ? t('cs_none_open') : t('cs_none'))}</div>`; return;
+  }
+  list.innerHTML = CS.cases.map(c=>{
+    const sev = csSev(c);
+    const head = c.triage ? csLang(c.triage).headline : '';
+    return `<div class="csItem sev-${escH(sev)} ${c.id===CS.selected?'active':''}" data-id="${escH(c.id)}">
+      <div class="t">${escH(head || csTitle(c))}</div>
+      <div class="m"><span class="csBadge sev-${escH(sev)}">${escH(t('sev_'+sev) || sev)}</span>
+        <span>${escH(t('rule_'+c.rule) || c.rule)}</span><span>${escH(tf('cs_events', {n: fmtNum(c.event_count)}))}</span>
+        <span>${escH(csAge(c.last_seen_ms))}</span>${casesAiBadge(c)}
+        ${c.feedback ? `<span>${c.feedback==='useful'?'👍':'👎'}</span>` : ''}${c.status==='resolved' ? '<span>✓</span>' : ''}</div>
+    </div>`;
+  }).join('');
+  list.querySelectorAll('.csItem').forEach(el=>el.onclick = ()=>casesOpen(el.dataset.id));
+}
+
+function casesRenderDetailEmpty(){
+  document.getElementById('csDetail').innerHTML = `<div class="csEmpty">${escH(CS.cases.length ? t('cs_pick') : (CS.filter==='open' ? t('cs_none_open') : t('cs_none')))}</div>`;
+}
+
+async function casesOpen(id, quiet){
+  CS.selected = id;
+  document.querySelectorAll('#csList .csItem').forEach(el=>el.classList.toggle('active', el.dataset.id===id));
+  try{
+    const r = await fetch(`${API_BASE}/api/soc/cases/${encodeURIComponent(id)}`);
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const c = await r.json();
+    if(CS.selected === id) casesRenderDetail(c);
+  }catch(e){ if(!quiet) document.getElementById('csDetail').innerHTML = `<div class="csEmpty">${escH(e.message)}</div>`; }
+}
+
+function casesRenderDetail(c){
+  const el = document.getElementById('csDetail');
+  const tri = c.triage; const tx = csLang(tri); const st = c.stats || {};
+  const sev = csSev(c);
+  const chip = (txt, cls)=> `<span class="csBadge ${cls||''}">${escH(txt)}</span>`;
+  let h = `<h3>${escH(csTitle(c))}</h3><div class="csChips">`
+    + chip(t('rule_'+c.rule) || c.rule)
+    + chip(`${t('cs_rule_sev')}: ${t('sev_'+c.rule_severity) || c.rule_severity}`, 'sev-'+c.rule_severity);
+  if(tri){
+    h += chip(`${t('cs_ai_sev')}: ${t('sev_'+tri.severity) || tri.severity}`, 'sev-'+tri.severity)
+      + chip(t('verdict_'+tri.verdict) || tri.verdict, 'ai') + chip(t('conf_'+tri.confidence) || tri.confidence);
+  }
+  h += chip(tf('cs_events', {n: fmtNum(c.event_count)})) + '</div>';
+
+  if(tri){
+    if(tri.injection_suspected) h += `<div class="csWarn">⚠ ${escH(t('cs_injection'))}</div>`;
+    h += `<div class="csHeadline">✦ ${escH(tx.headline)}</div>`;
+    h += `<div class="csSec"><h4>${escH(t('cs_what'))}</h4><p>${escH(tx.what_happened)}</p></div>`;
+    h += `<div class="csSec"><h4>${escH(t('cs_why'))}</h4><p>${escH(tx.why_it_matters)}</p></div>`;
+    if(tx.unknowns) h += `<div class="csSec"><h4>${escH(t('cs_unknowns'))}</h4><p>${escH(tx.unknowns)}</p></div>`;
+    h += `<div class="csSec"><h4>${escH(t('cs_options'))}</h4><div class="csOpts">` + (tri.options||[]).map(o=>{
+      const ot = csLang(o);
+      return `<div class="csOpt ${o.recommended?'rec':''}"><div class="ot">${o.recommended ? `<span class="csRec">${escH(t('cs_recommended'))}</span>` : ''}
+        ${escH(ot.title)} <span class="csBadge">${escH(t('act_'+o.action_type) || o.action_type)}</span></div>
+        <div class="od">${escH(ot.detail)}</div><div class="oi">${escH(ot.impact)}</div></div>`;
+    }).join('') + `</div><div class="evNote">${escH(t('cs_manual_note'))}</div></div>`;
+    if((tri.mitre_attack||[]).length) h += `<div class="csSec"><h4>${escH(t('cs_mitre'))}</h4><div class="csChips">${tri.mitre_attack.map(m=>chip(m)).join('')}</div></div>`;
+  } else if(c.triage_status === 'error'){
+    h += `<div class="csWarn">${escH(tf('cs_triage_failed', {err: c.triage_error || '?'}))}</div>`;
+  } else if(c.triage_status === 'skipped' || !(CS.engine && CS.engine.triage && CS.engine.triage.enabled)){
+    h += `<div class="evNote">${escH(t('cs_triage_off'))}</div>`;
+  } else {
+    h += `<div class="evNote">${escH(tf('cs_triage_waiting', {n: (CS.engine.triage||{}).max_per_hour || 20}))}</div>`;
+  }
+
+  const aiOn = CS.engine && CS.engine.triage && CS.engine.triage.enabled;
+  h += `<div class="csActions">
+    <button data-act="fb" data-v="useful" class="${c.feedback==='useful'?'on':''}">${escH(t('cs_useful'))}</button>
+    <button data-act="fb" data-v="noise" class="${c.feedback==='noise'?'on':''}">${escH(t('cs_noise'))}</button>
+    <button data-act="status" data-v="${c.status==='open'?'resolved':'open'}">${escH(t(c.status==='open'?'cs_resolve':'cs_reopen'))}</button>
+    <button data-act="retriage" ${aiOn ? '' : 'disabled'}>${escH(t('cs_retriage'))}</button></div>`;
+
+  const list = a => (a && a.length) ? a.map(x=>escH(x)).join(', ') : '—';
+  const countries = [...new Set([...(st.src_countries||[]), ...(st.dst_countries||[])])].filter(x=>x && x!=='Reserved');
+  h += `<div class="csSec"><h4>${escH(t('cs_evidence'))}</h4><div class="csFacts">
+    <div><b>${escH(t('cs_first'))}</b>${escH(fmtTime(c.first_seen_ms))}</div>
+    <div><b>${escH(t('cs_last'))}</b>${escH(fmtTime(c.last_seen_ms))}</div>
+    <div><b>${escH(t('cs_blocked_allowed'))}</b>${escH(fmtNum(st.blocked||0))} / ${escH(fmtNum(st.allowed||0))}</div>
+    <div><b>${escH(t('cs_ports'))}</b><span class="evMono">${list(st.ports)}</span></div>
+    <div><b>${escH(t('cs_sources'))}</b><span class="evMono">${list(st.src_ips)}</span></div>
+    <div><b>${escH(t('cs_targets'))}</b><span class="evMono">${list(st.dst_ips)}</span></div>
+    <div><b>${escH(t('cs_countries'))}</b>${list(countries)}</div>
+    <div><b>${escH(t('cs_actions_seen'))}</b>${list(st.actions)}</div>
+    ${(st.signatures||[]).length ? `<div style="grid-column:1/-1"><b>${escH(t('cs_signatures'))}</b>${list(st.signatures)}</div>` : ''}
+  </div>`;
+  const samples = c.samples || [];
+  if(samples.length){
+    h += `<table class="logtable" id="csEvidence" style="margin-top:10px"><thead><tr>
+      <th>${escH(t('ev_col_time'))}</th><th>${escH(t('ev_col_action'))}</th><th>${escH(t('ev_col_src'))}</th>
+      <th>${escH(t('ev_col_dst'))}</th><th>${escH(t('ev_col_sig'))}</th></tr></thead><tbody>` + samples.map(e=>{
+        const out = e.outcome ? `<span class="evOutcome ${e.outcome==='blocked'?'blocked':'allowed'}">${escH(t('ev_out_'+e.outcome) || e.outcome)}</span>` : escH(e.action||'—');
+        return `<tr style="cursor:default"><td class="evMono evTime">${escH(fmtTime(e.ts_ms))}</td><td>${out}</td>
+          <td class="evMono">${escH(e.src_ip||'—')}${e.src_port!=null?'<span class="evDim">:'+escH(e.src_port)+'</span>':''}</td>
+          <td class="evMono">${escH(e.dst_ip||'—')}${e.dst_port!=null?'<span class="evDim">:'+escH(e.dst_port)+'</span>':''}</td>
+          <td><div class="evSig" title="${escH(e.signature)}">${escH(e.signature||e.app||'—')}</div></td></tr>`;
+      }).join('') + '</tbody></table>';
+  }
+  h += '</div>';
+  if(tri) h += `<div class="csFoot">${escH(tf('cs_foot', {rule: c.rule, id: c.id, model: c.triage_model || '?', tin: fmtNum(c.triage_in_tokens), tout: fmtNum(c.triage_out_tokens)}))}</div>`;
+  el.innerHTML = h;
+
+  el.querySelectorAll('.csActions button').forEach(b=>b.onclick = async ()=>{
+    if(b.disabled) return;
+    const act = b.dataset.act; let url, body;
+    if(act==='fb'){ url = 'feedback'; body = {verdict: c.feedback===b.dataset.v ? null : b.dataset.v}; }
+    else if(act==='status'){ url = 'status'; body = {status: b.dataset.v}; }
+    else { url = 'retriage'; }
+    b.disabled = true;
+    try{
+      const r = await fetch(`${API_BASE}/api/soc/cases/${encodeURIComponent(c.id)}/${url}`,
+        {method:'POST', headers:{'Content-Type':'application/json'}, body: body ? JSON.stringify(body) : undefined});
+      if(!r.ok){ const j = await r.json().catch(()=>({})); alert(j.detail || ('HTTP '+r.status)); }
+    } finally { await casesLoad(); }
+  });
+}
+
+function casesEnter(){
+  casesLoad();
+  clearInterval(CS.timer);
+  CS.timer = setInterval(()=>{ if(currentView==='cases' && document.visibilityState==='visible') casesLoad(); }, 20000);
+}
+function casesLeave(){ clearInterval(CS.timer); CS.timer = null; }
+
+document.querySelectorAll('#csFilter button').forEach(b=>b.onclick = ()=>{
+  CS.filter = b.dataset.f; CS.selected = null;
+  document.querySelectorAll('#csFilter button').forEach(x=>x.classList.toggle('active', x===b));
+  casesLoad();
+});
+document.getElementById('csRun').onclick = async ()=>{
+  const b = document.getElementById('csRun'); b.disabled = true; b.textContent = t('cs_running');
+  try{ await fetch(`${API_BASE}/api/soc/detect/run`, {method:'POST'}); }catch(e){}
+  setTimeout(async ()=>{ await casesLoad(); b.disabled = false; b.textContent = t('cs_run'); }, 4000);
+};
+
+// ---------- SOC dashboard (Phase 3) ----------
+// Reads /api/soc/dashboard and /api/soc/map (backend/soc_dashboard.py).
+// Country names, IPs, case titles and Claude's text all derive from
+// attacker-controlled logs: every value goes through escH(). The only raw
+// HTML is our own STR strings. Buttons here navigate, or use the existing
+// human "resolve" switch; nothing acts on the network.
+const DB = { timer:null, data:null, map:null, world:null, worldFailed:false, range:'24h', dir:'', seq:0, at:0 };
+const DB_SEV_COLOR = {critical:'var(--critical)', high:'var(--high)', medium:'var(--watch)', low:'var(--signal)', info:'var(--dim)'};
+
+async function dbWorld(){
+  if(DB.world || DB.worldFailed) return DB.world;
+  try{
+    const r = await fetch('world-110m.json');
+    const j = await r.json();          // nginx falls back to index.html for a missing file → parse error
+    if(!j || !j.projection || !Array.isArray(j.countries)) throw new Error('bad map file');
+    DB.world = j;
+  }catch(e){ DB.worldFailed = true; }
+  return DB.world;
+}
+
+// Natural Earth 1 forward projection, same numbers as tools/build-world-map.js.
+function dbProject(lon, lat){
+  const P = DB.world.projection, k = P.scale, [tx, ty] = P.translate;
+  const l = lon*Math.PI/180, p = lat*Math.PI/180, p2 = p*p, p4 = p2*p2;
+  const x = l*(0.8707 - 0.131979*p2 + p4*(-0.013791 + p4*(0.003971*p2 - 0.001529*p4)));
+  const y = p*(1.007226 + p2*(0.015085 + p4*(-0.044475 + 0.028874*p2 - 0.005916*p4)));
+  return [tx + k*x, ty - k*y];
+}
+
+// English: the firewall's own spelling, so it matches what Events shows. Japanese: our table's name.
+function dbCountryName(f){ return LANG==='ja' ? (f.name_ja || f.country) : (f.country || f.name); }
+
+async function dashLoad(){
+  if(currentView !== 'dash') return;
+  const seq = ++DB.seq;
+  try{
+    const [dR, mR] = await Promise.all([
+      fetch(`${API_BASE}/api/soc/dashboard`),
+      fetch(`${API_BASE}/api/soc/map?range=${encodeURIComponent(DB.range)}`),
+      dbWorld(),
+    ]);
+    const d = dR.ok ? await dR.json() : null;
+    const m = mR.ok ? await mR.json() : null;
+    if(seq !== DB.seq) return;
+    DB.data = d; DB.map = m; DB.at = Date.now();
+    if(d && d.sensors){ const ds = d.sensors.map(s=>s.dataset); if(JSON.stringify(ds)!==JSON.stringify(EV.datasets)) EV.datasets = ds; }
+  }catch(e){
+    if(seq !== DB.seq) return;
+  }
+  dashRender();
+}
+
+function dashRender(){
+  dbRenderKpis(); dbRenderCallouts(); dbRenderMap(); dbRenderAttack(); dbRenderTop();
+  document.getElementById('dbUpdated').textContent = DB.at ? tf('db_updated', {age: fmtAge(Math.round((Date.now()-DB.at)/1000))}) : '';
+}
+
+function dbDur(s){ return s == null ? '—' : fmtAge(Math.round(s)); }
+
+function dbRenderKpis(){
+  const el = document.getElementById('dbKpis'); const d = DB.data;
+  if(!d){ el.innerHTML = ''; return; }
+  const k = d.kpis || {}; const p = d.posture || {}; const sens = d.sensors || [];
+  const okSens = sens.filter(s=>!s.stale).length;
+  const sev = k.open_by_severity || {};
+  const total = Math.max(k.open || 0, 1);
+  const bar = ['critical','high','medium','low','info'].filter(s=>sev[s]).map(s=>
+    `<span style="width:${(sev[s]/total*100).toFixed(1)}%; background:${DB_SEV_COLOR[s]}" title="${escH(t('sev_'+s))}: ${escH(sev[s])}"></span>`).join('');
+  const tile = (n, label, opts={})=>`<div class="dbKpi ${opts.cls||''} ${opts.go?'clickable':''}" ${opts.go?`data-go="${escH(opts.go)}"`:''} ${opts.tip?`title="${escH(opts.tip)}"`:''}>
+      <div class="n">${n}</div><div class="l">${escH(label)}</div>${opts.extra||''}</div>`;
+  const nsmall = n => n ? `<small>n=${escH(n)}</small>` : '';
+  el.innerHTML =
+      tile(escH(fmtNum(k.open)), t('db_k_open'), {go:'cases', cls: (sev.critical||sev.high) ? 'alert' : '', extra: `<div class="sevs">${bar}</div>`})
+    + tile(escH(fmtNum(k.new_24h)), t('db_k_new'), {go:'cases'})
+    + tile(escH(dbDur(k.mttd_s)) + nsmall(k.mttd_n), t('db_k_mttd'), {tip: t('db_k_mttd_tip')})
+    + tile(escH(dbDur(k.mttt_s)) + nsmall(k.mttt_n), t('db_k_mttt'), {tip: t('db_k_mttt_tip')})
+    + tile(escH(dbDur(k.mttr_s)) + nsmall(k.mttr_n), t('db_k_mttr'), {tip: t('db_k_mttr_tip')})
+    + tile(d.posture ? escH(fmtNum(p.total)) : '—', t('db_k_events'), {go:'events'})
+    + tile(d.posture ? escH(fmtNum(p.blocked)) : '—', t('db_k_blocked'), {go:'events:blocked'})
+    + tile(sens.length ? `${escH(okSens)}<small>/ ${escH(sens.length)}</small>` : '—', t('db_k_sensors'),
+           {cls: okSens < sens.length ? 'alert' : '', tip: sens.map(s=>`${s.dataset}: ${fmtAge(s.age_s)}`).join('\n')});
+  el.querySelectorAll('.dbKpi.clickable').forEach(x=>x.onclick = ()=>{
+    const g = x.dataset.go;
+    if(g==='cases') dbGoCases(null);
+    else dbGoEvents({range:'24h', outcome: g==='events:blocked' ? 'blocked' : ''});
+  });
+}
+
+function dbCalloutHtml(c, i){
+  const sev = c.severity || 'info';
+  const badge = `<span class="csBadge sev-${escH(sev)}">${escH(t('sev_'+sev) || sev)}</span>`;
+  const list = key => { const o = t(key); return Array.isArray(o) && o.length ? `<ul>${o.map(x=>`<li>${x}</li>`).join('')}</ul>` : ''; };
+  if(c.kind === 'case'){
+    const head = (LANG==='ja' ? c.headline_ja : c.headline_en) || c.headline_en;
+    const title = head || (LANG==='ja' ? c.title_ja : c.title_en) || c.title_en || c.rule;
+    let rec = '';
+    if(c.recommended){
+      const r = c.recommended[LANG] || c.recommended.en || {};
+      rec = `<div class="rec"><div class="k">✦ ${escH(t('db_claude_rec'))} · ${escH(t('act_'+c.recommended.action_type) || c.recommended.action_type)}</div>
+        <div>${escH(r.title)}</div>${r.detail ? `<div class="d">${escH(r.detail)}</div>` : ''}</div>`;
+    } else {
+      rec = `<div class="bd" style="margin-top:6px">${escH(c.triage_status==='skipped' ? t('db_no_triage') : t('db_awaiting'))}</div>`;
+    }
+    const chips = [c.verdict ? `<span class="csBadge ai">${escH(t('verdict_'+c.verdict) || c.verdict)}</span>` : '',
+                   c.confidence ? `<span class="csBadge">${escH(t('conf_'+c.confidence) || c.confidence)}</span>` : ''].join('');
+    return `<div class="dbCo sev-${escH(sev)}" data-i="${i}">
+      <div class="hd">${badge}<span>${escH(t('rule_'+c.rule) || c.rule)}</span><span>${escH(tf('db_co_events', {n: fmtNum(c.event_count)}))}</span><span class="age">${escH(csAge(c.last_seen_ms))}</span></div>
+      <div class="tt">${escH(title)}</div>
+      ${c.injection_suspected ? `<div class="csWarn" style="margin:6px 0">⚠ ${escH(t('cs_injection'))}</div>` : ''}
+      ${chips ? `<div class="csChips" style="margin:4px 0 0">${chips}</div>` : ''}
+      ${rec}
+      <div class="acts">
+        <button class="primary" data-act="case">${escH(t('db_open_case'))}</button>
+        ${c.entity_ip ? `<button data-act="events">${escH(t('db_view_events'))}</button>` : ''}
+        <button data-act="resolve">${escH(t('db_resolve'))}</button>
+      </div></div>`;
+  }
+  // System and sensor callouts: our own text, with options as plain steps.
+  const code = c.code;
+  let title, body, opts;
+  if(code === 'sensor_stale'){
+    const fam = c.family === 'fortigate' ? 'fortigate' : 'suricata';
+    title = escH(tf('db_co_sensor_stale_t', {ds: c.dataset, age: fmtAge(c.age_s)}));
+    body = escH(t(`db_co_stale_${fam}_b`)); opts = list(`db_co_stale_${fam}_o`);
+  } else {
+    title = escH(tf(`db_co_${code}_t`, {n: c.count || 0})); body = escH(t(`db_co_${code}_b`) || ''); opts = list(`db_co_${code}_o`);
+  }
+  const acts = code === 'sensor_stale' ? `<div class="acts"><button data-act="dataset">${escH(t('db_view_events'))}</button></div>`
+             : code === 'triage_errors' ? `<div class="acts"><button data-act="cases">${escH(t('db_view_cases'))}</button></div>` : '';
+  return `<div class="dbCo sev-${escH(sev)}" data-i="${i}">
+    <div class="hd">${badge}<span>${escH(t(c.kind==='sensor' ? 'db_kind_sensor' : 'db_kind_system'))}</span></div>
+    <div class="tt">${title}</div><div class="bd">${body}</div>${opts}${acts}</div>`;
+}
+
+function dbRenderCallouts(){
+  const el = document.getElementById('dbCallouts'); const d = DB.data;
+  if(!d){ el.innerHTML = `<div class="dbAllClear">${escH(t('ev_loading'))}</div>`; return; }
+  const cos = (d.callouts || []).filter(c=>c.severity !== 'info' || c.kind !== 'case');
+  if(!cos.length){
+    el.innerHTML = `<div class="dbAllClear"><b>✓ ${escH(t('db_all_clear_t'))}</b>${escH(t('db_all_clear_b'))}</div>`; return;
+  }
+  el.innerHTML = cos.map(dbCalloutHtml).join('');
+  el.querySelectorAll('.dbCo button').forEach(b=>b.onclick = async ()=>{
+    const c = cos[Number(b.closest('.dbCo').dataset.i)]; const act = b.dataset.act;
+    if(act === 'case') dbGoCases(c.case_id);
+    else if(act === 'cases') dbGoCases(null);
+    else if(act === 'events') dbGoEvents({q: c.entity_ip, range:'7d'});
+    else if(act === 'dataset') dbGoEvents({dataset: c.dataset, range:'7d'});
+    else if(act === 'resolve'){
+      if(!confirm(t('db_resolve_confirm'))) return;
+      b.disabled = true;
+      try{
+        const r = await fetch(`${API_BASE}/api/soc/cases/${encodeURIComponent(c.case_id)}/status`,
+          {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({status:'resolved'})});
+        if(!r.ok){ const j = await r.json().catch(()=>({})); alert(j.detail || ('HTTP '+r.status)); }
+      } finally { dashLoad(); }
+    }
+  });
+}
+
+function dbArc(a, b){
+  const [x0,y0] = a, [x1,y1] = b;
+  const dx = x1-x0, dy = y1-y0, dist = Math.hypot(dx, dy) || 1;
+  let nx = -dy/dist, ny = dx/dist;
+  if(ny > 0){ nx = -nx; ny = -ny; }          // always bow upward
+  const bow = Math.min(dist*0.28, 110);
+  const cx = (x0+x1)/2 + nx*bow, cy = (y0+y1)/2 + ny*bow;
+  return `M${x0.toFixed(1)},${y0.toFixed(1)} Q${cx.toFixed(1)},${cy.toFixed(1)} ${x1.toFixed(1)},${y1.toFixed(1)}`;
+}
+
+// The map: a pan/zoom SVG. Zoom with the wheel, the +/− buttons, a
+// double-click or a pinch; drag to pan. Hover shows the numbers; click a
+// country, arc or dot to open its details in the side drawer.
+DB.view = DB.view || {k:1, x:0, y:0};
+const DB_ZMAX = 16;
+
+function dbRenderMap(){
+  const host = document.getElementById('dbMap');
+  const legend = document.getElementById('dbLegend');
+  const m = DB.map;
+  const msg = text => { host.innerHTML = `<div class="dbMapMsg">${escH(text)}</div>`; };
+  if(!m){ msg(t('db_map_loading')); legend.innerHTML = ''; return; }
+  if(m.connected === false){ msg(t('db_not_connected')); legend.innerHTML = ''; return; }
+  if(!DB.world){ msg(DB.worldFailed ? t('db_map_nogeo') : t('db_map_loading')); return; }
+  const W = DB.world; const [vx, vy, vw, vh] = W.viewBox;
+  const flows = (m.flows || []).filter(f=>!DB.dir || f.dir === DB.dir);
+  DB.flowsShown = flows;
+  const byIso = {};
+  flows.forEach(f=>{ byIso[f.iso2] = (byIso[f.iso2] || 0) + f.events; });
+  const maxIso = Math.max(1, ...Object.values(byIso));
+  const maxEv = Math.max(1, ...flows.map(f=>f.events));
+  const home = dbProject(m.home.lon, m.home.lat);
+
+  let svg = `<svg viewBox="${vx} ${vy} ${vw} ${vh}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${escH(t('db_map_h'))}"><g class="zoomG">`;
+  svg += W.countries.map((c,ci)=>{
+    const n = c.iso2 && byIso[c.iso2];
+    const style = n ? ` style="fill:color-mix(in srgb, var(--signal) ${(5 + 17*Math.log(1+n)/Math.log(1+maxIso)).toFixed(0)}%, var(--line-soft))"` : '';
+    return `<path class="land${n?' hit':''}" d="${escH(c.d)}"${style} data-c="${ci}"${c.iso2?` data-iso="${escH(c.iso2)}"`:''}></path>`;
+  }).join('');
+  // Biggest flows last so they draw on top.
+  const order = flows.map((f,i)=>i).sort((a,b)=>flows[a].events - flows[b].events);
+  let arcs = '', nodes = '', labels = '';
+  order.forEach(i=>{
+    const f = flows[i];
+    const pt = dbProject(f.lon, f.lat);
+    const w = (0.8 + 3.2*Math.log(1+f.events)/Math.log(1+maxEv)).toFixed(2);
+    const r = (2 + 4.5*Math.log(1+f.events)/Math.log(1+maxEv)).toFixed(1);
+    const cls = f.dir === 'inbound' ? 'in' : 'out';
+    const far = Math.hypot(pt[0]-home[0], pt[1]-home[1]) > 14;
+    const iso = escH(f.iso2);
+    if(far){
+      const d = f.dir === 'inbound' ? dbArc(pt, home) : dbArc(home, pt);
+      const allBlocked = f.blocked >= f.events && f.events > 0;
+      arcs += `<path class="arc ${cls}${allBlocked?' blockedAll':''}" d="${d}" stroke-width="${w}" data-iso="${iso}"></path>`;
+      if(!allBlocked) arcs += `<path class="flow ${cls}" d="${d}" stroke-width="${(Number(w)+1).toFixed(2)}" data-iso="${iso}"></path>`;
+      arcs += `<path class="arcHit" d="${d}" data-f="${i}"></path>`;
+    }
+    nodes += `<circle class="node ${cls}" cx="${pt[0].toFixed(1)}" cy="${pt[1].toFixed(1)}" r="${r}" data-r="${r}" data-f="${i}" data-iso="${iso}"></circle>`;
+    if(!labels.includes(`data-iso="${iso}"`))
+      labels += `<text class="lbl" x="${pt[0].toFixed(1)}" y="${(pt[1]-8).toFixed(1)}" data-x="${pt[0].toFixed(1)}" data-y="${pt[1].toFixed(1)}" data-iso="${iso}">${escH(dbCountryName(f))}</text>`;
+  });
+  svg += arcs + nodes + `<g class="lbls">${labels}</g>`;
+  svg += `<circle class="homeRing" cx="${home[0].toFixed(1)}" cy="${home[1].toFixed(1)}" r="6" data-r="6"></circle>`
+       + `<circle class="home" cx="${home[0].toFixed(1)}" cy="${home[1].toFixed(1)}" r="4" data-r="4"><title>${escH(LANG==='ja' ? m.home.label_ja : m.home.label)}</title></circle></g></svg>`;
+  host.innerHTML = svg + (flows.length ? '' : `<div class="dbMapMsg">${escH(t('db_map_none'))}</div>`);
+  dbApplyView();
+
+  const n = flows.reduce((a,f)=>a+f.events, 0);
+  legend.innerHTML = `<span class="in"><i></i>${escH(t('db_leg_in'))}</span><span class="out"><i></i>${escH(t('db_leg_out'))}</span>`
+    + `<span class="bl"><i></i>${escH(t('db_leg_blocked'))}</span>`
+    + `<span class="hint">${escH(t('db_zoom_hint'))}</span>`
+    + `<span class="sum">${escH(tf('db_leg_sum', {c: fmtNum(new Set(flows.map(f=>f.iso2)).size), n: fmtNum(n)}))}</span>`;
+}
+
+// Keep the map covering the frame: you can't pan past the edges of the world.
+function dbClampView(v){
+  const [vx, vy, vw, vh] = DB.world.viewBox;
+  v.k = Math.max(1, Math.min(DB_ZMAX, v.k));
+  v.x = Math.min(vx - vx*v.k, Math.max(vx + vw - (vx + vw)*v.k, v.x));
+  v.y = Math.min(vy - vy*v.k, Math.max(vy + vh - (vy + vh)*v.k, v.y));
+  return v;
+}
+function dbApplyView(){
+  const host = document.getElementById('dbMap'); const g = host.querySelector('.zoomG');
+  if(!g || !DB.world) return;
+  const v = dbClampView(DB.view);
+  g.setAttribute('transform', `translate(${v.x.toFixed(2)},${v.y.toFixed(2)}) scale(${v.k.toFixed(3)})`);
+  // Dots grow a little when zoomed, but much less than the map; labels stay the same size on screen.
+  const rs = Math.pow(v.k, 0.75);
+  host.querySelectorAll('circle[data-r]').forEach(c=>c.setAttribute('r', (Number(c.dataset.r)/rs).toFixed(2)));
+  host.querySelectorAll('text.lbl').forEach(tx=>{
+    tx.setAttribute('font-size', (11/v.k).toFixed(2));
+    tx.setAttribute('y', (Number(tx.dataset.y) - 9/v.k).toFixed(2));
+  });
+  document.getElementById('dbMapWrap').classList.toggle('zoomed', v.k >= 2.2);
+  const z = document.getElementById('dbZoomLvl'); if(z) z.textContent = v.k > 1.01 ? `×${v.k.toFixed(1)}` : '';
+}
+// Screen point → SVG (viewBox) point.
+function dbSvgPoint(clientX, clientY){
+  const svg = document.querySelector('#dbMap svg'); if(!svg) return null;
+  const p = svg.createSVGPoint(); p.x = clientX; p.y = clientY;
+  return p.matrixTransform(svg.getScreenCTM().inverse());
+}
+function dbZoomAt(factor, clientX, clientY){
+  if(!DB.world) return;
+  const v = DB.view; const [vx, vy, vw, vh] = DB.world.viewBox;
+  const pt = (clientX == null) ? {x: vx + vw/2, y: vy + vh/2} : dbSvgPoint(clientX, clientY);
+  if(!pt) return;
+  const k2 = Math.max(1, Math.min(DB_ZMAX, v.k * factor));
+  v.x = pt.x - (pt.x - v.x) * (k2 / v.k);
+  v.y = pt.y - (pt.y - v.y) * (k2 / v.k);
+  v.k = k2;
+  dbApplyView();
+}
+function dbZoomTo(iso){
+  // Centre on a country's dot and zoom in, used from the drawer and the table.
+  const f = (DB.flowsShown || []).find(x=>x.iso2 === iso); if(!f || !DB.world) return;
+  const [vx, vy, vw, vh] = DB.world.viewBox; const [px, py] = dbProject(f.lon, f.lat);
+  const k = Math.max(DB.view.k, 3);
+  DB.view = {k, x: vx + vw/2 - px*k, y: vy + vh/2 - py*k};
+  dbApplyView();
+}
+
+function dbShowTip(ev, html){
+  const tip = document.getElementById('dbTip');
+  tip.innerHTML = html; tip.style.opacity = 1;
+  const x = Math.min(ev.clientX + 14, window.innerWidth - 310);
+  tip.style.left = x + 'px'; tip.style.top = Math.min(ev.clientY + 14, window.innerHeight - tip.offsetHeight - 8) + 'px';
+}
+function dbHideTip(){ document.getElementById('dbTip').style.opacity = 0; }
+function dbFlowTip(list){
+  return list.map(f=>{
+    const ports = (f.top_ports||[]).map(p=>escH(p.port)).join(', ');
+    const ips = (f.top_ips||[]).map(p=>`${escH(p.ip)} (${escH(fmtNum(p.n))})`).join('<br>');
+    return `<div style="margin-bottom:6px"><b>${escH(tf(f.dir==='inbound'?'db_tip_in':'db_tip_out', {c: dbCountryName(f)}))}</b>
+      <div>${escH(tf('db_tip_events', {n: fmtNum(f.events), k: fmtNum(f.blocked)}))} · ${escH(fmtBytes(f.bytes))}</div>
+      <div class="m">${escH(tf('db_tip_ips', {n: fmtNum(f.remote_ips)}))}${ports ? ` · ${escH(t('db_tip_ports'))} ${ports}` : ''}</div>
+      ${ips ? `<div class="m">${ips}</div>` : ''}</div>`;
+  }).join('') + `<div class="m">${escH(t('db_tip_click'))}</div>`;
+}
+function dbHighlight(iso){
+  const host = document.getElementById('dbMap');
+  host.classList.toggle('focus', !!iso);
+  host.querySelectorAll('.hl').forEach(e=>e.classList.remove('hl'));
+  if(iso) host.querySelectorAll(`[data-iso="${CSS.escape(iso)}"]`).forEach(e=>e.classList.add('hl'));
+}
+
+// One set of listeners on the host; the SVG inside is replaced on every refresh.
+(function dbMapInteractions(){
+  const host = document.getElementById('dbMap');
+  const ptrs = new Map(); let drag = null, pinch = null, moved = false;
+  const target = ev => {
+    const el = ev.target.closest && ev.target.closest('[data-f], .land');
+    if(!el) return null;
+    const flows = DB.flowsShown || [];
+    if(el.dataset.f != null) return {iso: flows[Number(el.dataset.f)].iso2, list: [flows[Number(el.dataset.f)]]};
+    const iso = el.dataset.iso; const c = DB.world && DB.world.countries[Number(el.dataset.c)];
+    return {iso, list: iso ? flows.filter(f=>f.iso2 === iso) : [], land: c};
+  };
+  host.addEventListener('wheel', ev=>{
+    if(!DB.world || !host.querySelector('svg')) return;
+    ev.preventDefault();
+    dbHideTip();
+    dbZoomAt(Math.exp(-ev.deltaY * (ev.ctrlKey ? 0.01 : 0.0012)), ev.clientX, ev.clientY);
+  }, {passive:false});
+  host.addEventListener('dblclick', ev=>{ ev.preventDefault(); dbZoomAt(ev.shiftKey ? 0.5 : 2, ev.clientX, ev.clientY); });
+  host.addEventListener('pointerdown', ev=>{
+    if(!host.querySelector('svg')) return;
+    ptrs.set(ev.pointerId, {x: ev.clientX, y: ev.clientY});
+    moved = false;
+    if(ptrs.size === 1) drag = {x: ev.clientX, y: ev.clientY, vx: DB.view.x, vy: DB.view.y};
+    if(ptrs.size === 2){
+      const [a, b] = [...ptrs.values()];
+      pinch = {d: Math.hypot(a.x-b.x, a.y-b.y), k: DB.view.k}; drag = null;
+    }
+  });
+  host.addEventListener('pointermove', ev=>{
+    if(ptrs.has(ev.pointerId)) ptrs.set(ev.pointerId, {x: ev.clientX, y: ev.clientY});
+    if(pinch && ptrs.size === 2){
+      const [a, b] = [...ptrs.values()];
+      const want = pinch.k * Math.hypot(a.x-b.x, a.y-b.y) / Math.max(pinch.d, 1);
+      dbZoomAt(want / DB.view.k, (a.x+b.x)/2, (a.y+b.y)/2); moved = true; return;
+    }
+    if(drag && (Math.abs(ev.clientX-drag.x) + Math.abs(ev.clientY-drag.y) > 4)){
+      if(!moved){ moved = true; host.setPointerCapture(ev.pointerId); host.classList.add('dragging'); dbHideTip(); }
+      const svg = host.querySelector('svg'); const s = svg.getScreenCTM().a;   // screen px per viewBox unit
+      DB.view.x = drag.vx + (ev.clientX - drag.x) / s;
+      DB.view.y = drag.vy + (ev.clientY - drag.y) / s;
+      dbApplyView(); return;
+    }
+    if(drag || pinch) return;
+    const hit = target(ev);
+    if(!hit){ dbHideTip(); dbHighlight(null); return; }
+    dbHighlight(hit.list.length ? hit.iso : null);
+    if(hit.list.length) dbShowTip(ev, dbFlowTip(hit.list));
+    else if(hit.land) dbShowTip(ev, `<b>${escH(LANG==='ja' ? (hit.land.ja || hit.land.name) : hit.land.name)}</b><div class="m">${escH(t('db_tip_none'))}</div>`);
+    else dbHideTip();
+  });
+  const end = ev=>{
+    ptrs.delete(ev.pointerId);
+    if(ptrs.size < 2) pinch = null;
+    if(ptrs.size === 0){ drag = null; host.classList.remove('dragging'); }
+  };
+  host.addEventListener('pointerup', end); host.addEventListener('pointercancel', end);
+  host.addEventListener('pointerleave', ()=>{ if(!drag){ dbHideTip(); dbHighlight(null); } });
+  host.addEventListener('click', ev=>{
+    if(moved){ moved = false; return; }          // the end of a drag isn't a click
+    const hit = target(ev);
+    if(!hit || !hit.list.length) return;
+    dbHideTip();
+    dbOpenCountry(hit.list[0].country, hit.list.length === 1 ? hit.list[0].dir : '');
+  });
+  document.getElementById('dbZoomIn').onclick = ()=>dbZoomAt(1.6);
+  document.getElementById('dbZoomOut').onclick = ()=>dbZoomAt(1/1.6);
+  document.getElementById('dbZoomReset').onclick = ()=>{ DB.view = {k:1, x:0, y:0}; dbApplyView(); };
+})();
+
+// ---------- Country details (side drawer) ----------
+async function dbOpenCountry(country, dir){
+  const drawer = document.getElementById('drawer');
+  const flow = (DB.map && DB.map.flows || []).find(f=>f.country === country) || {country};
+  document.getElementById('drawerFullscreenBtn').title = t('drawer_fullscreen');
+  document.getElementById('drawerDomain').textContent = dbCountryName(flow);
+  document.getElementById('drawerMeta').textContent = tf('db_d_meta', {range: t('ev_range_'+DB.range) || DB.range});
+  document.getElementById('drawerBody').innerHTML = `<div class="evEmpty">${escH(t('ev_loading'))}</div>`;
+  drawer.classList.add('open', 'socWide');
+  document.getElementById('overlay').classList.add('show');
+  DB.detail = {country, dir: dir || ''};
+  try{
+    const r = await fetch(`${API_BASE}/api/soc/map/country?country=${encodeURIComponent(country)}&range=${encodeURIComponent(DB.range)}`);
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    if(!DB.detail || DB.detail.country !== country) return;
+    DB.detail.data = d;
+    dbRenderCountry();
+  }catch(e){
+    document.getElementById('drawerBody').innerHTML = `<div class="evEmpty">${escH(tf('ev_error', {msg: e.message || e}))}</div>`;
+  }
+}
+
+function dbRenderCountry(){
+  const st = DB.detail; const d = st && st.data; if(!d) return;
+  const body = document.getElementById('drawerBody');
+  const dirs = ['inbound','outbound'];
+  const show = x => !st.dir || x === st.dir;
+  const name = d.place ? (LANG==='ja' ? d.place.name_ja : d.country) : d.country;
+  document.getElementById('drawerDomain').textContent = name + (d.place ? `  ${d.place.iso2}` : '');
+
+  const seg = `<div class="viewToggle dbDSeg">${[['', 'db_both'], ['inbound','ev_inbound'], ['outbound','ev_outbound']].map(([v,k])=>
+    `<button data-d="${v}" class="${st.dir===v?'active':''}">${escH(t(k))}</button>`).join('')}</div>`;
+
+  const tiles = dirs.filter(show).map(x=>{
+    const s = d.directions[x];
+    const pct = s.events ? Math.round(s.blocked/s.events*100) + '%' : '—';
+    return `<div class="dbDTile ${x==='inbound'?'in':'out'}"><div class="h">${escH(t(x==='inbound'?'db_leg_in':'db_leg_out'))}</div>
+      <div class="row"><div><div class="n">${escH(fmtNum(s.events))}</div><div class="l">${escH(t('db_th_events'))}</div></div>
+      <div><div class="n">${escH(pct)}</div><div class="l">${escH(t('db_th_blocked'))}</div></div>
+      <div><div class="n">${escH(fmtNum(s.remote_ips))}</div><div class="l">${escH(t('db_d_ips'))}</div></div>
+      <div><div class="n">${escH(fmtBytes(s.bytes) || '0 B')}</div><div class="l">${escH(t('db_d_bytes'))}</div></div></div>
+      <div class="m">${s.last_ms ? escH(tf('db_d_seen', {first: fmtTime(s.first_ms), last: fmtTime(s.last_ms)})) : escH(t('db_d_none'))}</div></div>`;
+  }).join('');
+
+  // Timeline: inbound up, outbound down, around a centre line.
+  const tl = d.timeline || [];
+  let tlHtml = '';
+  if(tl.length){
+    const max = Math.max(1, ...tl.map(b=>Math.max(show('inbound') ? b.inbound : 0, show('outbound') ? b.outbound : 0)));
+    tlHtml = `<div class="dbDTl">` + tl.map(b=>{
+      const i = show('inbound') ? b.inbound : 0, o = show('outbound') ? b.outbound : 0;
+      return `<div class="b" title="${escH(fmtTime(b.t))} — ↘ ${escH(fmtNum(b.inbound))} · ↗ ${escH(fmtNum(b.outbound))} · ${escH(t('db_th_blocked'))} ${escH(fmtNum(b.blocked))}">
+        <div class="u"><span style="height:${(i/max*100).toFixed(1)}%"></span></div><div class="dn"><span style="height:${(o/max*100).toFixed(1)}%"></span></div></div>`;
+    }).join('') + `</div>`;
+  }
+
+  const cases = (d.cases || []).map(c=>{
+    const head = (LANG==='ja' ? c.headline_ja : c.headline_en) || (LANG==='ja' ? c.title_ja : c.title_en) || c.title_en || c.rule;
+    return `<div class="csItem sev-${escH(c.severity)}" data-case="${escH(c.id)}"><div class="t">${escH(head)}</div>
+      <div class="m"><span class="csBadge sev-${escH(c.severity)}">${escH(t('sev_'+c.severity) || c.severity)}</span>
+      <span>${escH(t('rule_'+c.rule) || c.rule)}</span><span>${escH(tf('cs_events', {n: fmtNum(c.event_count)}))}</span>
+      <span>${escH(csAge(c.last_seen_ms))}</span>${c.status==='resolved' ? '<span>✓</span>' : ''}</div></div>`;
+  }).join('');
+
+  const ips = (d.top_ips || []).filter(x=>show(x.dir));
+  const ipRows = ips.map((x,i)=>`<tr data-ip="${i}"><td class="evMono"><span class="evDir ${escH(x.dir)}">${x.dir==='inbound'?'↘':'↗'}</span> ${escH(x.ip)}</td>
+      <td class="num">${escH(fmtNum(x.events))}</td><td class="num">${x.events ? escH(Math.round(x.blocked/x.events*100)) + '%' : '—'}</td>
+      <td class="evMono evDim">${escH((x.ports||[]).join(', ') || '—')}</td><td class="evDim evMono">${escH(csAge(x.last_ms))}</td></tr>`).join('');
+
+  const ports = (d.top_ports || []).filter(x=>show(x.dir));
+  const portChips = ports.map((p,i)=>`<button class="evChip" data-port="${i}"><span class="evDir ${escH(p.dir)}">${p.dir==='inbound'?'↘':'↗'}</span> ${escH(p.port)}<span class="c">${escH(fmtNum(p.events))}</span></button>`).join('');
+
+  const rec = (d.recent || []).filter(x=>show(x.dir));
+  const recRows = rec.map((e,i)=>{
+    const out = e.outcome ? `<span class="evOutcome ${e.outcome==='blocked'?'blocked':'allowed'}">${escH(t('ev_out_'+e.outcome) || e.outcome)}</span>` : `<span class="evDim">${escH(e.action || '—')}</span>`;
+    return `<tr data-ev="${i}"><td class="evMono evTime">${escH(fmtTime(e.ts_ms))}</td><td>${out}</td>
+      <td class="evMono">${escH(e.src_ip || '—')}${e.src_port!=null ? '<span class="evDim">:' + escH(e.src_port) + '</span>' : ''}</td>
+      <td class="evMono">${escH(e.dst_ip || '—')}${e.dst_port!=null ? '<span class="evDim">:' + escH(e.dst_port) + '</span>' : ''}</td>
+      <td><div class="evSig" style="max-width:150px" title="${escH(e.signature || e.app)}">${escH(e.signature || [e.proto, e.app].filter(Boolean).join(' · ') || '—')}</div></td></tr>`;
+  }).join('');
+
+  const sec = (title, inner, extra) => inner ? `<div class="csSec"><h4>${escH(title)}${extra||''}</h4>${inner}</div>` : '';
+  body.innerHTML = seg + `<div class="dbDTiles">${tiles}</div>`
+    + sec(t('db_d_activity'), tlHtml, `<span class="dbDKey"><i class="in"></i>↘ <i class="out"></i>↗</span>`)
+    + sec(t('db_d_cases'), cases ? `<div class="dbDCases">${cases}</div>` : '')
+    + sec(t('db_d_top_ips'), ipRows ? `<table class="dbTop dbDTable"><tr style="cursor:default"><td class="evDim">IP</td><td class="num evDim">${escH(t('db_th_events'))}</td><td class="num evDim">${escH(t('db_th_blocked'))}</td><td class="evDim">${escH(t('db_tip_ports'))}</td><td class="evDim">${escH(t('db_d_last'))}</td></tr>${ipRows}</table>` : '')
+    + sec(t('db_d_ports'), portChips ? `<div class="evChipsRow">${portChips}</div>` : '')
+    + sec(t('db_d_recent'), recRows ? `<table class="logtable dbDTable" id="dbDRecent"><thead><tr><th>${escH(t('ev_col_time'))}</th><th>${escH(t('ev_col_action'))}</th><th>${escH(t('ev_col_src'))}</th><th>${escH(t('ev_col_dst'))}</th><th>${escH(t('ev_col_sig'))}</th></tr></thead><tbody>${recRows}</tbody></table>` : '')
+    + `<div class="csActions"><button data-act="events">${escH(t('db_d_all_events'))}</button><button data-act="zoom">${escH(t('db_d_zoom'))}</button></div>`
+    + `<div class="evNote">${escH(t('db_d_note'))}</div>`;
+
+  body.querySelectorAll('.dbDSeg button').forEach(b=>b.onclick = ()=>{ st.dir = b.dataset.d; dbRenderCountry(); });
+  body.querySelectorAll('[data-case]').forEach(el=>el.onclick = ()=>{ closeDrawer(); dbGoCases(el.dataset.case); });
+  body.querySelectorAll('tr[data-ip]').forEach(tr=>tr.onclick = ()=>{ const x = ips[Number(tr.dataset.ip)]; closeDrawer(); dbGoEvents({q: x.ip, direction: x.dir, range: DB.range}); });
+  body.querySelectorAll('[data-port]').forEach(b=>b.onclick = ()=>{ const p = ports[Number(b.dataset.port)]; closeDrawer(); dbGoEvents({q: d.country, direction: p.dir, range: DB.range}); });
+  body.querySelectorAll('tr[data-ev]').forEach(tr=>tr.onclick = ()=>{
+    const next = tr.nextElementSibling;
+    if(next && next.classList.contains('evRawRow')){ next.remove(); return; }
+    const raw = document.createElement('tr'); raw.className = 'evRawRow';
+    const td = document.createElement('td'); td.colSpan = 5;
+    const pre = document.createElement('pre'); pre.textContent = JSON.stringify(rec[Number(tr.dataset.ev)], null, 2);
+    td.appendChild(pre); raw.appendChild(td); tr.after(raw);
+  });
+  body.querySelector('[data-act=events]').onclick = ()=>{ closeDrawer(); dbGoEvents({q: d.country, direction: st.dir, range: DB.range}); };
+  body.querySelector('[data-act=zoom]').onclick = ()=>{ closeDrawer(); if(d.place) dbZoomTo(d.place.iso2); };
+}
+
+function dbRenderAttack(){
+  const el = document.getElementById('dbAttack'); const a = DB.data && DB.data.attack;
+  if(!a){ el.innerHTML = ''; return; }
+  if(!(a.techniques||[]).length){ el.innerHTML = `<div class="dbNote" style="grid-column:1/-1">${escH(t('db_attack_none'))}</div>`; return; }
+  const max = Math.max(1, ...a.techniques.map(x=>x.count));
+  const tactics = [...a.tactics, ...(a.by_tactic.other ? ['other'] : [])];
+  el.innerHTML = tactics.map(tac=>{
+    const techs = a.techniques.filter(x=>x.tactic === tac);
+    const cells = techs.map(x=>{
+      const pct = (18 + 62*x.count/max).toFixed(0);
+      return `<div class="dbTech" style="background:color-mix(in srgb, var(--critical) ${pct}%, var(--panel-2))" title="${escH(x.id)} ${escH(x.name)}">
+        <span class="id">${escH(x.id)}</span><span class="c">${escH(x.count)}</span></div>`;
+    }).join('');
+    return `<div class="dbTac ${techs.length?'hit':''}"><div class="tn"><span>${escH(t('tac_'+tac) || tac)}</span><span>${a.by_tactic[tac] ? escH(a.by_tactic[tac]) : ''}</span></div>${cells}</div>`;
+  }).join('');
+}
+
+function dbRenderTop(){
+  const el = document.getElementById('dbTop'); const note = document.getElementById('dbTopNote'); const m = DB.map;
+  if(!m || m.connected === false){ el.innerHTML = ''; note.textContent = ''; return; }
+  const flows = (m.flows||[]).filter(f=>!DB.dir || f.dir === DB.dir).slice().sort((a,b)=>b.events-a.events).slice(0, 12);
+  if(!flows.length){ el.innerHTML = `<tr><td class="evDim">${escH(t('db_top_none'))}</td></tr>`; }
+  else {
+    const max = flows[0].events || 1;
+    el.innerHTML = `<tr style="cursor:default"><td class="evDim">${escH(t('db_th_country'))}</td><td class="num evDim">${escH(t('db_th_events'))}</td><td class="num evDim">${escH(t('db_th_blocked'))}</td><td class="num evDim"></td></tr>`
+      + flows.map((f,i)=>`<tr data-i="${i}">
+        <td><span class="evDir ${f.dir}">${f.dir==='inbound'?'↘':'↗'}</span> ${escH(dbCountryName(f))}
+          <div class="bar"><span style="width:${(f.events/max*100).toFixed(1)}%; background:${f.dir==='inbound'?'var(--high)':'var(--signal)'}"></span></div></td>
+        <td class="num">${escH(fmtNum(f.events))}</td>
+        <td class="num">${f.events ? escH(Math.round(f.blocked/f.events*100)) + '%' : '—'}</td>
+        <td class="num evDim">${escH(fmtBytes(f.bytes))}</td></tr>`).join('');
+    el.querySelectorAll('tr[data-i]').forEach(tr=>{
+      const f = flows[Number(tr.dataset.i)];
+      tr.onclick = ()=>dbOpenCountry(f.country, f.dir);
+      tr.onmouseenter = ()=>dbHighlight(f.iso2); tr.onmouseleave = ()=>dbHighlight(null);
+    });
+  }
+  const um = (m.unmapped||[]).filter(u=>!DB.dir || u.dir === DB.dir);
+  note.textContent = um.length ? tf('db_unmapped', {list: um.map(u=>`${u.country} (${fmtNum(u.events)})`).join(', ')}) : '';
+}
+
+function dbGoCases(id){
+  CS.filter = 'open'; CS.selected = id || null;
+  document.querySelectorAll('#csFilter button').forEach(x=>x.classList.toggle('active', x.dataset.f==='open'));
+  switchView('cases');
+}
+function dbGoEvents(o){
+  eventsControls();
+  document.getElementById('evRange').value = o.range || '24h';
+  document.getElementById('evDataset').value = o.dataset || '';
+  document.getElementById('evOutcome').value = o.outcome || '';
+  document.getElementById('evDirection').value = o.direction || '';
+  document.getElementById('evQuery').value = o.q || '';
+  EV.lastEvents = [];
+  switchView('events');
+}
+
+function dashControls(){
+  const r = document.getElementById('dbRange');
+  r.innerHTML = [['1h','ev_range_1h'],['6h','ev_range_6h'],['24h','ev_range_24h'],['7d','ev_range_7d']]
+    .map(([v,k])=>`<option value="${v}">${escH(t(k))}</option>`).join('');
+  r.value = DB.range;
+}
+function dashEnter(){
+  dashControls(); dashRender(); dashLoad();
+  clearInterval(DB.timer);
+  DB.timer = setInterval(()=>{ if(currentView==='dash' && document.visibilityState==='visible') dashLoad(); }, 30000);
+}
+function dashLeave(){ clearInterval(DB.timer); DB.timer = null; document.getElementById('dbTip').style.opacity = 0; }
+document.getElementById('dbRange').onchange = e=>{ DB.range = e.target.value; DB.map = null; dbRenderMap(); dashLoad(); };
+document.querySelectorAll('#dbDir button').forEach(b=>b.onclick = ()=>{
+  DB.dir = b.dataset.d;
+  document.querySelectorAll('#dbDir button').forEach(x=>x.classList.toggle('active', x===b));
+  dbRenderMap(); dbRenderTop();
+});
+let dbResizeT = null;
+window.addEventListener('resize', ()=>{ clearTimeout(dbResizeT); dbResizeT = setTimeout(()=>{ if(currentView==='dash') document.getElementById('dbTip').style.opacity = 0; }, 100); });
+
+// Shows the running version, and marks any non-prod environment loudly.
+async function loadVersion(){
+  try{
+    const res = await fetch(`${API_BASE}/api/version`);
+    if(!res.ok) return;
+    const v = await res.json();
+    const chip = document.getElementById('envChip');
+    const env = String(v.env || 'prod').toLowerCase();
+    const sha = (v.git_sha && v.git_sha !== 'unknown') ? ` · ${String(v.git_sha).slice(0,7)}` : '';
+    chip.textContent = env === 'prod' ? `v${v.version}` : `${env.toUpperCase()} · v${v.version}${sha}`;
+    chip.title = `Eagle Talon ${v.version} (${env})${sha}` + (v.scheduler === false ? ' — scheduled monitoring is off in this environment' : '');
+    chip.hidden = false;
+    if(env !== 'prod'){
+      chip.classList.add('nonprod');
+      document.title = `[${env.toUpperCase()}] ` + document.title;
+      const stripe = document.createElement('div');
+      stripe.className = 'envStripe';
+      document.body.appendChild(stripe);
+    }
+  }catch(e){ /* older API without /api/version — leave the chip hidden */ }
+}
+
+// Collapse the top bar to its compact form only when it doesn't fit.
+function fitTopbar(){
+  const bar = document.querySelector('.topbar'); if(!bar) return;
+  bar.classList.remove('compact');
+  ['openAdd','openBulk'].forEach(id=>{ const b = document.getElementById(id); if(b) b.title = b.textContent.trim(); });
+  if(bar.scrollWidth > bar.clientWidth + 1) bar.classList.add('compact');
+}
+window.addEventListener('resize', fitTopbar);
+
 applyStaticI18n();
+loadVersion().then(fitTopbar);
+fitTopbar();
 loadSectors();
-loadClients().then(loadPortfolio);
+loadClients().then(()=>{ fitTopbar(); return loadPortfolio(); });  // the client list changes the bar's width
 loadAlerts();
 </script>
 </body>

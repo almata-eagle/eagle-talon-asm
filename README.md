@@ -1,5 +1,11 @@
 # Eagle Talon — Prototype
 
+> **Running on core:** prod is http://core:8088 and staging is http://core:8098.
+> Deploy with `deploy/deploy.sh <prod|staging>`.
+> Start here: [Runbook](docs/RUNBOOK.md) · [Architecture](docs/ARCHITECTURE.md) ·
+> [Roadmap](docs/ROADMAP.md) · [Changelog](CHANGELOG.md) · [Decisions](docs/adr/).
+> Current version: see `VERSION` (and the chip in the UI top bar).
+
 A working ASM (Attack Surface Management) prototype: a real passive-recon
 scanning backend + a new console-style UI ("Talon Scope") built to navigate
 hundreds/thousands of scored domains instead of scrolling a dashboard.
@@ -76,5 +82,9 @@ Happy to build that IaC out for real once you've confirmed the demo direction.
 ```
 backend/        FastAPI app + scanner.py (real DNS/TLS/email/header/RDAP checks)
 frontend/       index.html — the new "Talon Scope" UI, self-contained
-deploy/         docker-compose, nginx config, Terraform for a demo EC2 host
+deploy/         docker-compose, env/<env>.env, deploy/backup/seed scripts,
+                nginx config, Terraform for a demo EC2 host
+docs/           runbook, architecture, roadmap, decision records (adr/)
+VERSION         current version (-dev suffix on the staging branch)
+CHANGELOG.md    what changed, per release
 ```

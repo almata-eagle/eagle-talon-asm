@@ -1,3 +1,6 @@
+# NGINX_PORT and API_PORT placeholders below are filled in by the nginx image's
+# envsubst at container start. Only variables defined in the container env are
+# substituted, so nginx's own runtime variables are left alone.
 server {
     listen ${NGINX_PORT};
     server_name _;
@@ -9,7 +12,7 @@ server {
     }
 
     location /api/ {
-        proxy_pass http://localhost:8000/api/;
+        proxy_pass http://localhost:${API_PORT}/api/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
     }

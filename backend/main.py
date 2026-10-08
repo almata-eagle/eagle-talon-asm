@@ -25,11 +25,15 @@ import concurrent.futures as cf
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks, UploadFile, File
+from fastapi import FastAPI, HTTPException, BackgroundTasks, UploadFile, File, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from scanner import scan_domain, tier_for_score
+import soc_logs
+import soc_cases
+import soc_triage
+import soc_dashboard
 
 # Shared sector list — used both by the demo-data generator and by real scans
 # (so a real domain's sector places it correctly on the Talon Scope radar,
@@ -38,7 +42,21 @@ SECTORS = ["Payments", "Logistics", "Cloud/SaaS Vendors", "Marketing & Ad Tech",
            "Manufacturing Suppliers", "Professional Services", "Marketplace Sellers",
            "Financial Institutions", "Healthcare Vendors", "Regional Resellers", "Unassigned"]
 
-app = FastAPI(title="Eagle Talon ASM API", version="0.1.0")
+# Release version: deploy/deploy.sh exports it from the repo's VERSION file.
+# Running outside Docker, fall back to reading that file directly.
+def _read_version() -> str:
+    v = os.environ.get("EAGLE_TALON_VERSION", "").strip()
+    if v and v != "unknown":
+        return v
+    try:
+        return (Path(__file__).resolve().parent.parent / "VERSION").read_text().strip()
+    except OSError:
+        return "unknown"
+
+
+APP_VERSION = _read_version()
+
+app = FastAPI(title="Eagle Talon ASM API", version=APP_VERSION)
 
 app.add_middleware(
     CORSMiddleware,
@@ -319,7 +337,12 @@ def _monitoring_scheduler_loop():
         time.sleep(60)
 
 
-threading.Thread(target=_monitoring_scheduler_loop, daemon=True).start()
+# Staging runs with EAGLE_TALON_SCHEDULER=off: it starts from a copy of the
+# prod DB, so its monitors would otherwise re-scan every client domain a second
+# time and spend the shared NVD API quota. Use "Check now" in the UI instead.
+SCHEDULER_ENABLED = os.environ.get("EAGLE_TALON_SCHEDULER", "on").strip().lower() not in ("off", "0", "false", "no")
+if SCHEDULER_ENABLED:
+    threading.Thread(target=_monitoring_scheduler_loop, daemon=True).start()
 
 
 class ScanRequest(BaseModel):
@@ -340,6 +363,179 @@ def debug_cve_lookup(tech: str, version: str):
 @app.get("/api/health")
 def health():
     return {"status": "ok", "time": datetime.datetime.utcnow().isoformat()}
+
+
+@app.get("/api/version")
+def version_info():
+    """What is running where. The UI footer shows this, and a non-prod env
+    shows a banner so staging can never be mistaken for prod."""
+    return {
+        "version": APP_VERSION,
+        "git_sha": os.environ.get("EAGLE_TALON_GIT_SHA", "unknown"),
+        "env": os.environ.get("EAGLE_TALON_ENV", "prod"),
+        "scheduler": SCHEDULER_ENABLED,
+    }
+
+
+# ---------------------------------------------------------------------------
+# SOC events (Phase 1): read-only search over the log collector's hot store.
+# See backend/soc_logs.py and docs/SOC-COLLECTOR.md. Every value in these
+# responses comes from logs and is attacker-controlled — the UI escapes it.
+# ---------------------------------------------------------------------------
+_RANGE_RE = "^(1h|6h|24h|7d)$"
+_OUTCOME_RE = "^(allowed|blocked)$"
+_DIRECTION_RE = "^(inbound|outbound|internal|external)$"
+_DATASET_RE = r"^[a-z0-9_]+\.[a-z0-9_]+$"
+
+
+@app.get("/api/soc/status")
+def soc_status():
+    return soc_logs.status()
+
+
+@app.get("/api/soc/events")
+def soc_events(
+    range: str = Query("24h", pattern=_RANGE_RE),
+    dataset: Optional[str] = Query(None, pattern=_DATASET_RE),
+    q: Optional[str] = Query(None, max_length=soc_logs.MAX_QUERY_LEN),
+    outcome: Optional[str] = Query(None, pattern=_OUTCOME_RE),
+    direction: Optional[str] = Query(None, pattern=_DIRECTION_RE),
+    limit: int = Query(200, ge=1, le=soc_logs.MAX_LIMIT),
+):
+    if not soc_logs.available():
+        return {"connected": False, "events": [], "files_scanned": 0, "truncated": False}
+    res = soc_logs.search(range, dataset, q, outcome, direction, limit)
+    res["connected"] = True
+    return res
+
+
+@app.get("/api/soc/summary")
+def soc_summary(
+    range: str = Query("24h", pattern=_RANGE_RE),
+    dataset: Optional[str] = Query(None, pattern=_DATASET_RE),
+    q: Optional[str] = Query(None, max_length=soc_logs.MAX_QUERY_LEN),
+    outcome: Optional[str] = Query(None, pattern=_OUTCOME_RE),
+    direction: Optional[str] = Query(None, pattern=_DIRECTION_RE),
+):
+    if not soc_logs.available():
+        return {"connected": False}
+    res = soc_logs.summary(range, dataset, q, outcome, direction)
+    res["connected"] = True
+    return res
+
+
+# ---------------------------------------------------------------------------
+# SOC cases + Claude triage (Phase 2, read-only). Detection runs in the
+# background only when SOC_DETECT=on; triage only with SOC_TRIAGE=on and an
+# ANTHROPIC_API_KEY. Response options are suggestions — nothing is executed.
+# ---------------------------------------------------------------------------
+soc_cases.init_db()
+soc_cases.start_engine()
+
+_CASE_ID_RE = r"^case_[0-9a-f]{12}$"
+
+
+class CaseStatusReq(BaseModel):
+    status: str
+
+
+class CaseFeedbackReq(BaseModel):
+    verdict: Optional[str] = None
+    note: Optional[str] = None
+
+
+def _case_or_404(case_id: str) -> dict:
+    import re as _re
+    if not _re.fullmatch(_CASE_ID_RE, case_id):
+        raise HTTPException(404, "case not found")
+    c = soc_cases.get_case(case_id)
+    if not c:
+        raise HTTPException(404, "case not found")
+    return c
+
+
+@app.get("/api/soc/engine")
+def soc_engine():
+    return {"detect_enabled": soc_cases.engine_enabled(), "last_run": soc_cases.last_run(),
+            "triage": soc_triage.status(), "usage": soc_cases.usage_summary(),
+            "hot_store_connected": soc_logs.available()}
+
+
+@app.post("/api/soc/detect/run")
+def soc_detect_run():
+    """Run detection + triage now, in the background. Poll /api/soc/cases."""
+    if not soc_logs.available():
+        raise HTTPException(409, "hot store not connected")
+    threading.Thread(target=soc_cases.run_once, daemon=True).start()
+    return {"started": True}
+
+
+@app.get("/api/soc/cases")
+def soc_cases_list(status: Optional[str] = Query(None, pattern="^(open|resolved)$"),
+                   limit: int = Query(100, ge=1, le=500)):
+    return {"cases": soc_cases.list_cases(status, limit)}
+
+
+@app.get("/api/soc/cases/{case_id}")
+def soc_case_get(case_id: str):
+    return _case_or_404(case_id)
+
+
+@app.post("/api/soc/cases/{case_id}/status")
+def soc_case_status(case_id: str, req: CaseStatusReq):
+    _case_or_404(case_id)
+    if not soc_cases.set_status(case_id, req.status):
+        raise HTTPException(422, "status must be open or resolved")
+    return soc_cases.get_case(case_id)
+
+
+@app.post("/api/soc/cases/{case_id}/feedback")
+def soc_case_feedback(case_id: str, req: CaseFeedbackReq):
+    _case_or_404(case_id)
+    if not soc_cases.set_feedback(case_id, req.verdict, req.note):
+        raise HTTPException(422, "verdict must be useful, noise or null")
+    return soc_cases.get_case(case_id)
+
+
+@app.post("/api/soc/cases/{case_id}/retriage")
+def soc_case_retriage(case_id: str):
+    _case_or_404(case_id)
+    if not soc_triage.enabled():
+        raise HTTPException(409, "Claude triage is not configured")
+    if not soc_cases.request_retriage(case_id):
+        raise HTTPException(429, "this case has reached its triage limit")
+    threading.Thread(target=soc_cases.triage_pending, kwargs={"limit": 1}, daemon=True).start()
+    return {"queued": True}
+
+
+# ---------------------------------------------------------------------------
+# SOC dashboard (Phase 3, read-only): traffic map + callouts + KPIs.
+# See backend/soc_dashboard.py and ADR 0005.
+# ---------------------------------------------------------------------------
+@app.get("/api/soc/map")
+def soc_map(range: str = Query("24h", pattern=_RANGE_RE)):
+    if not soc_logs.available():
+        return {"connected": False, "flows": [], "unmapped": [], "home": soc_dashboard.soc_geo.HOME}
+    res = soc_dashboard.traffic_map(range)
+    res["connected"] = True
+    return res
+
+
+@app.get("/api/soc/map/country")
+def soc_map_country(country: str = Query(..., min_length=1, max_length=soc_dashboard.MAX_COUNTRY_LEN),
+                    range: str = Query("24h", pattern=_RANGE_RE)):
+    """Drill-down for one country on the map. `country` is matched exactly
+    (as a bound parameter) against the firewall's own spelling."""
+    if not soc_logs.available():
+        return {"connected": False}
+    res = soc_dashboard.country_detail(country, range)
+    res["connected"] = True
+    return res
+
+
+@app.get("/api/soc/dashboard")
+def soc_dashboard_view():
+    return soc_dashboard.dashboard()
 
 
 @app.get("/api/clients")
