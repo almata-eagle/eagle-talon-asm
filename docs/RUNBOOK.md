@@ -204,6 +204,12 @@ grep -c '^ANTHROPIC_API_KEY=' ~/eagle-talon-asm/deploy/secrets.env
 `SOC_TRIAGE=off` and redeploy, or disable the key in the Console. Details,
 costs and kill switches are in [SOC-TRIAGE.md](SOC-TRIAGE.md).
 
+## Threat intelligence
+Feeds refresh in the background (`SOC_INTEL=on`). Feed status, errors and a
+**Refresh feeds** button are on the dashboard under "Known-bad addresses".
+The optional ThreatFox key and each feed's licence are in [SOC-INTEL.md](SOC-INTEL.md).
+To stop all feed downloads, set `SOC_INTEL=off` and redeploy.
+
 ## SOC log collector
 Deploy, the FortiGate setup, health checks and retention are in
 [SOC-COLLECTOR.md](SOC-COLLECTOR.md). There is one collector per host. Start with

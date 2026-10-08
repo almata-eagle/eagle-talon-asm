@@ -34,6 +34,7 @@ import soc_logs
 import soc_cases
 import soc_triage
 import soc_dashboard
+import soc_intel
 
 # Shared sector list — used both by the demo-data generator and by real scans
 # (so a real domain's sector places it correctly on the Talon Scope radar,
@@ -405,6 +406,11 @@ def soc_events(
     if not soc_logs.available():
         return {"connected": False, "events": [], "files_scanned": 0, "truncated": False}
     res = soc_logs.search(range, dataset, q, outcome, direction, limit)
+    for e in res["events"]:   # threat-intel badges (local lookup)
+        hits = {k: soc_intel.lookup(e.get(k + "_ip")) for k in ("src", "dst")}
+        hits = {k: v for k, v in hits.items() if v}
+        if hits:
+            e["intel"] = hits
     res["connected"] = True
     return res
 
@@ -430,7 +436,9 @@ def soc_summary(
 # ANTHROPIC_API_KEY. Response options are suggestions — nothing is executed.
 # ---------------------------------------------------------------------------
 soc_cases.init_db()
+soc_intel.init_db()
 soc_cases.start_engine()
+soc_intel.start_engine()
 
 _CASE_ID_RE = r"^case_[0-9a-f]{12}$"
 
@@ -478,7 +486,13 @@ def soc_cases_list(status: Optional[str] = Query(None, pattern="^(open|resolved)
 
 @app.get("/api/soc/cases/{case_id}")
 def soc_case_get(case_id: str):
-    return _case_or_404(case_id)
+    c = _case_or_404(case_id)
+    st = c.get("stats") or {}
+    ips = [x for x in (c.get("entity") or []) if isinstance(x, str)]
+    ips += list(st.get("src_ips") or []) + list(st.get("dst_ips") or [])
+    ips += [s.get(k) for s in (c.get("samples") or []) for k in ("src_ip", "dst_ip")]
+    c["intel"] = soc_intel.lookup_many(ips)
+    return c
 
 
 @app.post("/api/soc/cases/{case_id}/status")
@@ -529,6 +543,42 @@ def soc_map_country(country: str = Query(..., min_length=1, max_length=soc_dashb
     if not soc_logs.available():
         return {"connected": False}
     res = soc_dashboard.country_detail(country, range)
+    res["connected"] = True
+    return res
+
+
+# ---------------------------------------------------------------------------
+# Threat intelligence (v0.6): public feeds matched locally. See soc_intel.py.
+# ---------------------------------------------------------------------------
+@app.get("/api/soc/intel")
+def soc_intel_status():
+    return soc_intel.status()
+
+
+@app.post("/api/soc/intel/refresh")
+def soc_intel_refresh():
+    """Fetch feeds now (any feed not fetched in the last hour), in the background."""
+    if not soc_intel.enabled():
+        raise HTTPException(409, "threat intelligence is off (SOC_INTEL)")
+    threading.Thread(target=soc_intel.refresh, kwargs={"force": True}, daemon=True).start()
+    return {"started": True}
+
+
+@app.get("/api/soc/intel/lookup")
+def soc_intel_lookup(ip: str = Query(..., min_length=2, max_length=45)):
+    import ipaddress
+    try:
+        ip = str(ipaddress.ip_address(ip.strip()))
+    except ValueError:
+        raise HTTPException(422, "not an IP address")
+    return {"ip": ip, "intel": soc_intel.lookup(ip)}
+
+
+@app.get("/api/soc/intel/sightings")
+def soc_intel_sightings(range: str = Query("24h", pattern=_RANGE_RE)):
+    if not soc_logs.available():
+        return {"connected": False, "ips": []}
+    res = soc_intel.sightings(range)
     res["connected"] = True
     return res
 

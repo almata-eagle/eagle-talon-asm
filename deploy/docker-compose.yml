@@ -48,6 +48,11 @@ services:
       - SOC_TRIAGE_MODEL=${SOC_TRIAGE_MODEL:-claude-sonnet-5-5}
       - SOC_TRIAGE_MAX_PER_HOUR=${SOC_TRIAGE_MAX_PER_HOUR:-20}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      # Threat intelligence (v0.6): public feeds, matched locally. ThreatFox
+      # only runs when ABUSECH_AUTH_KEY is set (in secrets.env).
+      - SOC_INTEL=${SOC_INTEL:-off}
+      - SOC_INTEL_FEEDS=${SOC_INTEL_FEEDS:-feodo,spamhaus_drop,spamhaus_drop_v6,tor_exits,blocklist_de,threatfox}
+      - ABUSECH_AUTH_KEY=${ABUSECH_AUTH_KEY:-}
 
   web:
     image: nginx:alpine

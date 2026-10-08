@@ -22,6 +22,7 @@ import datetime as dt
 from dataclasses import dataclass
 from typing import Callable, Optional
 
+import soc_intel
 import soc_logs
 
 # Ports where repeated inbound attempts mean someone is trying to log in or
@@ -132,6 +133,11 @@ RULES: tuple[Rule, ...] = (
 )
 RULES_BY_NAME = {r.name: r for r in RULES}
 
+# Threat-intel matches are checked in Python against soc_intel, so they're
+# handled separately too (v0.6): allowed traffic to/from a listed address.
+INTEL_RULE = "intel_match"
+INTEL_WINDOW_MIN = 15
+
 # New-country detection needs a baseline, so it's handled separately below.
 NEW_COUNTRY_RULE = "outbound_new_country"
 NEW_COUNTRY_WINDOW_MIN = 60
@@ -207,6 +213,7 @@ def detect(now: Optional[dt.datetime] = None) -> list[dict]:
                 entity = tuple(d.pop(c) for c in rule.entity)
                 findings.append(_finding(rule.name, entity, d))
         findings.extend(_detect_new_country(con, now))
+        findings.extend(_detect_intel(con, now))
     finally:
         con.close()
     return findings
@@ -215,7 +222,9 @@ def detect(now: Optional[dt.datetime] = None) -> list[dict]:
 def _finding(rule_name: str, entity: tuple, stats: dict) -> dict:
     stats = dict(stats)
     stats["entity"] = list(entity)
-    if rule_name == NEW_COUNTRY_RULE:
+    if rule_name == INTEL_RULE:
+        sev, title = _intel_severity_title(entity, stats)
+    elif rule_name == NEW_COUNTRY_RULE:
         sev = "low"
         title = (
             f"{entity[0]} contacted {entity[1]} for the first time in {BASELINE_DAYS} days",
@@ -267,11 +276,68 @@ def _detect_new_country(con, now: dt.datetime) -> list[dict]:
     return out
 
 
+def _intel_severity_title(entity: tuple, stats: dict) -> tuple[str, tuple[str, str]]:
+    hits = stats.get("intel") or []
+    level = soc_intel.worst_level(hits) or "info"
+    outbound = stats.get("dir") == "outbound"
+    if level == "malicious":
+        sev = "critical" if outbound else "high"
+    elif level == "suspicious":
+        sev = "medium"
+    else:
+        sev = "low"
+    top = next((h for h in hits if h["level"] == level), hits[0] if hits else {"label_en": "listed", "label_ja": "リスト掲載"})
+    tag = f" ({top['tag']})" if top.get("tag") else ""
+    ip = entity[0]
+    if outbound:
+        return sev, (f"Allowed traffic from our network to {ip}, a known {top['label_en'].lower()}{tag}",
+                     f"社内から既知の{top['label_ja']}{tag}である {ip} への通信が許可されました")
+    return sev, (f"Allowed traffic in from {ip}, a known {top['label_en'].lower()}{tag}",
+                 f"既知の{top['label_ja']}{tag}である {ip} からの通信が許可されました")
+
+
+def _detect_intel(con, now: dt.datetime) -> list[dict]:
+    """Allowed traffic to or from an address on a threat-intel list. Blocked
+    traffic from listed addresses is normal internet noise and opens nothing;
+    Tor exits and reported attackers only count when they came in."""
+    if not soc_intel.INDEX.loaded:
+        soc_intel.INDEX.reload()
+    if not soc_intel.INDEX.count:
+        return []
+    since = now - dt.timedelta(minutes=INTEL_WINDOW_MIN)
+    files = soc_logs._files(since, now)
+    if not files:
+        return []
+    remote = soc_logs._REMOTE_IP
+    cur = con.execute(
+        _ev(files) + f" SELECT {remote} AS rip, CASE WHEN direction = 'inbound' THEN 'inbound' ELSE 'outbound' END AS dir, "
+        f"{_STATS_SELECT} FROM ev WHERE {_base_where()} AND ({_OUTCOME}) = 'allowed' AND {remote} IS NOT NULL "
+        "GROUP BY rip, dir ORDER BY n DESC LIMIT 5000",
+        [files, soc_logs.COLUMNS, _ms(since), _ms(now), soc_logs.SELFTEST_HOST],
+    )
+    out = []
+    for row in cur.fetchall():
+        d = _row_dict(cur, row)
+        ip, direction = d.pop("rip"), d.pop("dir")
+        hits = soc_intel.lookup(ip)
+        level = soc_intel.worst_level(hits)
+        if not level or (level != "malicious" and direction != "inbound"):
+            continue
+        d["dir"] = direction
+        d["intel"] = hits
+        out.append(_finding(INTEL_RULE, (ip,), d))
+    return out
+
+
 def case_evidence(rule_name: str, entity: list, since_ms: int, until_ms: int) -> tuple[dict, list[dict]]:
     """Statistics and newest samples for one case over its whole lifetime, so
     a case that keeps going is described by all of its events, not just the
     last window."""
-    if rule_name == NEW_COUNTRY_RULE:
+    if rule_name == INTEL_RULE:
+        # Every event with the listed address on either side, blocked or not.
+        where, cols = "(src_ip IS NOT DISTINCT FROM ? OR dst_ip IS NOT DISTINCT FROM ?)", ()
+        entity_params = [entity[0], entity[0]]
+    elif rule_name == NEW_COUNTRY_RULE:
         where, cols = "direction = 'outbound'", ("src_ip", "dst_country")
     else:
         rule = RULES_BY_NAME[rule_name]
@@ -281,13 +347,22 @@ def case_evidence(rule_name: str, entity: list, since_ms: int, until_ms: int) ->
     files = soc_logs._files(since, until)
     if not files:
         return {}, []
-    params = [files, soc_logs.COLUMNS, since_ms, until_ms, soc_logs.SELFTEST_HOST, *entity]
-    filt = f" FROM ev WHERE {_base_where()} AND ({where}) AND {_entity_where(cols)}"
+    if rule_name == INTEL_RULE:
+        params = [files, soc_logs.COLUMNS, since_ms, until_ms, soc_logs.SELFTEST_HOST, *entity_params]
+        filt = f" FROM ev WHERE {_base_where()} AND {where}"
+    else:
+        params = [files, soc_logs.COLUMNS, since_ms, until_ms, soc_logs.SELFTEST_HOST, *entity]
+        filt = f" FROM ev WHERE {_base_where()} AND ({where}) AND {_entity_where(cols)}"
     con = soc_logs._connect()
     try:
         cur = con.execute(_ev(files) + f" SELECT {_STATS_SELECT}" + filt, params)
         stats = _row_dict(cur, cur.fetchone())
         stats["entity"] = list(entity)
+        if rule_name == INTEL_RULE:
+            stats["intel"] = soc_intel.lookup(entity[0])
+            dirs = con.execute(_ev(files) + " SELECT count(*) FILTER (WHERE direction = 'inbound'), count(*)" + filt,
+                               params).fetchone()
+            stats["dir"] = "inbound" if dirs[0] * 2 >= (dirs[1] or 1) else "outbound"
         cur = con.execute(
             _ev(files) + f" SELECT {', '.join(SAMPLE_COLUMNS)}, ({_OUTCOME}) AS outcome" + filt
             + f" ORDER BY ts_ms DESC LIMIT {MAX_SAMPLES}",

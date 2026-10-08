@@ -25,6 +25,7 @@ from typing import Any, Optional
 import soc_cases
 import soc_geo
 import soc_logs
+import soc_intel
 import soc_triage
 
 MAP_MAX_FLOWS = 40          # per direction
@@ -169,6 +170,14 @@ def traffic_map(range_key: str = "24h", now: Optional[dt.datetime] = None) -> di
             "top_ips": [{"ip": x["v"], "n": x["n"]} for x in sorted(t["ip"], key=lambda x: -x["n"])],
         })
     out["totals"]["countries"] = len(countries)
+    # Threat intel: how many listed addresses each flow involves.
+    sights = soc_intel.sightings(range_key, now, limit=1_000_000)
+    listed: dict[tuple, set] = {}
+    for x in sights["ips"]:
+        listed.setdefault((x["dir"], x["country"]), set()).add(x["ip"])
+    for f in out["flows"]:
+        f["intel_ips"] = len(listed.get((f["dir"], f["country"]), ()))
+    out["totals"]["intel_ips"] = sights["listed_ips"]
     out["unmapped"] = out["unmapped"][:20]
     return out
 
@@ -333,6 +342,16 @@ def _sev_rank(s: str) -> int:
 
 def callouts(cases: list[dict], sensor_list: list[dict], engine: dict) -> list[dict]:
     out: list[dict] = []
+    intel = engine.get("intel") or {}
+    if intel.get("enabled"):
+        active = [f for f in intel.get("feeds", []) if f["active"]]
+        failing = [f["name"] for f in active if f["error"] or not f["last_ok"]]
+        tried = [f for f in active if f["last_attempt"]]
+        if active and tried and len(failing) == len(active):
+            out.append({"kind": "system", "code": "intel_down", "severity": "medium", "count": len(failing)})
+        elif failing and tried:
+            out.append({"kind": "system", "code": "intel_partial", "severity": "info", "count": len(failing),
+                        "feeds": failing[:6]})
     # System health first: a blind sensor hides everything else.
     if not engine["hot_store"]:
         out.append({"kind": "system", "code": "hot_store_missing", "severity": "high"})
@@ -369,7 +388,7 @@ def dashboard(now: Optional[dt.datetime] = None) -> dict:
     hot = soc_logs.available()
     sensor_list = sensors() if hot else []  # file mtimes are wall-clock, not the (patchable) log clock
     engine = {"hot_store": hot, "detect": soc_cases.engine_enabled(), "triage": soc_triage.status(),
-              "last_run": soc_cases.last_run()}
+              "last_run": soc_cases.last_run(), "intel": soc_intel.status()}
     posture = soc_logs.summary("24h", now=now) if hot else None
     return {
         "generated_ms": int(now.timestamp() * 1000),
@@ -380,6 +399,9 @@ def dashboard(now: Optional[dt.datetime] = None) -> dict:
         "attack": attack_tally([c for c in cases if (_parse_iso(c["created_at"]) or 0)
                                 >= (now - dt.timedelta(days=KPI_WINDOW_DAYS)).timestamp() or c["status"] == "open"]),
         "callouts": callouts(cases, sensor_list, engine),
+        "intel": {"enabled": engine["intel"]["enabled"], "indicators": engine["intel"]["indicators"],
+                  "feeds": engine["intel"]["feeds"],
+                  "sightings": soc_intel.sightings("24h", now, limit=12) if hot else None},
     }
 
 
@@ -494,7 +516,7 @@ def country_detail(country: str, range_key: str = "24h", now: Optional[dt.dateti
     for d, n, k, b, r, first, last in dirs:
         out["directions"][d] = {"events": n, "blocked": k, "bytes": b, "remote_ips": r, "first_ms": first, "last_ms": last}
     out["timeline"] = [{"t": b, "inbound": i, "outbound": o, "blocked": k} for b, i, o, k in timeline]
-    out["top_ips"] = [{"ip": ip, "dir": d, "events": n, "blocked": k, "bytes": b,
+    out["top_ips"] = [{"ip": ip, "dir": d, "events": n, "blocked": k, "bytes": b, "intel": soc_intel.lookup(ip),
                        "ports": [p for p in (pl or []) if p is not None], "last_ms": last}
                       for ip, d, n, k, b, pl, last in ips]
     out["top_ports"] = [{"port": p, "dir": d, "events": n, "blocked": k} for p, d, n, k in ports]

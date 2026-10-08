@@ -375,7 +375,6 @@
   .dbKpi .sevs span{display:block; height:100%;}
   .dbKpi.alert .n{color:var(--critical);}
   .dbMain{display:grid; grid-template-columns:minmax(0, 1fr) minmax(320px, 400px); gap:14px; align-items:start;}
-  .dbMain > div:last-child{position:sticky; top:0;}
   .dbPanel{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 16px; min-width:0;}
   .dbPanel h3{font-family:var(--font-display); font-size:13px; font-weight:600; margin:0 0 10px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
   .dbPanel h3 .spacer{flex:1;}
@@ -436,6 +435,21 @@
   .dbDCases{display:flex; flex-direction:column; gap:6px;}
   .dbDTable td{font-size:11.5px;}
   #dbDRecent td{padding:5px 8px; font-size:11px;} #dbDRecent th{padding:6px 8px;}
+  /* Threat intel (v0.6) */
+  .ti{display:inline-flex; align-items:center; gap:3px; font-size:9.5px; font-weight:700; padding:1px 6px; border-radius:5px; margin-left:5px; white-space:nowrap; vertical-align:middle; letter-spacing:.02em; border:1px solid;}
+  .ti.malicious{background:color-mix(in srgb, var(--critical) 14%, transparent); color:var(--critical); border-color:color-mix(in srgb, var(--critical) 40%, transparent);}
+  .ti.suspicious{background:color-mix(in srgb, var(--watch) 14%, transparent); color:var(--watch); border-color:color-mix(in srgb, var(--watch) 40%, transparent);}
+  .ti.info{background:var(--panel-2); color:var(--muted); border-color:var(--line);}
+  .dbMapWrap .node.ti{stroke:var(--critical); stroke-width:2.2;}
+  .dbTi{width:100%; border-collapse:collapse; font-size:12px;}
+  .dbTi td{padding:6px 4px; border-bottom:1px solid var(--line-soft); vertical-align:top;}
+  .dbTi tr{cursor:pointer;} .dbTi tr:hover td{background:var(--panel-2);}
+  .dbTi td.num{text-align:right; font-family:var(--font-mono); white-space:nowrap;}
+  .dbTiFoot{font-size:10.5px; color:var(--dim); margin-top:8px; line-height:1.55; display:flex; flex-wrap:wrap; gap:6px 10px; align-items:center;}
+  .dbTiFoot .warn{color:var(--watch);}
+  .dbTiFoot button{background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:6px; font-size:10.5px; padding:2px 8px; cursor:pointer; margin-left:auto;}
+  .csTi{display:flex; flex-direction:column; gap:6px;}
+  .csTi div{background:var(--panel-2); border-radius:8px; padding:7px 10px; font-size:12px;}
   @keyframes dbFlow{to{stroke-dashoffset:-15;}}
   @keyframes dbPulse{0%{transform:scale(.6); opacity:.9;} 100%{transform:scale(2.6); opacity:0;}}
   @media (prefers-reduced-motion: reduce){ .dbMapWrap .flow, .dbMapWrap .homeRing{animation:none;} }
@@ -711,6 +725,11 @@
               <h3><span data-i18n="db_attention_h">Needs attention</span><span class="spacer"></span><span class="csEngine" id="dbUpdated"></span></h3>
               <div class="dbCallouts" id="dbCallouts"></div>
             </div>
+            <div class="dbPanel" style="margin-top:14px">
+              <h3><span data-i18n="db_ti_h">Known-bad addresses (24 h)</span></h3>
+              <table class="dbTi" id="dbTi"></table>
+              <div class="dbTiFoot" id="dbTiFoot"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -869,6 +888,17 @@ const STR = {
     db_d_activity:"Activity", db_d_cases:"Related cases", db_d_top_ips:"Remote IPs", db_d_ports:"Ports",
     db_d_recent:"Latest events", db_d_last:"Last", db_d_all_events:"Open all events", db_d_zoom:"Zoom to it on the map",
     db_d_note:"Click an IP or a port to search for it in Events, or an event to see all its fields.",
+    db_ti_h:"Known-bad addresses (24 h)", db_ti_off:"Threat intelligence is off (SOC_INTEL).",
+    db_ti_none:"None of the addresses seen in the last 24 hours are on a threat list.", db_ti_loading:"Downloading threat feeds…",
+    db_ti_allowed:"{n} allowed", db_ti_all_blocked:"all blocked", db_ti_stats:"{n} indicators from {f} feeds",
+    db_ti_updated:"updated {age} ago", db_ti_errors:"{n} feed(s) failing", db_ti_needs_key:"{n} feed(s) need a key",
+    db_ti_refresh:"Refresh feeds", db_ti_refreshing:"Refreshing…",
+    db_ti_credit:"Matched locally; your addresses are never sent to the feeds. Includes data from abuse.ch, The Spamhaus Project, the Tor Project and blocklist.de.",
+    db_k_ti:"Known-bad IPs (24h)", db_k_ti_allowed:"{n} allowed", db_k_ti_tip:"Remote addresses seen in the last 24 hours that are on a public threat-intelligence list.",
+    db_tip_ti:"{n} known-bad IP(s)", cs_intel:"Threat intelligence", rule_intel_match:"Known-bad address",
+    db_co_intel_down_t:"Threat feeds aren't updating", db_co_intel_down_b:"None of the threat-intelligence feeds could be downloaded, so known-bad addresses may be missed.",
+    db_co_intel_down_o:["Check that Core can reach the internet: <code>curl -sI https://feodotracker.abuse.ch</code>", "See the error per feed under Known-bad addresses"],
+    db_co_intel_partial_t:"{n} threat feed(s) failing", db_co_intel_partial_b:"The other feeds are working. Hover the warning under Known-bad addresses for the error.",
     db_co_events:"{n} events", db_kind_sensor:"sensor", db_kind_system:"system",
     db_co_sensor_stale_t:"{ds}: no new logs for {age}",
     db_co_stale_fortigate_b:"The firewall normally logs every few seconds. Until it resumes, detection can't see traffic.",
@@ -1046,6 +1076,17 @@ const STR = {
     db_d_activity:"推移", db_d_cases:"関連するケース", db_d_top_ips:"通信相手のIP", db_d_ports:"ポート",
     db_d_recent:"最新のイベント", db_d_last:"最終", db_d_all_events:"すべてのイベントを開く", db_d_zoom:"地図でこの国に移動",
     db_d_note:"IPやポートをクリックするとイベント画面で検索できます。イベントをクリックすると全項目を表示します。",
+    db_ti_h:"既知の悪性アドレス（24時間）", db_ti_off:"脅威インテリジェンスは無効です（SOC_INTEL）。",
+    db_ti_none:"過去24時間に観測したアドレスは、どの脅威リストにも載っていません。", db_ti_loading:"脅威フィードをダウンロード中…",
+    db_ti_allowed:"{n}件許可", db_ti_all_blocked:"すべて遮断", db_ti_stats:"{f}フィード · 指標{n}件",
+    db_ti_updated:"{age}前に更新", db_ti_errors:"{n}件のフィードでエラー", db_ti_needs_key:"{n}件のフィードはキーが必要",
+    db_ti_refresh:"フィードを更新", db_ti_refreshing:"更新中…",
+    db_ti_credit:"照合はローカルで行い、当方のアドレスをフィード側へ送ることはありません。abuse.ch、The Spamhaus Project、Tor Project、blocklist.de のデータを含みます。",
+    db_k_ti:"既知の悪性IP（24時間）", db_k_ti_allowed:"{n}件許可", db_k_ti_tip:"過去24時間に観測した相手アドレスのうち、公開の脅威インテリジェンスに載っているもの。",
+    db_tip_ti:"既知の悪性IP {n}件", cs_intel:"脅威インテリジェンス", rule_intel_match:"既知の悪性アドレス",
+    db_co_intel_down_t:"脅威フィードが更新されていません", db_co_intel_down_b:"脅威インテリジェンスのフィードを1つもダウンロードできていないため、既知の悪性アドレスを見逃す可能性があります。",
+    db_co_intel_down_o:["coreからインターネットに接続できるか確認：<code>curl -sI https://feodotracker.abuse.ch</code>", "「既知の悪性アドレス」欄でフィードごとのエラーを確認"],
+    db_co_intel_partial_t:"{n}件の脅威フィードでエラー", db_co_intel_partial_b:"他のフィードは正常です。「既知の悪性アドレス」欄の警告にカーソルを合わせるとエラーを表示します。",
     db_co_events:"{n}件", db_kind_sensor:"センサー", db_kind_system:"システム",
     db_co_sensor_stale_t:"{ds}：{age}間ログが届いていません",
     db_co_stale_fortigate_b:"ファイアウォールは通常数秒ごとにログを送信します。再開するまで通信を検知できません。",
@@ -2345,6 +2386,17 @@ function fmtBytes(b){
   return (i ? x.toFixed(1) : x) + ' ' + u[i];
 }
 
+// Threat-intel badge: feed names and tags come from third-party lists, so
+// they're escaped like log data.
+const TI_LEVELS = ['info','suspicious','malicious'];
+function tiWorst(hits){ return (hits||[]).reduce((w,h)=> TI_LEVELS.indexOf(h.level) > TI_LEVELS.indexOf(w) ? h.level : w, 'info'); }
+function tiBadge(hits){
+  if(!hits || !hits.length) return '';
+  const lv = tiWorst(hits); const top = hits.find(h=>h.level===lv) || hits[0];
+  const label = LANG==='ja' ? top.label_ja : top.label_en;
+  const title = hits.map(h=>`${h.feed_name}: ${LANG==='ja' ? h.label_ja : h.label_en}${h.tag ? ' ('+h.tag+')' : ''}`).join('\n');
+  return `<span class="ti ${escH(lv)}" title="${escH(title)}">⚑ ${escH(label)}${top.tag ? ' · ' + escH(top.tag) : ''}</span>`;
+}
 const EV = { timer:null, datasets:[], lastEvents:[], loading:false, seq:0 };
 
 function eventsControls(){
@@ -2468,10 +2520,10 @@ function eventsRenderTable(res){
     body.innerHTML = ''; empty.hidden = false; empty.textContent = t('ev_none'); note.textContent = ''; return;
   }
   empty.hidden = true;
-  const ep = (ip, port, country)=> {
+  const ep = (ip, port, country, hits)=> {
     if(!ip) return '<span class="evDim">—</span>';
     const c = country && country !== 'Reserved' ? ` <span class="evDim">${escH(country)}</span>` : '';
-    return `<span class="evMono">${escH(ip)}${port != null ? '<span class="evDim">:' + escH(port) + '</span>' : ''}</span>${c}`;
+    return `<span class="evMono">${escH(ip)}${port != null ? '<span class="evDim">:' + escH(port) + '</span>' : ''}</span>${c}${tiBadge(hits)}`;
   };
   body.innerHTML = evs.map((e,i)=>{
     const out = e.outcome ? `<span class="evOutcome ${e.outcome==='blocked'?'blocked':'allowed'}" title="${escH(e.action)}">${escH(t('ev_out_'+e.outcome) || e.outcome)}</span>` : `<span class="evDim">${escH(e.action || '—')}</span>`;
@@ -2481,8 +2533,8 @@ function eventsRenderTable(res){
     return `<tr data-i="${i}">
       <td class="evMono evTime" title="${escH(e.timestamp)}">${escH(fmtTime(e.ts_ms))}</td>
       <td>${out}</td><td>${dir}</td>
-      <td>${ep(e.src_ip, e.src_port, e.src_country)}</td>
-      <td>${ep(e.dst_ip, e.dst_port, e.dst_country)}</td>
+      <td>${ep(e.src_ip, e.src_port, e.src_country, (e.intel||{}).src)}</td>
+      <td>${ep(e.dst_ip, e.dst_port, e.dst_country, (e.intel||{}).dst)}</td>
       <td class="evMono">${escH(svc) || '<span class="evDim">—</span>'}${bytes}</td>
       <td><div class="evSig" title="${escH(e.signature)}">${e.signature ? escH(e.signature) : '<span class="evDim">—</span>'}</div></td>
       <td class="evDim evMono">${escH(e.dataset)}</td>
@@ -2648,6 +2700,12 @@ function casesRenderDetail(c){
 
   const list = a => (a && a.length) ? a.map(x=>escH(x)).join(', ') : '—';
   const countries = [...new Set([...(st.src_countries||[]), ...(st.dst_countries||[])])].filter(x=>x && x!=='Reserved');
+  const intel = Object.entries(c.intel || {});
+  if(intel.length){
+    h += `<div class="csSec"><h4>${escH(t('cs_intel'))}</h4><div class="csTi">` + intel.map(([ip, hits])=>
+      `<div><span class="evMono">${escH(ip)}</span>${tiBadge(hits)}<div class="evDim" style="margin-top:3px">${hits.map(x=>escH(x.feed_name) + (x.tag ? ' · ' + escH(x.tag) : '')).join(' · ')}</div></div>`).join('')
+      + `</div></div>`;
+  }
   h += `<div class="csSec"><h4>${escH(t('cs_evidence'))}</h4><div class="csFacts">
     <div><b>${escH(t('cs_first'))}</b>${escH(fmtTime(c.first_seen_ms))}</div>
     <div><b>${escH(t('cs_last'))}</b>${escH(fmtTime(c.last_seen_ms))}</div>
@@ -2763,7 +2821,7 @@ async function dashLoad(){
 }
 
 function dashRender(){
-  dbRenderKpis(); dbRenderCallouts(); dbRenderMap(); dbRenderAttack(); dbRenderTop();
+  dbRenderKpis(); dbRenderCallouts(); dbRenderMap(); dbRenderAttack(); dbRenderTop(); dbRenderIntel();
   document.getElementById('dbUpdated').textContent = DB.at ? tf('db_updated', {age: fmtAge(Math.round((Date.now()-DB.at)/1000))}) : '';
 }
 
@@ -2789,6 +2847,8 @@ function dbRenderKpis(){
     + tile(escH(dbDur(k.mttr_s)) + nsmall(k.mttr_n), t('db_k_mttr'), {tip: t('db_k_mttr_tip')})
     + tile(d.posture ? escH(fmtNum(p.total)) : '—', t('db_k_events'), {go:'events'})
     + tile(d.posture ? escH(fmtNum(p.blocked)) : '—', t('db_k_blocked'), {go:'events:blocked'})
+    + (d.intel && d.intel.enabled ? tile(d.intel.sightings ? escH(fmtNum(d.intel.sightings.listed_ips)) + (d.intel.sightings.allowed_ips ? `<small>${escH(tf('db_k_ti_allowed', {n: d.intel.sightings.allowed_ips}))}</small>` : '') : '—',
+        t('db_k_ti'), {cls: (d.intel.sightings && d.intel.sightings.allowed_ips) ? 'alert' : '', tip: t('db_k_ti_tip')}) : '')
     + tile(sens.length ? `${escH(okSens)}<small>/ ${escH(sens.length)}</small>` : '—', t('db_k_sensors'),
            {cls: okSens < sens.length ? 'alert' : '', tip: sens.map(s=>`${s.dataset}: ${fmtAge(s.age_s)}`).join('\n')});
   el.querySelectorAll('.dbKpi.clickable').forEach(x=>x.onclick = ()=>{
@@ -2927,7 +2987,7 @@ function dbRenderMap(){
       if(!allBlocked) arcs += `<path class="flow ${cls}" d="${d}" stroke-width="${(Number(w)+1).toFixed(2)}" data-iso="${iso}"></path>`;
       arcs += `<path class="arcHit" d="${d}" data-f="${i}"></path>`;
     }
-    nodes += `<circle class="node ${cls}" cx="${pt[0].toFixed(1)}" cy="${pt[1].toFixed(1)}" r="${r}" data-r="${r}" data-f="${i}" data-iso="${iso}"></circle>`;
+    nodes += `<circle class="node ${cls}${f.intel_ips ? ' ti' : ''}" cx="${pt[0].toFixed(1)}" cy="${pt[1].toFixed(1)}" r="${r}" data-r="${r}" data-f="${i}" data-iso="${iso}"></circle>`;
     if(!labels.includes(`data-iso="${iso}"`))
       labels += `<text class="lbl" x="${pt[0].toFixed(1)}" y="${(pt[1]-8).toFixed(1)}" data-x="${pt[0].toFixed(1)}" data-y="${pt[1].toFixed(1)}" data-iso="${iso}">${escH(dbCountryName(f))}</text>`;
   });
@@ -3007,7 +3067,8 @@ function dbFlowTip(list){
     return `<div style="margin-bottom:6px"><b>${escH(tf(f.dir==='inbound'?'db_tip_in':'db_tip_out', {c: dbCountryName(f)}))}</b>
       <div>${escH(tf('db_tip_events', {n: fmtNum(f.events), k: fmtNum(f.blocked)}))} · ${escH(fmtBytes(f.bytes))}</div>
       <div class="m">${escH(tf('db_tip_ips', {n: fmtNum(f.remote_ips)}))}${ports ? ` · ${escH(t('db_tip_ports'))} ${ports}` : ''}</div>
-      ${ips ? `<div class="m">${ips}</div>` : ''}</div>`;
+      ${ips ? `<div class="m">${ips}</div>` : ''}
+      ${f.intel_ips ? `<div><span class="ti malicious">⚑ ${escH(tf('db_tip_ti', {n: fmtNum(f.intel_ips)}))}</span></div>` : ''}</div>`;
   }).join('') + `<div class="m">${escH(t('db_tip_click'))}</div>`;
 }
 function dbHighlight(iso){
@@ -3153,7 +3214,7 @@ function dbRenderCountry(){
   }).join('');
 
   const ips = (d.top_ips || []).filter(x=>show(x.dir));
-  const ipRows = ips.map((x,i)=>`<tr data-ip="${i}"><td class="evMono"><span class="evDir ${escH(x.dir)}">${x.dir==='inbound'?'↘':'↗'}</span> ${escH(x.ip)}</td>
+  const ipRows = ips.map((x,i)=>`<tr data-ip="${i}"><td class="evMono"><span class="evDir ${escH(x.dir)}">${x.dir==='inbound'?'↘':'↗'}</span> ${escH(x.ip)}${tiBadge(x.intel)}</td>
       <td class="num">${escH(fmtNum(x.events))}</td><td class="num">${x.events ? escH(Math.round(x.blocked/x.events*100)) + '%' : '—'}</td>
       <td class="evMono evDim">${escH((x.ports||[]).join(', ') || '—')}</td><td class="evDim evMono">${escH(csAge(x.last_ms))}</td></tr>`).join('');
 
@@ -3193,6 +3254,35 @@ function dbRenderCountry(){
   });
   body.querySelector('[data-act=events]').onclick = ()=>{ closeDrawer(); dbGoEvents({q: d.country, direction: st.dir, range: DB.range}); };
   body.querySelector('[data-act=zoom]').onclick = ()=>{ closeDrawer(); if(d.place) dbZoomTo(d.place.iso2); };
+}
+
+function dbRenderIntel(){
+  const el = document.getElementById('dbTi'); const foot = document.getElementById('dbTiFoot');
+  const ti = DB.data && DB.data.intel;
+  if(!ti){ el.innerHTML = ''; foot.textContent = ''; return; }
+  if(!ti.enabled){ el.innerHTML = `<tr><td class="evDim">${escH(t('db_ti_off'))}</td></tr>`; foot.textContent = ''; return; }
+  const rows = (ti.sightings && ti.sightings.ips) || [];
+  el.innerHTML = rows.length ? rows.map((x,i)=>`<tr data-i="${i}">
+      <td><span class="evDir ${escH(x.dir)}">${x.dir==='inbound'?'↘':'↗'}</span> <span class="evMono">${escH(x.ip)}</span>${tiBadge(x.intel)}
+        <div class="evDim" style="font-size:11px">${escH(x.country || '')}</div></td>
+      <td class="num">${escH(fmtNum(x.events))}<div class="evDim" style="font-size:10.5px">${x.allowed ? `<span style="color:var(--critical)">${escH(tf('db_ti_allowed', {n: fmtNum(x.allowed)}))}</span>` : escH(t('db_ti_all_blocked'))}</div></td></tr>`).join('')
+    : `<tr><td class="evDim">${escH(ti.indicators ? t('db_ti_none') : t('db_ti_loading'))}</td></tr>`;
+  el.querySelectorAll('tr[data-i]').forEach(tr=>tr.onclick = ()=>{ const x = rows[Number(tr.dataset.i)]; dbGoEvents({q: x.ip, range: '24h'}); });
+  const act = (ti.feeds||[]).filter(f=>f.active);
+  const okAt = act.map(f=>f.last_ok).filter(Boolean).sort().pop();
+  const bad = act.filter(f=>f.error);
+  const key = (ti.feeds||[]).filter(f=>f.needs_key);
+  foot.innerHTML = `<span>${escH(tf('db_ti_stats', {n: fmtNum(ti.indicators), f: act.length}))}</span>`
+    + (okAt ? `<span>${escH(tf('db_ti_updated', {age: fmtAge(Math.max(0, Math.round((Date.now() - Date.parse(okAt))/1000)))}))}</span>` : '')
+    + (bad.length ? `<span class="warn" title="${escH(bad.map(f=>f.name + ': ' + f.error).join('\n'))}">⚠ ${escH(tf('db_ti_errors', {n: bad.length}))}</span>` : '')
+    + (key.length ? `<span title="${escH(key.map(f=>f.name + ' → ' + f.needs_key).join('\n'))}">${escH(tf('db_ti_needs_key', {n: key.length}))}</span>` : '')
+    + `<button id="dbTiRefresh">${escH(t('db_ti_refresh'))}</button>`
+    + `<span style="flex-basis:100%">${escH(t('db_ti_credit'))}</span>`;
+  document.getElementById('dbTiRefresh').onclick = async (ev)=>{
+    ev.target.disabled = true; ev.target.textContent = t('db_ti_refreshing');
+    try{ await fetch(`${API_BASE}/api/soc/intel/refresh`, {method:'POST'}); }catch(e){}
+    setTimeout(dashLoad, 8000);
+  };
 }
 
 function dbRenderAttack(){

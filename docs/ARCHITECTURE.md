@@ -1,4 +1,4 @@
-# Eagle Talon — Architecture (as of v0.5.0, SOC Phases 1–3 in prod and staging)
+# Eagle Talon — Architecture (as of v0.6.0-dev: SOC Phases 1–3 in prod, threat intel in staging)
 
 Eagle Talon is the operator console of the Eagle platform. Eagle Eye
 (`almata-eagle/eagle-eye`) is the client-facing portal and shares Talon's data.
@@ -54,13 +54,14 @@ is in [adr/0003](adr/0003-log-collector-and-storage.md).
 | SOC search | `backend/soc_logs.py` | Read-only DuckDB queries over the hot store (mounted at `/soc-hot`). `/api/soc/status`, `/api/soc/events`, `/api/soc/summary`. |
 | SOC cases | `backend/soc_rules.py`, `soc_cases.py`, `soc_triage.py`, `soc_context.md` | Detection rules → cases (SQLite `soc_cases`) → Claude triage. Read-only. See [SOC-TRIAGE.md](SOC-TRIAGE.md). |
 | SOC dashboard | `backend/soc_dashboard.py`, `soc_geo.py`, `soc_geo_countries.json`, `frontend/world-110m.json` | Traffic map, callouts, MTTD/MTTR, ATT&CK tally. `/api/soc/map`, `/api/soc/map/country`, `/api/soc/dashboard`. Read-only. Geo data built by `tools/build-world-map.js`. |
+| Threat intel | `backend/soc_intel.py` | Public feeds → SQLite `ti_indicators`/`ti_feeds` → in-memory matching (IPs and networks). Rule `intel_match`, badges, dashboard panel, triage evidence. `/api/soc/intel*`. No address leaves Core. See [SOC-INTEL.md](SOC-INTEL.md). |
 | Log collector | `soc/` | `collector/vector.yaml` (pipeline + schema), `collector/tests.yaml`, `preflight.sh`, `deploy-collector.sh`, `retention.sh`. |
 | Deploy | `deploy/` | `docker-compose.yml`, `env/<env>.env`, `deploy.sh`, `backup-db.sh`, `seed-staging-db.sh`. |
 
 ## Data
 
 SQLite, single file. Tables: `clients`, `scans`, `monitors`, `alerts`, `soc_cases`
-(`resolved_at` added in Phase 3).
+(`resolved_at` added in Phase 3), `ti_indicators`, `ti_feeds` (v0.6).
 Migrations run at startup and are additive only (`PRAGMA table_info` check,
 then `ALTER TABLE ... ADD COLUMN`). Never drop or rename a column: older
 releases must keep working on a newer DB so rollback stays safe.
@@ -80,6 +81,8 @@ releases must keep working on a newer DB so rollback stays safe.
 | `SOC_DETECT`, `SOC_DETECT_INTERVAL_S` | on, 300 (compose default off) | on, 300 | Background detection loop |
 | `SOC_TRIAGE`, `SOC_TRIAGE_MODEL`, `SOC_TRIAGE_MAX_PER_HOUR` | on, claude-sonnet-5-5, 20 (compose default off) | on, claude-sonnet-5-5, 5 | Claude triage |
 | `ANTHROPIC_API_KEY` | secrets.env (`eagle-soc` workspace) | secrets.env (same key) | Claude API |
+| `SOC_INTEL`, `SOC_INTEL_FEEDS` | on, all feeds (compose default off) | on, without Spamhaus | Threat-intel feeds, refreshed in the background |
+| `ABUSECH_AUTH_KEY` | secrets.env (optional) | secrets.env (optional) | Enables the ThreatFox feed |
 | `SOC_HOT_DIR` | `/home/eddy/eagle-soc/hot` (compose default: empty `soc/no-hot-store`) | `/home/eddy/eagle-soc/hot` | Host folder mounted read-only at `/soc-hot` for the Events view |
 
 ## Ports on core used by Eagle

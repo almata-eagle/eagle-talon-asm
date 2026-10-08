@@ -75,7 +75,9 @@ Logs are attacker-controlled. A signature, URL or DNS name can contain text like
    as a red banner).
 4. Forced tool call with a strict schema, then re-validation: enums, lengths,
    one recommended option, and MITRE id format.
-5. No tool can act, and every value is escaped in the UI. Even a "successful"
+5. Threat-intel hits (`threat_intel`) are added inside the same fence. Feed
+   tags are stripped to a safe character set before they are stored.
+6. No tool can act, and every value is escaped in the UI. Even a "successful"
    injection can only produce a wrong explanation, never an action.
 
 ## API

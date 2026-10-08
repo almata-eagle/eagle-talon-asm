@@ -9,6 +9,26 @@ Every change merged to `staging` adds a line under **Unreleased**.
 
 ## [Unreleased]
 
+### Added
+- **Threat intelligence** (see `docs/SOC-INTEL.md` and ADR 0006):
+  - Public feeds are downloaded on Core and matched locally, so no address is
+    sent out: abuse.ch Feodo Tracker, Spamhaus DROP (v4/v6), the Tor exit
+    list, blocklist.de, and ThreatFox when `ABUSECH_AUTH_KEY` is set.
+    `backend/soc_intel.py` adds the new tables `ti_indicators` and `ti_feeds`.
+  - New detection rule **Known-bad address** (`intel_match`) for *allowed*
+    traffic to or from a listed address. It's critical when our host reached a
+    malicious address.
+  - ⚑ badges on IPs in Events, Cases and the map drawer. On the dashboard,
+    a "Known-bad IPs (24h)" KPI, a "Known-bad addresses" panel with feed
+    status and a refresh button, red rings on map dots, and callouts when
+    feeds stop updating.
+  - Claude triage receives the hits as `threat_intel` evidence.
+  - API: `GET /api/soc/intel`, `POST /api/soc/intel/refresh`,
+    `GET /api/soc/intel/lookup?ip=`, `GET /api/soc/intel/sightings`.
+  - New env: `SOC_INTEL` (on in prod and staging), `SOC_INTEL_FEEDS`
+    (staging leaves out Spamhaus), `ABUSECH_AUTH_KEY` (optional).
+  - Tests: `backend/tests/test_soc_intel.py` (14). 89 in total.
+
 ### Fixed
 - Dashboard: when the API can't answer (for example an older API behind a newer
   page), the map, KPIs and callouts say so instead of loading forever.
