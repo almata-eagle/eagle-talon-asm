@@ -9,6 +9,19 @@ Every change merged to `staging` adds a line under **Unreleased**.
 
 ## [Unreleased]
 
+### Fixed
+- Dashboard: when the API can't answer (for example an older API behind a newer
+  page), the map, KPIs and callouts say so instead of loading forever.
+
+## [0.5.1] - 2026-10-09
+### Fixed
+- `deploy.sh prod` stopped silently right after "Backing up the prod DB" when
+  prod was still running a release without `/api/version` (v0.1.0):
+  `backup-db.sh` exited on the failed version check under `set -e`. It now
+  carries on and labels the backup `pre-0.2.0` or `unknown`.
+- `deploy.sh` and `backup-db.sh` now print the line that failed instead of
+  exiting without a message.
+
 ## [0.5.0] - 2026-10-09
 First release since the v0.1.0 baseline. It ships roadmap phases 0–3 together:
 the staging/release process, the SOC log collector and Events view, cases with

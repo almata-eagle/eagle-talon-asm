@@ -860,6 +860,7 @@ const STR = {
     db_resolve_confirm:"Mark this case resolved? You can reopen it from Cases.",
     db_claude_rec:"Claude recommends", db_awaiting:"Waiting for Claude's explanation.", db_no_triage:"Not explained by Claude (triage is off).",
     db_all_clear_t:"All clear", db_all_clear_b:"No open cases need a decision, and every sensor is reporting.",
+    db_api_error:"The Talon API didn't answer ({msg}). If the version chip is missing too, the API is older than this page: redeploy it.",
     db_zoom_in:"Zoom in", db_zoom_out:"Zoom out", db_zoom_reset:"Reset view",
     db_zoom_hint:"Scroll or pinch to zoom · drag to move · click for details",
     db_tip_none:"No traffic in this range",
@@ -1036,6 +1037,7 @@ const STR = {
     db_resolve_confirm:"このケースを解決済みにしますか？ケース画面から再オープンできます。",
     db_claude_rec:"Claudeの推奨", db_awaiting:"Claudeの解説を待っています。", db_no_triage:"Claudeによる解説はありません（トリアージ無効）。",
     db_all_clear_t:"問題なし", db_all_clear_b:"判断が必要な未解決ケースはなく、すべてのセンサーが稼働しています。",
+    db_api_error:"Talon APIから応答がありません（{msg}）。バージョン表示も出ていない場合は、APIがこの画面より古いため再デプロイしてください。",
     db_zoom_in:"拡大", db_zoom_out:"縮小", db_zoom_reset:"表示をリセット",
     db_zoom_hint:"スクロール／ピンチで拡大 · ドラッグで移動 · クリックで詳細",
     db_tip_none:"この期間の通信はありません",
@@ -2751,9 +2753,11 @@ async function dashLoad(){
     const m = mR.ok ? await mR.json() : null;
     if(seq !== DB.seq) return;
     DB.data = d; DB.map = m; DB.at = Date.now();
+    DB.error = (!dR.ok || !mR.ok) ? `HTTP ${!dR.ok ? dR.status : mR.status}` : null;
     if(d && d.sensors){ const ds = d.sensors.map(s=>s.dataset); if(JSON.stringify(ds)!==JSON.stringify(EV.datasets)) EV.datasets = ds; }
   }catch(e){
     if(seq !== DB.seq) return;
+    DB.error = e.message || String(e);
   }
   dashRender();
 }
@@ -2842,7 +2846,7 @@ function dbCalloutHtml(c, i){
 
 function dbRenderCallouts(){
   const el = document.getElementById('dbCallouts'); const d = DB.data;
-  if(!d){ el.innerHTML = `<div class="dbAllClear">${escH(t('ev_loading'))}</div>`; return; }
+  if(!d){ el.innerHTML = `<div class="dbAllClear">${escH(DB.error ? tf('db_api_error', {msg: DB.error}) : t('ev_loading'))}</div>`; return; }
   const cos = (d.callouts || []).filter(c=>c.severity !== 'info' || c.kind !== 'case');
   if(!cos.length){
     el.innerHTML = `<div class="dbAllClear"><b>✓ ${escH(t('db_all_clear_t'))}</b>${escH(t('db_all_clear_b'))}</div>`; return;
@@ -2887,7 +2891,7 @@ function dbRenderMap(){
   const legend = document.getElementById('dbLegend');
   const m = DB.map;
   const msg = text => { host.innerHTML = `<div class="dbMapMsg">${escH(text)}</div>`; };
-  if(!m){ msg(t('db_map_loading')); legend.innerHTML = ''; return; }
+  if(!m){ msg(DB.error ? tf('db_api_error', {msg: DB.error}) : t('db_map_loading')); legend.innerHTML = ''; return; }
   if(m.connected === false){ msg(t('db_not_connected')); legend.innerHTML = ''; return; }
   if(!DB.world){ msg(DB.worldFailed ? t('db_map_nogeo') : t('db_map_loading')); return; }
   const W = DB.world; const [vx, vy, vw, vh] = W.viewBox;
