@@ -48,6 +48,27 @@ Every change merged to `staging` adds a line under **Unreleased**.
   (`backend/soc_logs.py`).
 - Tests: `backend/tests/test_soc_logs.py` (20 tests, including
   injection-shaped input and API validation).
+- **SOC Phase 2, cases and Claude triage (read-only)** — see `docs/SOC-TRIAGE.md` and ADR 0004:
+  - Six detection rules (`backend/soc_rules.py`): port scan, repeated login
+    attempts, IDS/IPS alert, inbound allowed, large upload, and new country
+    (needs 24 h of history). They run every 5 minutes when `SOC_DETECT=on`.
+  - Findings merge into **cases** (`backend/soc_cases.py`, new `soc_cases`
+    table) by rule and entity while open. Evidence covers each case's whole lifetime.
+  - **Claude triage** (`backend/soc_triage.py`): verdict, severity, confidence,
+    what happened, why it matters, unknowns, and 2–4 response options (one
+    recommended), in English and Japanese, with MITRE ATT&CK ids. It uses a
+    forced tool call with a strict schema plus re-validation, and hardened
+    prompts (fenced, escaped, truncated, allowlisted evidence; injection
+    attempts flagged). There's an hourly budget, re-triage only on growth, and
+    a cached system prompt. Nothing is ever executed.
+  - **Cases view** (top bar → Cases, EN/JP): severity-sorted list, Claude's
+    assessment, option cards, evidence facts and samples, 👍/👎 feedback,
+    resolve/reopen, re-triage, engine status, and "Run detection now".
+  - API: `/api/soc/engine`, `/api/soc/detect/run`, `/api/soc/cases`,
+    `/api/soc/cases/{id}` (+ `/status`, `/feedback`, `/retriage`).
+  - `backend/soc_context.md`: the operator-written network description sent to Claude.
+  - Tests: `backend/tests/test_soc_cases.py` (23 tests: rules, merging,
+    injection fencing, schema validation, budget, failures, API). 43 in total.
 
 ### Fixed
 - `backup-db.sh` labels each backup with the version the environment is
@@ -69,6 +90,11 @@ Every change merged to `staging` adds a line under **Unreleased**.
 - Top bar: labels no longer wrap, and spacing tightens below 1640 px and
   1460 px, so nothing is clipped from 1280 px up.
 - New dependency: `duckdb==1.5.6`.
+- Top bar: switches to a compact form (logo plus icon buttons with tooltips)
+  only when it would overflow. This handles Japanese labels at any width.
+- New dependency: `anthropic==1.12.1`. New env (prod defaults off):
+  `SOC_DETECT`, `SOC_DETECT_INTERVAL_S`, `SOC_TRIAGE`, `SOC_TRIAGE_MODEL`,
+  `SOC_TRIAGE_MAX_PER_HOUR`, and `ANTHROPIC_API_KEY` (from `secrets.env`).
 
 ## [0.1.0] - 2026-08-31
 Baseline: the code prod ran before staging existed (commit `954da2d`).

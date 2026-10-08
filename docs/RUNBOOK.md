@@ -183,6 +183,13 @@ Eagle Eye reads the same volume, so restart it too if it misbehaves.
   `17 3 * * * $HOME/eagle-talon-asm/deploy/backup-db.sh prod >> $HOME/eagle-talon-backups/backup.log 2>&1`
 - Once a NAS share is mounted, point backups at it with `BACKUP_DIR=/mnt/nas/<share>/eagle-talon-backups`.
 
+## SOC cases and Claude triage
+Detection and triage run inside the staging API (`SOC_DETECT=on`, `SOC_TRIAGE=on`
+in `env/staging.env`). The Claude key is `ANTHROPIC_API_KEY` in
+`deploy/secrets.env`, using the `eagle-soc` workspace. To stop Claude calls, set
+`SOC_TRIAGE=off` and redeploy, or disable the key in the Console. Details,
+costs and kill switches are in [SOC-TRIAGE.md](SOC-TRIAGE.md).
+
 ## SOC log collector
 Deploy, the FortiGate setup, health checks and retention are in
 [SOC-COLLECTOR.md](SOC-COLLECTOR.md). There is one collector per host. Start with

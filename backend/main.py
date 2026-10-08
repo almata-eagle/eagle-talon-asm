@@ -31,6 +31,8 @@ from pydantic import BaseModel
 
 from scanner import scan_domain, tier_for_score
 import soc_logs
+import soc_cases
+import soc_triage
 
 # Shared sector list — used both by the demo-data generator and by real scans
 # (so a real domain's sector places it correctly on the Talon Scope radar,
@@ -419,6 +421,90 @@ def soc_summary(
     res = soc_logs.summary(range, dataset, q, outcome, direction)
     res["connected"] = True
     return res
+
+
+# ---------------------------------------------------------------------------
+# SOC cases + Claude triage (Phase 2, read-only). Detection runs in the
+# background only when SOC_DETECT=on; triage only with SOC_TRIAGE=on and an
+# ANTHROPIC_API_KEY. Response options are suggestions — nothing is executed.
+# ---------------------------------------------------------------------------
+soc_cases.init_db()
+soc_cases.start_engine()
+
+_CASE_ID_RE = r"^case_[0-9a-f]{12}$"
+
+
+class CaseStatusReq(BaseModel):
+    status: str
+
+
+class CaseFeedbackReq(BaseModel):
+    verdict: Optional[str] = None
+    note: Optional[str] = None
+
+
+def _case_or_404(case_id: str) -> dict:
+    import re as _re
+    if not _re.fullmatch(_CASE_ID_RE, case_id):
+        raise HTTPException(404, "case not found")
+    c = soc_cases.get_case(case_id)
+    if not c:
+        raise HTTPException(404, "case not found")
+    return c
+
+
+@app.get("/api/soc/engine")
+def soc_engine():
+    return {"detect_enabled": soc_cases.engine_enabled(), "last_run": soc_cases.last_run(),
+            "triage": soc_triage.status(), "usage": soc_cases.usage_summary(),
+            "hot_store_connected": soc_logs.available()}
+
+
+@app.post("/api/soc/detect/run")
+def soc_detect_run():
+    """Run detection + triage now, in the background. Poll /api/soc/cases."""
+    if not soc_logs.available():
+        raise HTTPException(409, "hot store not connected")
+    threading.Thread(target=soc_cases.run_once, daemon=True).start()
+    return {"started": True}
+
+
+@app.get("/api/soc/cases")
+def soc_cases_list(status: Optional[str] = Query(None, pattern="^(open|resolved)$"),
+                   limit: int = Query(100, ge=1, le=500)):
+    return {"cases": soc_cases.list_cases(status, limit)}
+
+
+@app.get("/api/soc/cases/{case_id}")
+def soc_case_get(case_id: str):
+    return _case_or_404(case_id)
+
+
+@app.post("/api/soc/cases/{case_id}/status")
+def soc_case_status(case_id: str, req: CaseStatusReq):
+    _case_or_404(case_id)
+    if not soc_cases.set_status(case_id, req.status):
+        raise HTTPException(422, "status must be open or resolved")
+    return soc_cases.get_case(case_id)
+
+
+@app.post("/api/soc/cases/{case_id}/feedback")
+def soc_case_feedback(case_id: str, req: CaseFeedbackReq):
+    _case_or_404(case_id)
+    if not soc_cases.set_feedback(case_id, req.verdict, req.note):
+        raise HTTPException(422, "verdict must be useful, noise or null")
+    return soc_cases.get_case(case_id)
+
+
+@app.post("/api/soc/cases/{case_id}/retriage")
+def soc_case_retriage(case_id: str):
+    _case_or_404(case_id)
+    if not soc_triage.enabled():
+        raise HTTPException(409, "Claude triage is not configured")
+    if not soc_cases.request_retriage(case_id):
+        raise HTTPException(429, "this case has reached its triage limit")
+    threading.Thread(target=soc_cases.triage_pending, kwargs={"limit": 1}, daemon=True).start()
+    return {"queued": True}
 
 
 @app.get("/api/clients")

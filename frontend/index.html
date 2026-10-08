@@ -252,16 +252,22 @@
 
   /* ---------- Security events (SOC Phase 1) ---------- */
   #eventsStage{position:absolute; inset:0; overflow-y:auto; display:none; padding:14px 20px 60px;}
-  .app.eventsMode{grid-template-columns:0 1fr;}
-  .app.eventsMode .rail{display:none;}
-  .app.eventsMode .main{grid-column:2;}           /* rail is hidden: keep main in the wide column */
-  .app.eventsMode .searchwrap{visibility:hidden;} /* the top search box filters domains, not events */
+  .app.wideMode{grid-template-columns:0 1fr;}
+  .app.wideMode .rail{display:none;}
+  .app.wideMode .main{grid-column:2;}           /* rail is hidden: keep main in the wide column */
+  .app.wideMode .searchwrap{visibility:hidden;} /* the top search box filters domains, not events */
   /* Top bar: never wrap button labels; drop the brand subtitle when space is tight. */
   .viewToggle{flex-shrink:0;}
   .viewToggle button, .addbtn{white-space:nowrap;}
   .searchwrap{min-width:120px;}
   @media (max-width:1640px){ .brand .sub{display:none;} .topbar{gap:10px;} .addbtn{padding-left:12px; padding-right:12px;} }
   @media (max-width:1460px){ .topbar{gap:8px; padding:0 12px;} .searchwrap{min-width:0;} .viewToggle button{padding:6px 9px;} }
+  /* Compact top bar: set by fitTopbar() only when the bar would overflow
+     (works for any language and width). The logo stays; the wordmark and
+     the two action-button labels collapse to icons with tooltips. */
+  .topbar.compact .brand{font-size:0; gap:6px;}
+  .topbar.compact .addbtn{font-size:0; padding:6px 11px;}
+  .topbar.compact .addbtn::before{content:attr(data-icon); font-size:15px; font-weight:700;}
   .evBar{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:12px;}
   .evBar select, .evBar input[type=text]{background:var(--panel-2); border:1px solid var(--line); color:var(--text); padding:7px 10px; border-radius:8px; font-size:12.5px; outline:none;}
   .evBar input[type=text]{flex:1; min-width:200px; max-width:380px; font-family:var(--font-mono);}
@@ -306,6 +312,54 @@
   .evRawRow pre{font-family:var(--font-mono); font-size:11px; white-space:pre-wrap; word-break:break-all; margin:0; color:var(--muted); max-height:320px; overflow:auto;}
   .evEmpty{padding:40px 20px; text-align:center; color:var(--muted); font-size:13px; line-height:1.6;}
   .evNote{font-size:11px; color:var(--dim); margin-top:10px;}
+
+  /* ---------- Cases + Claude triage (SOC Phase 2) ---------- */
+  #casesStage{position:absolute; inset:0; display:none; flex-direction:column; padding:14px 20px 0;}
+  .csBar{display:flex; align-items:center; gap:12px; margin-bottom:12px; flex-wrap:wrap;}
+  .csBar .btnGhost{padding:6px 12px; font-size:12px; margin-left:auto;}
+  .csEngine{font-size:11px; color:var(--muted); font-family:var(--font-mono);}
+  .csEngine .on{color:var(--clear);} .csEngine .off{color:var(--dim);} .csEngine .warn{color:var(--watch);}
+  .csWrap{flex:1; display:grid; grid-template-columns:minmax(300px, 380px) 1fr; gap:14px; min-height:0; padding-bottom:16px;}
+  .csList{overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding-right:4px;}
+  .csItem{background:var(--panel); border:1px solid var(--line); border-left:4px solid var(--dim); border-radius:10px; padding:10px 12px; cursor:pointer;}
+  .csItem:hover{border-color:var(--signal);}
+  .csItem.active{border-color:var(--signal); box-shadow:var(--shadow);}
+  .csItem.sev-critical{border-left-color:var(--critical);} .csItem.sev-high{border-left-color:var(--high);}
+  .csItem.sev-medium{border-left-color:var(--watch);} .csItem.sev-low{border-left-color:var(--signal);}
+  .csItem .t{font-size:12.5px; font-weight:600; line-height:1.35; word-break:break-word;}
+  .csItem .m{display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; font-size:10.5px; color:var(--muted); font-family:var(--font-mono); align-items:center;}
+  .csBadge{font-family:var(--font-mono); font-size:10px; font-weight:600; padding:1px 7px; border-radius:999px; border:1px solid var(--line); color:var(--muted); white-space:nowrap;}
+  .csBadge.sev-critical{background:var(--critical); color:#fff; border-color:var(--critical);}
+  .csBadge.sev-high{background:color-mix(in srgb, var(--high) 20%, transparent); color:var(--high); border-color:var(--high);}
+  .csBadge.sev-medium{background:color-mix(in srgb, var(--watch) 18%, transparent); color:var(--watch); border-color:var(--watch);}
+  .csBadge.sev-low{color:var(--signal); border-color:var(--signal);}
+  .csBadge.ai{color:var(--signal);} .csBadge.ai.pending{color:var(--watch);} .csBadge.ai.error{color:var(--critical);}
+  .csDetail{overflow-y:auto; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:18px 20px;}
+  .csDetail h3{font-family:var(--font-display); font-size:16px; line-height:1.35; margin:0 0 8px; word-break:break-word;}
+  .csChips{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px;}
+  .csHeadline{font-size:15px; font-weight:600; line-height:1.5; margin:4px 0 12px; padding:12px 14px; background:var(--panel-2); border-radius:10px; border-left:3px solid var(--signal);}
+  .csSec{margin:14px 0;}
+  .csSec h4{font-size:10.5px; text-transform:uppercase; letter-spacing:0.08em; color:var(--dim); margin:0 0 6px; font-weight:600;}
+  .csSec p{font-size:13px; line-height:1.65; margin:0; color:var(--text); white-space:pre-wrap;}
+  .csWarn{background:color-mix(in srgb, var(--critical) 12%, transparent); border:1px solid var(--critical); color:var(--text); border-radius:10px; padding:10px 12px; font-size:12.5px; margin:10px 0;}
+  .csOpts{display:grid; gap:8px;}
+  .csOpt{border:1px solid var(--line); border-radius:10px; padding:10px 12px; background:var(--panel-2);}
+  .csOpt.rec{border-color:var(--signal); box-shadow:inset 3px 0 0 var(--signal);}
+  .csOpt .ot{font-weight:600; font-size:13px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
+  .csOpt .od{font-size:12.5px; line-height:1.55; margin-top:4px;}
+  .csOpt .oi{font-size:11.5px; color:var(--muted); margin-top:4px;}
+  .csRec{font-size:10px; font-weight:700; color:#0B0F14; background:var(--signal); padding:1px 7px; border-radius:999px; text-transform:uppercase; letter-spacing:0.05em;}
+  .csActions{display:flex; flex-wrap:wrap; gap:8px; margin:16px 0 4px; align-items:center;}
+  .csActions button{padding:7px 12px; font-size:12px; border-radius:8px; cursor:pointer; border:1px solid var(--line); background:var(--panel-2); color:var(--text);}
+  .csActions button.on{border-color:var(--signal); color:var(--signal);}
+  .csActions button:disabled{opacity:.5; cursor:not-allowed;}
+  .csFacts{display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:8px; font-size:12px;}
+  .csFacts div{background:var(--panel-2); border-radius:8px; padding:8px 10px; word-break:break-word;}
+  .csFacts b{display:block; font-size:10px; color:var(--dim); text-transform:uppercase; letter-spacing:0.06em; font-weight:600; margin-bottom:2px;}
+  .csEmpty{padding:40px 20px; text-align:center; color:var(--muted); font-size:13px; line-height:1.7;}
+  .csFoot{font-size:10.5px; color:var(--dim); font-family:var(--font-mono); margin-top:14px;}
+  #csEvidence td{padding:6px 10px; font-size:11.5px;}
+  @media (max-width:1100px){ .csWrap{grid-template-columns:1fr;} }
   .cardGrid{display:grid; grid-template-columns:repeat(auto-fill, minmax(230px,1fr)); gap:12px;}
   .domCard{
     background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--line);
@@ -446,10 +500,11 @@
       <button id="btnGrid" data-i18n="view_grid">Grid</button>
       <button id="btnTrends" data-i18n="view_trends">Trends</button>
       <button id="btnEvents" data-i18n="view_events">Events</button>
+      <button id="btnCases" data-i18n="view_cases">Cases</button>
     </div>
     <div class="spacer"></div>
-    <button class="addbtn" id="openAdd" data-i18n="add_domain">+ Analyze Domain</button>
-    <button class="addbtn" id="openBulk" style="background:var(--panel-2); color:var(--text); border:1px solid var(--line);" data-i18n="bulk_upload">⬆ Bulk Upload</button>
+    <button class="addbtn" id="openAdd" data-icon="+" data-i18n="add_domain">+ Analyze Domain</button>
+    <button class="addbtn" id="openBulk" data-icon="⬆" style="background:var(--panel-2); color:var(--text); border:1px solid var(--line);" data-i18n="bulk_upload">⬆ Bulk Upload</button>
   </div>
 
   <div class="rail">
@@ -519,6 +574,21 @@
         </table>
         <div class="evEmpty" id="evEmpty" hidden></div>
         <div class="evNote" id="evNote"></div>
+      </div>
+      <div id="casesStage">
+        <div class="csBar">
+          <div class="viewToggle" id="csFilter">
+            <button data-f="open" class="active" data-i18n="cs_open">Open</button>
+            <button data-f="resolved" data-i18n="cs_resolved">Resolved</button>
+            <button data-f="" data-i18n="cs_all">All</button>
+          </div>
+          <span class="csEngine" id="csEngine"></span>
+          <button class="btnGhost" id="csRun" data-i18n="cs_run">Run detection now</button>
+        </div>
+        <div class="csWrap">
+          <div class="csList" id="csList"></div>
+          <div class="csDetail" id="csDetail"></div>
+        </div>
       </div>
       <div class="legend">
         <div class="item"><span class="dot" style="background:var(--clear)"></span><span data-i18n="legend_clear">Clear (80–100)</span></div>
@@ -600,6 +670,35 @@ let LANG = "en";
 const STR = {
   en: {
     view_scope:"Scope", view_log:"Log", view_grid:"Grid", view_trends:"Trends", view_events:"Events",
+    view_cases:"Cases",
+    cases_title:"Cases", cases_desc:"Suspicious activity grouped into cases · explained by Claude · nothing is changed automatically",
+    cs_open:"Open", cs_resolved:"Resolved", cs_all:"All", cs_run:"Run detection now", cs_running:"Running…",
+    cs_detect_on:"Detection on", cs_detect_off:"Detection off", cs_last_run:"last run {age} ago", cs_new:"{n} new",
+    cs_ai_on:"Claude triage on · {model}", cs_ai_off:"Claude triage off", cs_ai_usage:"{n} triaged / 24h",
+    cs_none_open:"No open cases. Detection checks your logs every 5 minutes; anything suspicious appears here.",
+    cs_none:"No cases yet.", cs_pick:"Select a case to see Claude's assessment and your options.",
+    cs_not_connected:"The SOC log store isn't connected to this environment yet.",
+    cs_events:"{n} events", cs_ai_done:"Claude", cs_ai_pending:"triage pending", cs_ai_stale:"update pending",
+    cs_ai_error:"triage failed", cs_ai_skipped:"no AI triage",
+    sev_info:"info", sev_low:"low", sev_medium:"medium", sev_high:"high", sev_critical:"critical",
+    verdict_likely_malicious:"likely malicious", verdict_suspicious:"suspicious", verdict_likely_benign:"likely benign", verdict_needs_more_data:"needs more data",
+    conf_low:"low confidence", conf_medium:"medium confidence", conf_high:"high confidence",
+    cs_rule_sev:"Rule severity", cs_ai_sev:"Claude severity",
+    cs_what:"What happened", cs_why:"Why it matters", cs_unknowns:"What we don't know", cs_options:"Response options",
+    cs_recommended:"Recommended", cs_manual_note:"Options are suggestions. Nothing is changed on your network automatically — automated, approved actions arrive in a later phase.",
+    cs_injection:"Claude flagged text in these logs that looks like an attempt to manipulate an AI analyst. Treat this case with extra suspicion.",
+    cs_useful:"👍 Useful", cs_noise:"👎 Noise", cs_resolve:"Mark resolved", cs_reopen:"Reopen", cs_retriage:"Ask Claude again",
+    cs_evidence:"Evidence", cs_first:"First seen", cs_last:"Last seen", cs_ports:"Ports", cs_sources:"Sources",
+    cs_targets:"Targets", cs_countries:"Countries", cs_actions_seen:"Firewall actions", cs_signatures:"Signatures",
+    cs_blocked_allowed:"Blocked / allowed", cs_triage_waiting:"Claude hasn't assessed this case yet. It's in the queue (at most {n} per hour).",
+    cs_triage_off:"Claude triage isn't configured here, so this case has the rule's description only.",
+    cs_triage_failed:"Claude triage failed: {err}", cs_mitre:"MITRE ATT&CK",
+    cs_foot:"Rule {rule} · case {id} · triaged by {model} · {tin} in / {tout} out tokens",
+    act_no_action:"no action", act_monitor:"monitor", act_investigate:"investigate", act_block_ip:"block IP",
+    act_block_country:"block country", act_isolate_host:"isolate host", act_harden_config:"harden config",
+    act_patch_or_update:"patch / update", act_contact_vendor:"contact vendor",
+    rule_inbound_port_scan:"Port scan", rule_inbound_brute_force:"Repeated login attempts", rule_ids_alert:"IDS/IPS alert",
+    rule_allowed_inbound:"Inbound allowed", rule_outbound_volume:"Large upload", rule_outbound_new_country:"New country",
     search_placeholder:"Search domains, sectors, watchlists…",
     events_title:"Security Events", events_desc:"Firewall and IDS logs from the SOC collector · newest first",
     ev_range_1h:"Last hour", ev_range_6h:"Last 6 hours", ev_range_24h:"Last 24 hours", ev_range_7d:"Last 7 days",
@@ -699,6 +798,35 @@ const STR = {
   },
   ja: {
     view_scope:"スコープ", view_log:"ログ", view_grid:"グリッド", view_trends:"トレンド", view_events:"イベント",
+    view_cases:"ケース",
+    cases_title:"ケース", cases_desc:"不審な活動をケースにまとめ、Claudeが解説 · 自動での変更は行いません",
+    cs_open:"未対応", cs_resolved:"対応済み", cs_all:"すべて", cs_run:"今すぐ検知を実行", cs_running:"実行中…",
+    cs_detect_on:"検知 稼働中", cs_detect_off:"検知 停止中", cs_last_run:"最終実行 {age}前", cs_new:"新規 {n}件",
+    cs_ai_on:"Claude分析 稼働中 · {model}", cs_ai_off:"Claude分析 停止中", cs_ai_usage:"24時間で{n}件分析",
+    cs_none_open:"未対応のケースはありません。5分ごとにログを確認し、不審な活動があればここに表示します。",
+    cs_none:"ケースはまだありません。", cs_pick:"ケースを選択すると、Claudeの評価と対応案が表示されます。",
+    cs_not_connected:"この環境にはまだSOCログストアが接続されていません。",
+    cs_events:"{n}件", cs_ai_done:"Claude", cs_ai_pending:"分析待ち", cs_ai_stale:"更新待ち",
+    cs_ai_error:"分析失敗", cs_ai_skipped:"AI分析なし",
+    sev_info:"情報", sev_low:"低", sev_medium:"中", sev_high:"高", sev_critical:"緊急",
+    verdict_likely_malicious:"悪意の可能性大", verdict_suspicious:"不審", verdict_likely_benign:"おそらく無害", verdict_needs_more_data:"情報不足",
+    conf_low:"確度 低", conf_medium:"確度 中", conf_high:"確度 高",
+    cs_rule_sev:"ルールの重大度", cs_ai_sev:"Claudeの重大度",
+    cs_what:"何が起きたか", cs_why:"なぜ重要か", cs_unknowns:"不明な点", cs_options:"対応案",
+    cs_recommended:"推奨", cs_manual_note:"対応案は提案のみです。ネットワークが自動で変更されることはありません（承認制の自動対応は今後のフェーズで追加予定）。",
+    cs_injection:"このログには、AIアナリストを操作しようとする文言が含まれているとClaudeが判断しました。特に注意して扱ってください。",
+    cs_useful:"👍 役に立った", cs_noise:"👎 ノイズ", cs_resolve:"対応済みにする", cs_reopen:"未対応に戻す", cs_retriage:"Claudeに再分析を依頼",
+    cs_evidence:"根拠となるイベント", cs_first:"初回検知", cs_last:"最終検知", cs_ports:"ポート", cs_sources:"送信元",
+    cs_targets:"宛先", cs_countries:"国", cs_actions_seen:"ファイアウォールの処理", cs_signatures:"シグネチャ",
+    cs_blocked_allowed:"ブロック／許可", cs_triage_waiting:"このケースはまだClaudeの分析待ちです（1時間あたり最大{n}件）。",
+    cs_triage_off:"この環境ではClaude分析が設定されていないため、ルールによる説明のみ表示しています。",
+    cs_triage_failed:"Claude分析に失敗しました: {err}", cs_mitre:"MITRE ATT&CK",
+    cs_foot:"ルール {rule} · ケース {id} · 分析モデル {model} · 入力 {tin} / 出力 {tout} トークン",
+    act_no_action:"対応不要", act_monitor:"監視", act_investigate:"調査", act_block_ip:"IPを遮断",
+    act_block_country:"国を遮断", act_isolate_host:"端末を隔離", act_harden_config:"設定を強化",
+    act_patch_or_update:"更新・パッチ", act_contact_vendor:"ベンダーへ連絡",
+    rule_inbound_port_scan:"ポートスキャン", rule_inbound_brute_force:"ログイン試行の繰り返し", rule_ids_alert:"IDS/IPSアラート",
+    rule_allowed_inbound:"受信通信の許可", rule_outbound_volume:"大量送信", rule_outbound_new_country:"初めての国",
     search_placeholder:"ドメイン、業種、ウォッチリストを検索…",
     events_title:"セキュリティイベント", events_desc:"SOCコレクターが収集したファイアウォール・IDSログ（新しい順）",
     ev_range_1h:"過去1時間", ev_range_6h:"過去6時間", ev_range_24h:"過去24時間", ev_range_7d:"過去7日間",
@@ -1697,28 +1825,31 @@ const VIEW_STAGES = {
   grid:  {btn:'btnGrid',  stage:'gridStage',  titleKey:'grid_title',  descKey:'grid_desc'},
   trends:{btn:'btnTrends',stage:'trendsStage',titleKey:'trends_title',descKey:'trends_desc'},
   events:{btn:'btnEvents',stage:'eventsStage',titleKey:'events_title',descKey:'events_desc'},
+  cases: {btn:'btnCases', stage:'casesStage', titleKey:'cases_title', descKey:'cases_desc'},
 };
 function switchView(view){
   currentView = view;
   Object.entries(VIEW_STAGES).forEach(([key,cfg])=>{
     document.getElementById(cfg.btn).classList.toggle('active', key===view);
-    document.getElementById(cfg.stage).style.display = (key===view) ? 'block' : 'none';
+    document.getElementById(cfg.stage).style.display = (key===view) ? (key==='cases' ? 'flex' : 'block') : 'none';
   });
   const cfg = VIEW_STAGES[view];
   document.getElementById('viewTitle').textContent = t(cfg.titleKey);
   document.getElementById('viewDesc').textContent = t(cfg.descKey);
   document.querySelector('.legend').style.display = (view==='scope'||view==='log') ? 'flex' : 'none';
   document.getElementById('scopeHint').style.display = (view==='scope') ? 'block' : 'none';
-  document.querySelector('.app').classList.toggle('eventsMode', view==='events');
-  document.getElementById('sortSelect').style.display = (view==='events') ? 'none' : '';
+  document.querySelector('.app').classList.toggle('wideMode', view==='events' || view==='cases');
+  document.getElementById('sortSelect').style.display = (view==='events' || view==='cases') ? 'none' : '';
   render();
   if(view==='events') eventsEnter(); else eventsLeave();
+  if(view==='cases') casesEnter(); else casesLeave();
 }
 document.getElementById('btnScope').onclick = ()=>switchView('scope');
 document.getElementById('btnLog').onclick = ()=>switchView('log');
 document.getElementById('btnGrid').onclick = ()=>switchView('grid');
 document.getElementById('btnTrends').onclick = ()=>switchView('trends');
 document.getElementById('btnEvents').onclick = ()=>switchView('events');
+document.getElementById('btnCases').onclick = ()=>switchView('cases');
 
 // ---------- Theme toggle ----------
 function setTheme(theme){
@@ -1769,10 +1900,12 @@ function setLang(lang){
   document.getElementById('btnLangEn').classList.toggle('active', lang==='en');
   document.getElementById('btnLangJa').classList.toggle('active', lang==='ja');
   applyStaticI18n();
+  fitTopbar();
   const cfg = VIEW_STAGES[currentView];
   document.getElementById('viewTitle').textContent = t(cfg.titleKey);
   document.getElementById('viewDesc').textContent = t(cfg.descKey);
   if(currentView==='events'){ eventsControls(); eventsLoad(); }
+  if(currentView==='cases'){ casesLoad(); }
   buildRail();
   render();
   closeDrawer();
@@ -2106,6 +2239,199 @@ document.getElementById('evGo').onclick = ()=>eventsLoad();
 document.getElementById('evQuery').addEventListener('keydown', e=>{ if(e.key==='Enter') eventsLoad(); });
 ['evRange','evDataset','evOutcome','evDirection'].forEach(id=>document.getElementById(id).onchange = ()=>eventsLoad());
 
+// ---------- Cases + Claude triage (SOC Phase 2) ----------
+// Case titles, Claude's explanations and evidence can all contain text that
+// came from attacker-controlled logs. Everything goes through escH().
+const CS = { filter:'open', cases:[], selected:null, timer:null, engine:null, busy:false };
+
+function csSev(c){ return (c.triage && c.triage.severity) || c.rule_severity || 'low'; }
+function csLang(o){ return o ? (o[LANG] || o.en || {}) : {}; }
+function csTitle(c){ return (LANG==='ja' ? c.title_ja : c.title_en) || c.title_en || c.rule; }
+function csAge(ms){ return ms ? fmtAge(Math.max(0, Math.round((Date.now()-ms)/1000))) : '—'; }
+
+async function casesLoad(){
+  if(currentView !== 'cases') return;
+  try{
+    const [engR, listR] = await Promise.all([
+      fetch(`${API_BASE}/api/soc/engine`),
+      fetch(`${API_BASE}/api/soc/cases${CS.filter ? '?status='+encodeURIComponent(CS.filter) : ''}`),
+    ]);
+    CS.engine = engR.ok ? await engR.json() : null;
+    CS.cases = listR.ok ? ((await listR.json()).cases || []) : [];
+  }catch(e){ CS.engine = null; CS.cases = []; }
+  casesRenderEngine();
+  casesRenderList();
+  if(CS.selected && CS.cases.some(c=>c.id===CS.selected)) casesOpen(CS.selected, true);
+  else if(CS.cases.length) casesOpen(CS.cases[0].id, true);
+  else casesRenderDetailEmpty();
+}
+
+function casesRenderEngine(){
+  const el = document.getElementById('csEngine'); const e = CS.engine;
+  if(!e){ el.textContent = ''; return; }
+  const parts = [];
+  const lr = e.last_run || {};
+  let d = e.detect_enabled ? `<span class="on">●</span> ${escH(t('cs_detect_on'))}` : `<span class="off">●</span> ${escH(t('cs_detect_off'))}`;
+  if(lr.at) d += ' · ' + escH(tf('cs_last_run', {age: fmtAge(Math.max(0, Math.round((Date.now()-Date.parse(lr.at))/1000)))}));
+  if(lr.created) d += ' · ' + escH(tf('cs_new', {n: lr.created}));
+  if(lr.error) d += ` · <span class="warn">${escH(lr.error)}</span>`;
+  parts.push(d);
+  const tr = e.triage || {};
+  parts.push(tr.enabled
+    ? `<span class="on">●</span> ${escH(tf('cs_ai_on', {model: tr.model}))} · ${escH(tf('cs_ai_usage', {n: (e.usage||{}).cases_triaged_24h || 0}))}`
+    : `<span class="off">●</span> ${escH(t('cs_ai_off'))}`);
+  el.innerHTML = parts.join(' &nbsp;|&nbsp; ');
+  document.getElementById('csRun').disabled = !e.hot_store_connected;
+}
+
+function casesAiBadge(c){
+  const st = c.triage_status;
+  const key = {done:'cs_ai_done', pending:'cs_ai_pending', stale:'cs_ai_stale', error:'cs_ai_error', skipped:'cs_ai_skipped'}[st] || 'cs_ai_pending';
+  const cls = st==='done' ? 'ai' : st==='error' ? 'ai error' : 'ai pending';
+  return `<span class="csBadge ${cls}">${st==='done' ? '✦ ' : ''}${escH(t(key))}</span>`;
+}
+
+function casesRenderList(){
+  const list = document.getElementById('csList');
+  if(CS.engine && CS.engine.hot_store_connected === false && !CS.cases.length){
+    list.innerHTML = `<div class="csEmpty">${escH(t('cs_not_connected'))}</div>`; return;
+  }
+  if(!CS.cases.length){
+    list.innerHTML = `<div class="csEmpty">${escH(CS.filter==='open' ? t('cs_none_open') : t('cs_none'))}</div>`; return;
+  }
+  list.innerHTML = CS.cases.map(c=>{
+    const sev = csSev(c);
+    const head = c.triage ? csLang(c.triage).headline : '';
+    return `<div class="csItem sev-${escH(sev)} ${c.id===CS.selected?'active':''}" data-id="${escH(c.id)}">
+      <div class="t">${escH(head || csTitle(c))}</div>
+      <div class="m"><span class="csBadge sev-${escH(sev)}">${escH(t('sev_'+sev) || sev)}</span>
+        <span>${escH(t('rule_'+c.rule) || c.rule)}</span><span>${escH(tf('cs_events', {n: fmtNum(c.event_count)}))}</span>
+        <span>${escH(csAge(c.last_seen_ms))}</span>${casesAiBadge(c)}
+        ${c.feedback ? `<span>${c.feedback==='useful'?'👍':'👎'}</span>` : ''}${c.status==='resolved' ? '<span>✓</span>' : ''}</div>
+    </div>`;
+  }).join('');
+  list.querySelectorAll('.csItem').forEach(el=>el.onclick = ()=>casesOpen(el.dataset.id));
+}
+
+function casesRenderDetailEmpty(){
+  document.getElementById('csDetail').innerHTML = `<div class="csEmpty">${escH(CS.cases.length ? t('cs_pick') : (CS.filter==='open' ? t('cs_none_open') : t('cs_none')))}</div>`;
+}
+
+async function casesOpen(id, quiet){
+  CS.selected = id;
+  document.querySelectorAll('#csList .csItem').forEach(el=>el.classList.toggle('active', el.dataset.id===id));
+  try{
+    const r = await fetch(`${API_BASE}/api/soc/cases/${encodeURIComponent(id)}`);
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const c = await r.json();
+    if(CS.selected === id) casesRenderDetail(c);
+  }catch(e){ if(!quiet) document.getElementById('csDetail').innerHTML = `<div class="csEmpty">${escH(e.message)}</div>`; }
+}
+
+function casesRenderDetail(c){
+  const el = document.getElementById('csDetail');
+  const tri = c.triage; const tx = csLang(tri); const st = c.stats || {};
+  const sev = csSev(c);
+  const chip = (txt, cls)=> `<span class="csBadge ${cls||''}">${escH(txt)}</span>`;
+  let h = `<h3>${escH(csTitle(c))}</h3><div class="csChips">`
+    + chip(t('rule_'+c.rule) || c.rule)
+    + chip(`${t('cs_rule_sev')}: ${t('sev_'+c.rule_severity) || c.rule_severity}`, 'sev-'+c.rule_severity);
+  if(tri){
+    h += chip(`${t('cs_ai_sev')}: ${t('sev_'+tri.severity) || tri.severity}`, 'sev-'+tri.severity)
+      + chip(t('verdict_'+tri.verdict) || tri.verdict, 'ai') + chip(t('conf_'+tri.confidence) || tri.confidence);
+  }
+  h += chip(tf('cs_events', {n: fmtNum(c.event_count)})) + '</div>';
+
+  if(tri){
+    if(tri.injection_suspected) h += `<div class="csWarn">⚠ ${escH(t('cs_injection'))}</div>`;
+    h += `<div class="csHeadline">✦ ${escH(tx.headline)}</div>`;
+    h += `<div class="csSec"><h4>${escH(t('cs_what'))}</h4><p>${escH(tx.what_happened)}</p></div>`;
+    h += `<div class="csSec"><h4>${escH(t('cs_why'))}</h4><p>${escH(tx.why_it_matters)}</p></div>`;
+    if(tx.unknowns) h += `<div class="csSec"><h4>${escH(t('cs_unknowns'))}</h4><p>${escH(tx.unknowns)}</p></div>`;
+    h += `<div class="csSec"><h4>${escH(t('cs_options'))}</h4><div class="csOpts">` + (tri.options||[]).map(o=>{
+      const ot = csLang(o);
+      return `<div class="csOpt ${o.recommended?'rec':''}"><div class="ot">${o.recommended ? `<span class="csRec">${escH(t('cs_recommended'))}</span>` : ''}
+        ${escH(ot.title)} <span class="csBadge">${escH(t('act_'+o.action_type) || o.action_type)}</span></div>
+        <div class="od">${escH(ot.detail)}</div><div class="oi">${escH(ot.impact)}</div></div>`;
+    }).join('') + `</div><div class="evNote">${escH(t('cs_manual_note'))}</div></div>`;
+    if((tri.mitre_attack||[]).length) h += `<div class="csSec"><h4>${escH(t('cs_mitre'))}</h4><div class="csChips">${tri.mitre_attack.map(m=>chip(m)).join('')}</div></div>`;
+  } else if(c.triage_status === 'error'){
+    h += `<div class="csWarn">${escH(tf('cs_triage_failed', {err: c.triage_error || '?'}))}</div>`;
+  } else if(c.triage_status === 'skipped' || !(CS.engine && CS.engine.triage && CS.engine.triage.enabled)){
+    h += `<div class="evNote">${escH(t('cs_triage_off'))}</div>`;
+  } else {
+    h += `<div class="evNote">${escH(tf('cs_triage_waiting', {n: (CS.engine.triage||{}).max_per_hour || 20}))}</div>`;
+  }
+
+  const aiOn = CS.engine && CS.engine.triage && CS.engine.triage.enabled;
+  h += `<div class="csActions">
+    <button data-act="fb" data-v="useful" class="${c.feedback==='useful'?'on':''}">${escH(t('cs_useful'))}</button>
+    <button data-act="fb" data-v="noise" class="${c.feedback==='noise'?'on':''}">${escH(t('cs_noise'))}</button>
+    <button data-act="status" data-v="${c.status==='open'?'resolved':'open'}">${escH(t(c.status==='open'?'cs_resolve':'cs_reopen'))}</button>
+    <button data-act="retriage" ${aiOn ? '' : 'disabled'}>${escH(t('cs_retriage'))}</button></div>`;
+
+  const list = a => (a && a.length) ? a.map(x=>escH(x)).join(', ') : '—';
+  const countries = [...new Set([...(st.src_countries||[]), ...(st.dst_countries||[])])].filter(x=>x && x!=='Reserved');
+  h += `<div class="csSec"><h4>${escH(t('cs_evidence'))}</h4><div class="csFacts">
+    <div><b>${escH(t('cs_first'))}</b>${escH(fmtTime(c.first_seen_ms))}</div>
+    <div><b>${escH(t('cs_last'))}</b>${escH(fmtTime(c.last_seen_ms))}</div>
+    <div><b>${escH(t('cs_blocked_allowed'))}</b>${escH(fmtNum(st.blocked||0))} / ${escH(fmtNum(st.allowed||0))}</div>
+    <div><b>${escH(t('cs_ports'))}</b><span class="evMono">${list(st.ports)}</span></div>
+    <div><b>${escH(t('cs_sources'))}</b><span class="evMono">${list(st.src_ips)}</span></div>
+    <div><b>${escH(t('cs_targets'))}</b><span class="evMono">${list(st.dst_ips)}</span></div>
+    <div><b>${escH(t('cs_countries'))}</b>${list(countries)}</div>
+    <div><b>${escH(t('cs_actions_seen'))}</b>${list(st.actions)}</div>
+    ${(st.signatures||[]).length ? `<div style="grid-column:1/-1"><b>${escH(t('cs_signatures'))}</b>${list(st.signatures)}</div>` : ''}
+  </div>`;
+  const samples = c.samples || [];
+  if(samples.length){
+    h += `<table class="logtable" id="csEvidence" style="margin-top:10px"><thead><tr>
+      <th>${escH(t('ev_col_time'))}</th><th>${escH(t('ev_col_action'))}</th><th>${escH(t('ev_col_src'))}</th>
+      <th>${escH(t('ev_col_dst'))}</th><th>${escH(t('ev_col_sig'))}</th></tr></thead><tbody>` + samples.map(e=>{
+        const out = e.outcome ? `<span class="evOutcome ${e.outcome==='blocked'?'blocked':'allowed'}">${escH(t('ev_out_'+e.outcome) || e.outcome)}</span>` : escH(e.action||'—');
+        return `<tr style="cursor:default"><td class="evMono evTime">${escH(fmtTime(e.ts_ms))}</td><td>${out}</td>
+          <td class="evMono">${escH(e.src_ip||'—')}${e.src_port!=null?'<span class="evDim">:'+escH(e.src_port)+'</span>':''}</td>
+          <td class="evMono">${escH(e.dst_ip||'—')}${e.dst_port!=null?'<span class="evDim">:'+escH(e.dst_port)+'</span>':''}</td>
+          <td><div class="evSig" title="${escH(e.signature)}">${escH(e.signature||e.app||'—')}</div></td></tr>`;
+      }).join('') + '</tbody></table>';
+  }
+  h += '</div>';
+  if(tri) h += `<div class="csFoot">${escH(tf('cs_foot', {rule: c.rule, id: c.id, model: c.triage_model || '?', tin: fmtNum(c.triage_in_tokens), tout: fmtNum(c.triage_out_tokens)}))}</div>`;
+  el.innerHTML = h;
+
+  el.querySelectorAll('.csActions button').forEach(b=>b.onclick = async ()=>{
+    if(b.disabled) return;
+    const act = b.dataset.act; let url, body;
+    if(act==='fb'){ url = 'feedback'; body = {verdict: c.feedback===b.dataset.v ? null : b.dataset.v}; }
+    else if(act==='status'){ url = 'status'; body = {status: b.dataset.v}; }
+    else { url = 'retriage'; }
+    b.disabled = true;
+    try{
+      const r = await fetch(`${API_BASE}/api/soc/cases/${encodeURIComponent(c.id)}/${url}`,
+        {method:'POST', headers:{'Content-Type':'application/json'}, body: body ? JSON.stringify(body) : undefined});
+      if(!r.ok){ const j = await r.json().catch(()=>({})); alert(j.detail || ('HTTP '+r.status)); }
+    } finally { await casesLoad(); }
+  });
+}
+
+function casesEnter(){
+  casesLoad();
+  clearInterval(CS.timer);
+  CS.timer = setInterval(()=>{ if(currentView==='cases' && document.visibilityState==='visible') casesLoad(); }, 20000);
+}
+function casesLeave(){ clearInterval(CS.timer); CS.timer = null; }
+
+document.querySelectorAll('#csFilter button').forEach(b=>b.onclick = ()=>{
+  CS.filter = b.dataset.f; CS.selected = null;
+  document.querySelectorAll('#csFilter button').forEach(x=>x.classList.toggle('active', x===b));
+  casesLoad();
+});
+document.getElementById('csRun').onclick = async ()=>{
+  const b = document.getElementById('csRun'); b.disabled = true; b.textContent = t('cs_running');
+  try{ await fetch(`${API_BASE}/api/soc/detect/run`, {method:'POST'}); }catch(e){}
+  setTimeout(async ()=>{ await casesLoad(); b.disabled = false; b.textContent = t('cs_run'); }, 4000);
+};
+
 // Shows the running version, and marks any non-prod environment loudly.
 async function loadVersion(){
   try{
@@ -2128,8 +2454,18 @@ async function loadVersion(){
   }catch(e){ /* older API without /api/version — leave the chip hidden */ }
 }
 
+// Collapse the top bar to its compact form only when it doesn't fit.
+function fitTopbar(){
+  const bar = document.querySelector('.topbar'); if(!bar) return;
+  bar.classList.remove('compact');
+  ['openAdd','openBulk'].forEach(id=>{ const b = document.getElementById(id); if(b) b.title = b.textContent.trim(); });
+  if(bar.scrollWidth > bar.clientWidth + 1) bar.classList.add('compact');
+}
+window.addEventListener('resize', fitTopbar);
+
 applyStaticI18n();
-loadVersion();
+loadVersion().then(fitTopbar);
+fitTopbar();
 loadSectors();
 loadClients().then(loadPortfolio);
 loadAlerts();
