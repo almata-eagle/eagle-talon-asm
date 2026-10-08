@@ -72,6 +72,11 @@
     height:26px; width:auto; flex-shrink:0; margin-right:2px; object-fit:contain;
   }
   .brand .sub{color:var(--muted); font-weight:500; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; margin-left:2px;}
+  /* Environment + version marker (filled from /api/version). Staging gets a
+     loud chip and a stripe across the top so it can't be mistaken for prod. */
+  .envChip{font-family:var(--font-mono); font-size:10px; font-weight:600; letter-spacing:0.06em; padding:2px 7px; border-radius:999px; border:1px solid var(--line); color:var(--muted); margin-left:4px; white-space:nowrap;}
+  .envChip.nonprod{background:var(--watch); border-color:var(--watch); color:#141A21;}
+  .envStripe{position:fixed; top:0; left:0; right:0; height:3px; background:repeating-linear-gradient(135deg, var(--watch) 0 12px, transparent 12px 24px); z-index:100; pointer-events:none;}
 
   .searchwrap{flex:1; max-width:520px; position:relative;}
   .searchwrap input{
@@ -350,7 +355,7 @@
 
 <div class="app">
   <div class="topbar">
-    <div class="brand"><img class="mark" src="logo-icon.png" alt="Eagle Talon">EAGLE TALON <span class="sub">Attack Surface Console</span></div>
+    <div class="brand"><img class="mark" src="logo-icon.png" alt="Eagle Talon">EAGLE TALON <span class="sub">Attack Surface Console</span><span class="envChip" id="envChip" hidden></span></div>
     <div class="viewToggle" id="clientSwitchWrap">
       <select id="clientSelect" style="background:transparent; border:none; color:var(--text); font-size:12.5px; font-weight:600; padding:6px 8px; cursor:pointer; outline:none;"></select>
       <button id="newClientBtn" data-i18n="new_client_btn" style="padding:6px 10px;">+ Client</button>
@@ -1776,7 +1781,30 @@ document.getElementById('bulkGo').onclick = async ()=>{
 };
 
 window.addEventListener('resize', render);
+// Shows the running version, and marks any non-prod environment loudly.
+async function loadVersion(){
+  try{
+    const res = await fetch(`${API_BASE}/api/version`);
+    if(!res.ok) return;
+    const v = await res.json();
+    const chip = document.getElementById('envChip');
+    const env = String(v.env || 'prod').toLowerCase();
+    const sha = (v.git_sha && v.git_sha !== 'unknown') ? ` · ${String(v.git_sha).slice(0,7)}` : '';
+    chip.textContent = env === 'prod' ? `v${v.version}` : `${env.toUpperCase()} · v${v.version}${sha}`;
+    chip.title = `Eagle Talon ${v.version} (${env})${sha}` + (v.scheduler === false ? ' — scheduled monitoring is off in this environment' : '');
+    chip.hidden = false;
+    if(env !== 'prod'){
+      chip.classList.add('nonprod');
+      document.title = `[${env.toUpperCase()}] ` + document.title;
+      const stripe = document.createElement('div');
+      stripe.className = 'envStripe';
+      document.body.appendChild(stripe);
+    }
+  }catch(e){ /* older API without /api/version — leave the chip hidden */ }
+}
+
 applyStaticI18n();
+loadVersion();
 loadSectors();
 loadClients().then(loadPortfolio);
 loadAlerts();

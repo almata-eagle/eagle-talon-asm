@@ -1,5 +1,4 @@
 name: eagle-talon
-version: "3.9"
 
 # Both services run on the HOST's network directly (network_mode: host).
 # This box has Tailscale managing netfilter rules in a way that excludes
@@ -9,13 +8,22 @@ version: "3.9"
 # sidesteps both problems: no bridge, no NAT dependency, nginx just talks
 # to localhost directly, same as any two processes on this box.
 # (This is the configuration actually running on core — confirmed working.)
+#
+# ENVIRONMENTS
+# Every name, port and volume below comes from an env file, and every default
+# is the PRODUCTION value — so running this file with no env file (or with
+# env/prod.env) behaves exactly as prod always has. Staging is the same file
+# driven by env/staging.env. Always deploy through deploy/deploy.sh, which
+# picks the env file and the compose project name (-p) for you.
+# See docs/RUNBOOK.md.
 
 services:
   api:
     build:
       context: ../backend
       network: host
-    container_name: eagle-talon-api
+    image: ${STACK_NAME:-eagle-talon}-api
+    container_name: ${STACK_NAME:-eagle-talon}-api
     restart: unless-stopped
     network_mode: host
     volumes:
@@ -23,14 +31,21 @@ services:
     environment:
       - EAGLE_TALON_DB_PATH=/app/data/eagle_talon.db
       - NVD_API_KEY=${NVD_API_KEY:-}
+      - EAGLE_TALON_ENV=${EAGLE_TALON_ENV:-prod}
+      - EAGLE_TALON_VERSION=${EAGLE_TALON_VERSION:-unknown}
+      - EAGLE_TALON_GIT_SHA=${EAGLE_TALON_GIT_SHA:-unknown}
+      - EAGLE_TALON_SCHEDULER=${EAGLE_TALON_SCHEDULER:-on}
+      - API_HOST=${API_HOST:-0.0.0.0}
+      - API_PORT=${API_PORT:-8000}
 
   web:
     image: nginx:alpine
-    container_name: eagle-talon-web
+    container_name: ${STACK_NAME:-eagle-talon}-web
     restart: unless-stopped
     network_mode: host
     environment:
       - NGINX_PORT=${EAGLE_TALON_WEB_PORT:-8088}
+      - API_PORT=${API_PORT:-8000}
     volumes:
       - ../frontend:/usr/share/nginx/html:ro
       - ./nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
@@ -38,5 +53,8 @@ services:
       - api
 
 volumes:
+  # The compose-level key stays "eagle-talon-data"; the real Docker volume
+  # name comes from DATA_VOLUME. Prod MUST stay "eagle-talon-data" — Eagle Eye
+  # mounts that exact volume. Staging uses its own volume and never touches it.
   eagle-talon-data:
-    name: eagle-talon-data
+    name: ${DATA_VOLUME:-eagle-talon-data}

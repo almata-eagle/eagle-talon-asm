@@ -38,7 +38,21 @@ SECTORS = ["Payments", "Logistics", "Cloud/SaaS Vendors", "Marketing & Ad Tech",
            "Manufacturing Suppliers", "Professional Services", "Marketplace Sellers",
            "Financial Institutions", "Healthcare Vendors", "Regional Resellers", "Unassigned"]
 
-app = FastAPI(title="Eagle Talon ASM API", version="0.1.0")
+# Release version: deploy/deploy.sh exports it from the repo's VERSION file.
+# Running outside Docker, fall back to reading that file directly.
+def _read_version() -> str:
+    v = os.environ.get("EAGLE_TALON_VERSION", "").strip()
+    if v and v != "unknown":
+        return v
+    try:
+        return (Path(__file__).resolve().parent.parent / "VERSION").read_text().strip()
+    except OSError:
+        return "unknown"
+
+
+APP_VERSION = _read_version()
+
+app = FastAPI(title="Eagle Talon ASM API", version=APP_VERSION)
 
 app.add_middleware(
     CORSMiddleware,
@@ -319,7 +333,12 @@ def _monitoring_scheduler_loop():
         time.sleep(60)
 
 
-threading.Thread(target=_monitoring_scheduler_loop, daemon=True).start()
+# Staging runs with EAGLE_TALON_SCHEDULER=off: it starts from a copy of the
+# prod DB, so its monitors would otherwise re-scan every client domain a second
+# time and spend the shared NVD API quota. Use "Check now" in the UI instead.
+SCHEDULER_ENABLED = os.environ.get("EAGLE_TALON_SCHEDULER", "on").strip().lower() not in ("off", "0", "false", "no")
+if SCHEDULER_ENABLED:
+    threading.Thread(target=_monitoring_scheduler_loop, daemon=True).start()
 
 
 class ScanRequest(BaseModel):
@@ -340,6 +359,18 @@ def debug_cve_lookup(tech: str, version: str):
 @app.get("/api/health")
 def health():
     return {"status": "ok", "time": datetime.datetime.utcnow().isoformat()}
+
+
+@app.get("/api/version")
+def version_info():
+    """What is running where. The UI footer shows this, and a non-prod env
+    shows a banner so staging can never be mistaken for prod."""
+    return {
+        "version": APP_VERSION,
+        "git_sha": os.environ.get("EAGLE_TALON_GIT_SHA", "unknown"),
+        "env": os.environ.get("EAGLE_TALON_ENV", "prod"),
+        "scheduler": SCHEDULER_ENABLED,
+    }
 
 
 @app.get("/api/clients")
