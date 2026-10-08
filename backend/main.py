@@ -33,6 +33,7 @@ from scanner import scan_domain, tier_for_score
 import soc_logs
 import soc_cases
 import soc_triage
+import soc_dashboard
 
 # Shared sector list — used both by the demo-data generator and by real scans
 # (so a real domain's sector places it correctly on the Talon Scope radar,
@@ -505,6 +506,24 @@ def soc_case_retriage(case_id: str):
         raise HTTPException(429, "this case has reached its triage limit")
     threading.Thread(target=soc_cases.triage_pending, kwargs={"limit": 1}, daemon=True).start()
     return {"queued": True}
+
+
+# ---------------------------------------------------------------------------
+# SOC dashboard (Phase 3, read-only): traffic map + callouts + KPIs.
+# See backend/soc_dashboard.py and ADR 0005.
+# ---------------------------------------------------------------------------
+@app.get("/api/soc/map")
+def soc_map(range: str = Query("24h", pattern=_RANGE_RE)):
+    if not soc_logs.available():
+        return {"connected": False, "flows": [], "unmapped": [], "home": soc_dashboard.soc_geo.HOME}
+    res = soc_dashboard.traffic_map(range)
+    res["connected"] = True
+    return res
+
+
+@app.get("/api/soc/dashboard")
+def soc_dashboard_view():
+    return soc_dashboard.dashboard()
 
 
 @app.get("/api/clients")

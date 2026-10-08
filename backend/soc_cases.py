@@ -75,6 +75,10 @@ def init_db() -> None:
             )""")
         con.execute("CREATE INDEX IF NOT EXISTS idx_soc_cases_key ON soc_cases (rule, entity, status)")
         con.execute("CREATE INDEX IF NOT EXISTS idx_soc_cases_seen ON soc_cases (last_seen_ms)")
+        # Additive migrations (never drop or rename; Eagle Eye shares this DB).
+        cols = {r[1] for r in con.execute("PRAGMA table_info(soc_cases)").fetchall()}
+        if "resolved_at" not in cols:   # v0.5.0: for MTTR on the dashboard
+            con.execute("ALTER TABLE soc_cases ADD COLUMN resolved_at TEXT")
         con.commit()
     finally:
         con.close()
@@ -313,7 +317,11 @@ def set_status(case_id: str, status: str) -> bool:
         return False
     con = _db()
     try:
-        cur = con.execute("UPDATE soc_cases SET status=?, updated_at=? WHERE id=?", (status, _now_iso(), case_id))
+        now = _now_iso()
+        cur = con.execute(
+            "UPDATE soc_cases SET status=?, updated_at=?, resolved_at=? WHERE id=?",
+            (status, now, now if status == "resolved" else None, case_id),
+        )
         con.commit()
         return cur.rowcount == 1
     finally:

@@ -69,8 +69,32 @@ Every change merged to `staging` adds a line under **Unreleased**.
   - `backend/soc_context.md`: the operator-written network description sent to Claude.
   - Tests: `backend/tests/test_soc_cases.py` (23 tests: rules, merging,
     injection fencing, schema validation, budget, failures, API). 43 in total.
+- **SOC Phase 3, dashboard (read-only)**: see `docs/SOC-DASHBOARD.md` and ADR 0005.
+  - **Dashboard view** (top bar → Dashboard, EN/JP): KPI tiles (open cases by
+    severity, new in 24 h, median time to detect, explain and resolve, events
+    and blocked in 24 h, sensors reporting).
+  - **Global traffic map**: inbound and outbound arcs per remote country, with
+    animated flow. Dashed means fully blocked. Hover shows events, bytes, top
+    ports and IPs, and a click opens the matching events. It has a range and
+    direction filter.
+  - **Needs attention** callouts: open cases with Claude's headline and
+    recommended option (Open case / View events / Mark resolved), plus
+    sensor and system problems such as a silent IDS or a missing log store,
+    each with steps to fix.
+  - **MITRE ATT&CK heatmap** by tactic from triaged cases, and a top remote
+    countries table.
+  - API: `GET /api/soc/map`, `GET /api/soc/dashboard` (`backend/soc_dashboard.py`).
+  - Country lookup (`backend/soc_geo.py`) and map outlines are generated
+    offline from Natural Earth by `tools/build-world-map.js` and committed,
+    so nothing is fetched at runtime.
+  - DB: new `soc_cases.resolved_at` column (additive migration), set when a
+    case is resolved, for MTTR.
+  - Tests: `backend/tests/test_soc_dashboard.py` (27 tests). 70 in total.
 
 ### Fixed
+- Top bar: the domain search box could shrink to nothing and cover the
+  theme button (at 1280–1366 px). It now keeps a minimum width, clips its
+  contents, and the compact mode also re-checks after the client list loads.
 - `backup-db.sh` labels each backup with the version the environment is
   actually running (from `/api/version`, or `pre-0.2.0`), not the version in
   the checkout running the script.

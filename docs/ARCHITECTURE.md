@@ -1,4 +1,4 @@
-# Eagle Talon — Architecture (as of v0.2.0-dev, SOC Phases 1–2 in staging)
+# Eagle Talon — Architecture (as of v0.2.0-dev, SOC Phases 1–3 in staging)
 
 Eagle Talon is the operator console of the Eagle platform. Eagle Eye
 (`almata-eagle/eagle-eye`) is the client-facing portal and shares Talon's data.
@@ -33,6 +33,9 @@ Suricata eve.json ────┴─► eagle-soc-collector (Vector) ─┬─�
 Detection rules run over the same hot store every 5 minutes (Phase 2) and
 turn findings into **cases**, which Claude explains (read-only). See
 [SOC-TRIAGE.md](SOC-TRIAGE.md) and [adr/0004](adr/0004-cases-and-claude-triage.md).
+The **Dashboard** (Phase 3) aggregates the same hot store and the cases
+into a traffic map, callouts and KPIs. See [SOC-DASHBOARD.md](SOC-DASHBOARD.md)
+and [adr/0005](adr/0005-dashboard-and-offline-geo.md).
 Talon's **Events** view reads the hot store through `backend/soc_logs.py`. It's
 mounted read-only and queried in place with DuckDB, with no database server.
 One collector per host, shared by staging and prod. The event format, deploy
@@ -50,12 +53,14 @@ is in [adr/0003](adr/0003-log-collector-and-storage.md).
 | Web | `deploy/nginx.conf.template` | Ports filled from `NGINX_PORT` and `API_PORT` at container start. |
 | SOC search | `backend/soc_logs.py` | Read-only DuckDB queries over the hot store (mounted at `/soc-hot`). `/api/soc/status`, `/api/soc/events`, `/api/soc/summary`. |
 | SOC cases | `backend/soc_rules.py`, `soc_cases.py`, `soc_triage.py`, `soc_context.md` | Detection rules → cases (SQLite `soc_cases`) → Claude triage. Read-only. See [SOC-TRIAGE.md](SOC-TRIAGE.md). |
+| SOC dashboard | `backend/soc_dashboard.py`, `soc_geo.py`, `soc_geo_countries.json`, `frontend/world-110m.json` | Traffic map, callouts, MTTD/MTTR, ATT&CK tally. `/api/soc/map`, `/api/soc/dashboard`. Read-only. Geo data built by `tools/build-world-map.js`. |
 | Log collector | `soc/` | `collector/vector.yaml` (pipeline + schema), `collector/tests.yaml`, `preflight.sh`, `deploy-collector.sh`, `retention.sh`. |
 | Deploy | `deploy/` | `docker-compose.yml`, `env/<env>.env`, `deploy.sh`, `backup-db.sh`, `seed-staging-db.sh`. |
 
 ## Data
 
-SQLite, single file. Tables: `clients`, `scans`, `monitors`, `alerts`, `soc_cases`.
+SQLite, single file. Tables: `clients`, `scans`, `monitors`, `alerts`, `soc_cases`
+(`resolved_at` added in Phase 3).
 Migrations run at startup and are additive only (`PRAGMA table_info` check,
 then `ALTER TABLE ... ADD COLUMN`). Never drop or rename a column: older
 releases must keep working on a newer DB so rollback stays safe.
