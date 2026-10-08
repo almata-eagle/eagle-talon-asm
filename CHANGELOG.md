@@ -36,6 +36,18 @@ Every change merged to `staging` adds a line under **Unreleased**.
   `soc/retention.sh`, and Vector unit tests. See `docs/SOC-COLLECTOR.md` and
   ADR 0003. The collector runs as `eddy`; it joins the `eve.json` group only
   when the file isn't world-readable, and never joins `root`.
+- **Events view** (top bar → Events, EN/JP): searches the SOC hot store with
+  a time range, source, allowed/blocked and direction filters, and free text
+  (IP, country, port, signature, app). It shows headline tiles (click to
+  filter), a blocked-vs-total timeline, top remote countries and most-hit
+  inbound ports (click to search), and a collector freshness indicator. Click
+  a row to see the full original log. It auto-refreshes every 30 s, and the
+  collector's self-test events are hidden.
+- API: `GET /api/soc/status`, `/api/soc/events`, `/api/soc/summary`. These are
+  read-only, validated inputs, queried in place with DuckDB
+  (`backend/soc_logs.py`).
+- Tests: `backend/tests/test_soc_logs.py` (20 tests, including
+  injection-shaped input and API validation).
 
 ### Fixed
 - `backup-db.sh` labels each backup with the version the environment is
@@ -50,6 +62,13 @@ Every change merged to `staging` adds a line under **Unreleased**.
   value, so prod's rendered config is unchanged apart from new informational
   env vars.
 - Removed the obsolete `version:` key from `docker-compose.yml`.
+- The API container mounts the SOC hot store **read-only** at `/soc-hot`, from
+  `SOC_HOT_DIR` (set in `env/staging.env`). When it's unset, as in prod until
+  v0.3.0, an empty placeholder folder is mounted, and the Events view says
+  "not connected".
+- Top bar: labels no longer wrap, and spacing tightens below 1640 px and
+  1460 px, so nothing is clipped from 1280 px up.
+- New dependency: `duckdb==1.5.6`.
 
 ## [0.1.0] - 2026-08-31
 Baseline: the code prod ran before staging existed (commit `954da2d`).

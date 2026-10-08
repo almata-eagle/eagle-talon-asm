@@ -249,6 +249,63 @@
 
   /* ---------- Grid view ---------- */
   #gridStage, #trendsStage{position:absolute; inset:0; overflow-y:auto; display:none; padding:18px 20px 60px;}
+
+  /* ---------- Security events (SOC Phase 1) ---------- */
+  #eventsStage{position:absolute; inset:0; overflow-y:auto; display:none; padding:14px 20px 60px;}
+  .app.eventsMode{grid-template-columns:0 1fr;}
+  .app.eventsMode .rail{display:none;}
+  .app.eventsMode .main{grid-column:2;}           /* rail is hidden: keep main in the wide column */
+  .app.eventsMode .searchwrap{visibility:hidden;} /* the top search box filters domains, not events */
+  /* Top bar: never wrap button labels; drop the brand subtitle when space is tight. */
+  .viewToggle{flex-shrink:0;}
+  .viewToggle button, .addbtn{white-space:nowrap;}
+  .searchwrap{min-width:120px;}
+  @media (max-width:1640px){ .brand .sub{display:none;} .topbar{gap:10px;} .addbtn{padding-left:12px; padding-right:12px;} }
+  @media (max-width:1460px){ .topbar{gap:8px; padding:0 12px;} .searchwrap{min-width:0;} .viewToggle button{padding:6px 9px;} }
+  .evBar{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:12px;}
+  .evBar select, .evBar input[type=text]{background:var(--panel-2); border:1px solid var(--line); color:var(--text); padding:7px 10px; border-radius:8px; font-size:12.5px; outline:none;}
+  .evBar input[type=text]{flex:1; min-width:200px; max-width:380px; font-family:var(--font-mono);}
+  .evBar input[type=text]:focus, .evBar select:focus{box-shadow:var(--shadow); border-color:var(--signal);}
+  .evBar .btnPrimary{padding:7px 14px; font-size:12.5px;}
+  .evLive{display:flex; align-items:center; gap:5px; font-size:12px; color:var(--muted); cursor:pointer; user-select:none;}
+  .evStatus{margin-left:auto; font-size:11px; color:var(--dim); font-family:var(--font-mono);}
+  .evStatus.stale{color:var(--watch);}
+  .evStatus .dot{display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--clear); margin-right:6px; vertical-align:middle;}
+  .evStatus.stale .dot{background:var(--watch);}
+  .evTiles{display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:10px; margin-bottom:10px;}
+  .evTile{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px 12px; cursor:default;}
+  .evTile.clickable{cursor:pointer;}
+  .evTile.clickable:hover{border-color:var(--signal);}
+  .evTile .n{font-family:var(--font-mono); font-size:20px; font-weight:600; line-height:1.2;}
+  .evTile .l{font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; margin-top:2px;}
+  .evTile.blocked .n{color:var(--critical);}
+  .evTimeline{display:flex; align-items:flex-end; gap:2px; height:46px; margin-bottom:12px; padding:6px 8px; background:var(--panel); border:1px solid var(--line); border-radius:10px;}
+  .evTimeline .b{flex:1; display:flex; flex-direction:column-reverse; min-width:2px; height:100%;}
+  .evTimeline .b .a{background:var(--line); border-radius:2px 2px 0 0;}
+  .evTimeline .b .k{background:var(--critical);}
+  .evChipsRow{display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:6px; font-size:11.5px;}
+  .evChipsRow .lbl{color:var(--dim); text-transform:uppercase; letter-spacing:0.06em; font-size:10px; margin-right:4px;}
+  .evChip{border:1px solid var(--line); border-radius:999px; padding:3px 9px; cursor:pointer; background:var(--panel-2); color:var(--text); font-size:11.5px;}
+  .evChip:hover{border-color:var(--signal);}
+  .evChip .c{font-family:var(--font-mono); color:var(--muted); margin-left:5px;}
+  #evTable{margin-top:10px;}
+  #evTable td{padding:7px 12px; font-size:12px; vertical-align:top;}
+  #evTable thead th{padding:8px 12px;}
+  .evMono{font-family:var(--font-mono);}
+  .evTime{white-space:nowrap;}
+  .evBytes{font-size:10.5px; color:var(--dim); margin-top:2px; white-space:nowrap;}
+  .evDim{color:var(--dim);}
+  .evOutcome{font-family:var(--font-mono); font-size:10.5px; font-weight:600; padding:2px 8px; border-radius:999px; white-space:nowrap;}
+  .evOutcome.blocked{background:color-mix(in srgb, var(--critical) 16%, transparent); color:var(--critical);}
+  .evOutcome.allowed{background:color-mix(in srgb, var(--clear) 14%, transparent); color:var(--clear);}
+  .evDir{font-family:var(--font-mono); font-size:11px; white-space:nowrap;}
+  .evDir.inbound{color:var(--high);}
+  .evDir.outbound{color:var(--signal);}
+  .evSig{max-width:360px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .evRawRow td{background:var(--panel); cursor:default;}
+  .evRawRow pre{font-family:var(--font-mono); font-size:11px; white-space:pre-wrap; word-break:break-all; margin:0; color:var(--muted); max-height:320px; overflow:auto;}
+  .evEmpty{padding:40px 20px; text-align:center; color:var(--muted); font-size:13px; line-height:1.6;}
+  .evNote{font-size:11px; color:var(--dim); margin-top:10px;}
   .cardGrid{display:grid; grid-template-columns:repeat(auto-fill, minmax(230px,1fr)); gap:12px;}
   .domCard{
     background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--line);
@@ -388,6 +445,7 @@
       <button id="btnLog" data-i18n="view_log">Log</button>
       <button id="btnGrid" data-i18n="view_grid">Grid</button>
       <button id="btnTrends" data-i18n="view_trends">Trends</button>
+      <button id="btnEvents" data-i18n="view_events">Events</button>
     </div>
     <div class="spacer"></div>
     <button class="addbtn" id="openAdd" data-i18n="add_domain">+ Analyze Domain</button>
@@ -435,6 +493,33 @@
       </div>
       <div id="gridStage"></div>
       <div id="trendsStage"></div>
+      <div id="eventsStage">
+        <div class="evBar">
+          <select id="evRange"></select>
+          <select id="evDataset"></select>
+          <select id="evOutcome"></select>
+          <select id="evDirection"></select>
+          <input type="text" id="evQuery" autocomplete="off" spellcheck="false" maxlength="200">
+          <button class="btnPrimary" id="evGo" data-i18n="ev_search">Search</button>
+          <label class="evLive"><input type="checkbox" id="evLive" checked> <span data-i18n="ev_live">Live</span></label>
+          <span class="evStatus" id="evStatus"></span>
+        </div>
+        <div class="evTiles" id="evTiles"></div>
+        <div class="evTimeline" id="evTimeline"></div>
+        <div id="evChips"></div>
+        <table class="logtable" id="evTable">
+          <thead>
+            <tr>
+              <th data-i18n="ev_col_time">Time</th><th data-i18n="ev_col_action">Action</th><th data-i18n="ev_col_dir">Direction</th>
+              <th data-i18n="ev_col_src">From</th><th data-i18n="ev_col_dst">To</th><th data-i18n="ev_col_app">Service</th>
+              <th data-i18n="ev_col_sig">Detail</th><th data-i18n="ev_col_source">Source</th>
+            </tr>
+          </thead>
+          <tbody id="evBody"></tbody>
+        </table>
+        <div class="evEmpty" id="evEmpty" hidden></div>
+        <div class="evNote" id="evNote"></div>
+      </div>
       <div class="legend">
         <div class="item"><span class="dot" style="background:var(--clear)"></span><span data-i18n="legend_clear">Clear (80–100)</span></div>
         <div class="item"><span class="dot" style="background:var(--watch)"></span><span data-i18n="legend_watch">Watch (60–79)</span></div>
@@ -514,8 +599,25 @@ let LANG = "en";
 
 const STR = {
   en: {
-    view_scope:"Scope", view_log:"Log", view_grid:"Grid", view_trends:"Trends",
+    view_scope:"Scope", view_log:"Log", view_grid:"Grid", view_trends:"Trends", view_events:"Events",
     search_placeholder:"Search domains, sectors, watchlists…",
+    events_title:"Security Events", events_desc:"Firewall and IDS logs from the SOC collector · newest first",
+    ev_range_1h:"Last hour", ev_range_6h:"Last 6 hours", ev_range_24h:"Last 24 hours", ev_range_7d:"Last 7 days",
+    ev_all_sources:"All sources", ev_any_outcome:"Allowed + blocked", ev_allowed_only:"Allowed only", ev_blocked_only:"Blocked only",
+    ev_any_direction:"Any direction", ev_inbound:"Inbound (internet → us)", ev_outbound:"Outbound (us → internet)", ev_internal:"Internal",
+    ev_search_placeholder:"IP, country, port, signature, app…", ev_search:"Search", ev_live:"Live",
+    ev_t_total:"Events", ev_t_blocked:"Blocked", ev_t_inbound:"Inbound", ev_t_outbound:"Outbound", ev_t_remote:"Remote IPs",
+    ev_top_countries:"Remote countries", ev_top_ports:"Inbound ports",
+    ev_col_time:"Time", ev_col_action:"Action", ev_col_dir:"Direction", ev_col_src:"From", ev_col_dst:"To",
+    ev_col_app:"Service", ev_col_sig:"Detail", ev_col_source:"Source",
+    ev_out_allowed:"allowed", ev_out_blocked:"blocked",
+    ev_dir_inbound:"← in", ev_dir_outbound:"→ out", ev_dir_internal:"⇄ internal", ev_dir_external:"↔ external",
+    ev_not_connected:"The SOC log store isn't connected to this environment yet. It's live in staging; see docs/SOC-COLLECTOR.md.",
+    ev_none:"No events match these filters in this time range.",
+    ev_last_write:"last log {age} ago", ev_stale:"no new logs for {age} — check the collector",
+    ev_truncated:"Showing the newest {n}. Narrow the filters to see older events.",
+    ev_loading:"Loading…", ev_error:"Couldn't load events: {msg}",
+    ev_bucket:"{n} events, {k} blocked", ev_click_row:"Click a row to see the full original log.",
     add_domain:"+ Analyze Domain",
     rail_watchlists:"Watchlists", rail_tier:"Risk Tier", rail_sector:"Sector", rail_signals:"Signals",
     rail_domains_in_view:"domains in view", all_watchlists:"All watchlists",
@@ -596,8 +698,25 @@ const STR = {
     report_footer:"Passive/OSINT reconnaissance only. This report reflects a point-in-time scan and should be re-run periodically.",
   },
   ja: {
-    view_scope:"スコープ", view_log:"ログ", view_grid:"グリッド", view_trends:"トレンド",
+    view_scope:"スコープ", view_log:"ログ", view_grid:"グリッド", view_trends:"トレンド", view_events:"イベント",
     search_placeholder:"ドメイン、業種、ウォッチリストを検索…",
+    events_title:"セキュリティイベント", events_desc:"SOCコレクターが収集したファイアウォール・IDSログ（新しい順）",
+    ev_range_1h:"過去1時間", ev_range_6h:"過去6時間", ev_range_24h:"過去24時間", ev_range_7d:"過去7日間",
+    ev_all_sources:"すべてのソース", ev_any_outcome:"許可＋ブロック", ev_allowed_only:"許可のみ", ev_blocked_only:"ブロックのみ",
+    ev_any_direction:"すべての方向", ev_inbound:"受信（インターネット→自社）", ev_outbound:"送信（自社→インターネット）", ev_internal:"内部",
+    ev_search_placeholder:"IP、国、ポート、シグネチャ、アプリ…", ev_search:"検索", ev_live:"自動更新",
+    ev_t_total:"イベント", ev_t_blocked:"ブロック", ev_t_inbound:"受信", ev_t_outbound:"送信", ev_t_remote:"外部IP",
+    ev_top_countries:"接続先・接続元の国", ev_top_ports:"受信ポート",
+    ev_col_time:"時刻", ev_col_action:"アクション", ev_col_dir:"方向", ev_col_src:"送信元", ev_col_dst:"宛先",
+    ev_col_app:"サービス", ev_col_sig:"詳細", ev_col_source:"ソース",
+    ev_out_allowed:"許可", ev_out_blocked:"ブロック",
+    ev_dir_inbound:"← 受信", ev_dir_outbound:"→ 送信", ev_dir_internal:"⇄ 内部", ev_dir_external:"↔ 外部",
+    ev_not_connected:"この環境にはまだSOCログストアが接続されていません。ステージングで稼働中です（docs/SOC-COLLECTOR.md 参照）。",
+    ev_none:"この期間・条件に一致するイベントはありません。",
+    ev_last_write:"最終受信 {age}前", ev_stale:"{age}間新しいログがありません — コレクターを確認してください",
+    ev_truncated:"新しい{n}件を表示中。条件を絞り込むと古いイベントも確認できます。",
+    ev_loading:"読み込み中…", ev_error:"イベントを読み込めませんでした: {msg}",
+    ev_bucket:"{n}件（ブロック {k}件）", ev_click_row:"行をクリックすると元のログ全体を表示します。",
     add_domain:"＋ ドメインを分析",
     rail_watchlists:"ウォッチリスト", rail_tier:"リスクレベル", rail_sector:"業種", rail_signals:"シグナル",
     rail_domains_in_view:"件のドメインを表示中", all_watchlists:"すべてのウォッチリスト",
@@ -1137,6 +1256,7 @@ function render(){
   else if(currentView==="log") renderLog(data);
   else if(currentView==="grid") renderGrid(data);
   else if(currentView==="trends") renderTrends(data);
+  // "events" renders from its own fetches (eventsLoad), not from domain data.
 }
 
 // ---------- Talon Scope (radar) ----------
@@ -1576,6 +1696,7 @@ const VIEW_STAGES = {
   log:   {btn:'btnLog',   stage:'logStage',   titleKey:'log_title',   descKey:'log_desc'},
   grid:  {btn:'btnGrid',  stage:'gridStage',  titleKey:'grid_title',  descKey:'grid_desc'},
   trends:{btn:'btnTrends',stage:'trendsStage',titleKey:'trends_title',descKey:'trends_desc'},
+  events:{btn:'btnEvents',stage:'eventsStage',titleKey:'events_title',descKey:'events_desc'},
 };
 function switchView(view){
   currentView = view;
@@ -1588,12 +1709,16 @@ function switchView(view){
   document.getElementById('viewDesc').textContent = t(cfg.descKey);
   document.querySelector('.legend').style.display = (view==='scope'||view==='log') ? 'flex' : 'none';
   document.getElementById('scopeHint').style.display = (view==='scope') ? 'block' : 'none';
+  document.querySelector('.app').classList.toggle('eventsMode', view==='events');
+  document.getElementById('sortSelect').style.display = (view==='events') ? 'none' : '';
   render();
+  if(view==='events') eventsEnter(); else eventsLeave();
 }
 document.getElementById('btnScope').onclick = ()=>switchView('scope');
 document.getElementById('btnLog').onclick = ()=>switchView('log');
 document.getElementById('btnGrid').onclick = ()=>switchView('grid');
 document.getElementById('btnTrends').onclick = ()=>switchView('trends');
+document.getElementById('btnEvents').onclick = ()=>switchView('events');
 
 // ---------- Theme toggle ----------
 function setTheme(theme){
@@ -1647,6 +1772,7 @@ function setLang(lang){
   const cfg = VIEW_STAGES[currentView];
   document.getElementById('viewTitle').textContent = t(cfg.titleKey);
   document.getElementById('viewDesc').textContent = t(cfg.descKey);
+  if(currentView==='events'){ eventsControls(); eventsLoad(); }
   buildRail();
   render();
   closeDrawer();
@@ -1781,6 +1907,205 @@ document.getElementById('bulkGo').onclick = async ()=>{
 };
 
 window.addEventListener('resize', render);
+// ---------- Security events (SOC Phase 1) ----------
+// Reads /api/soc/* (backend/soc_logs.py). EVERY value shown here comes from
+// logs and is attacker-controlled (signatures, DNS names, app strings…), so it
+// is always passed through escH() or set with textContent — never raw innerHTML.
+function escH(v){
+  return String(v ?? '').replace(/[&<>"'`]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;'}[c]));
+}
+function tf(key, vars){ let s = t(key) || key; Object.entries(vars||{}).forEach(([k,v])=>{ s = s.split('{'+k+'}').join(String(v)); }); return s; }
+function fmtAge(sec){
+  if(sec == null) return '—';
+  if(sec < 90) return sec + 's';
+  if(sec < 5400) return Math.round(sec/60) + (LANG==='ja' ? '分' : 'm');
+  if(sec < 172800) return Math.round(sec/3600) + (LANG==='ja' ? '時間' : 'h');
+  return Math.round(sec/86400) + (LANG==='ja' ? '日' : 'd');
+}
+function fmtNum(n){ return (n ?? 0).toLocaleString(LANG==='ja' ? 'ja-JP' : 'en-US'); }
+function fmtTime(ms){
+  // Viewer's local time, compact and unambiguous: MM-DD HH:MM:SS
+  if(ms == null) return '—';
+  const d = new Date(ms), p = n=>String(n).padStart(2,'0');
+  return `${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+function fmtBytes(b){
+  if(b == null) return '';
+  const u = ['B','KB','MB','GB','TB']; let i = 0; let x = Number(b);
+  while(x >= 1024 && i < u.length-1){ x /= 1024; i++; }
+  return (i ? x.toFixed(1) : x) + ' ' + u[i];
+}
+
+const EV = { timer:null, datasets:[], lastEvents:[], loading:false, seq:0 };
+
+function eventsControls(){
+  const sel = (id, opts, keep)=>{
+    const el = document.getElementById(id); const cur = keep ? el.value : '';
+    el.innerHTML = opts.map(([v,label])=>`<option value="${escH(v)}">${escH(label)}</option>`).join('');
+    if(cur && opts.some(o=>o[0]===cur)) el.value = cur;
+  };
+  sel('evRange', [['1h',t('ev_range_1h')],['6h',t('ev_range_6h')],['24h',t('ev_range_24h')],['7d',t('ev_range_7d')]], true);
+  if(!document.getElementById('evRange').value || document.getElementById('evRange').dataset.init!=='1'){
+    document.getElementById('evRange').value = '24h'; document.getElementById('evRange').dataset.init = '1';
+  }
+  sel('evDataset', [['',t('ev_all_sources')], ...EV.datasets.map(d=>[d,d])], true);
+  sel('evOutcome', [['',t('ev_any_outcome')],['allowed',t('ev_allowed_only')],['blocked',t('ev_blocked_only')]], true);
+  sel('evDirection', [['',t('ev_any_direction')],['inbound',t('ev_inbound')],['outbound',t('ev_outbound')],['internal',t('ev_internal')]], true);
+  document.getElementById('evQuery').placeholder = t('ev_search_placeholder');
+}
+
+function eventsParams(){
+  const p = new URLSearchParams();
+  p.set('range', document.getElementById('evRange').value || '24h');
+  [['dataset','evDataset'],['outcome','evOutcome'],['direction','evDirection']].forEach(([k,id])=>{
+    const v = document.getElementById(id).value; if(v) p.set(k, v);
+  });
+  const q = document.getElementById('evQuery').value.trim(); if(q) p.set('q', q.slice(0,200));
+  return p;
+}
+
+async function eventsStatus(){
+  const el = document.getElementById('evStatus');
+  try{
+    const st = await (await fetch(`${API_BASE}/api/soc/status`)).json();
+    if(!st.connected){ el.textContent = ''; return st; }
+    if(JSON.stringify(st.datasets) !== JSON.stringify(EV.datasets)){ EV.datasets = st.datasets || []; eventsControls(); }
+    const age = st.newest_file_age_s;
+    const stale = age == null || age > 900;
+    el.className = 'evStatus' + (stale ? ' stale' : '');
+    el.innerHTML = '<span class="dot"></span>';
+    el.appendChild(document.createTextNode(stale ? tf('ev_stale', {age: fmtAge(age)}) : tf('ev_last_write', {age: fmtAge(age)})));
+    return st;
+  }catch(e){ el.textContent = ''; return null; }
+}
+
+async function eventsLoad(){
+  if(currentView !== 'events') return;
+  const seq = ++EV.seq;
+  const empty = document.getElementById('evEmpty');
+  const p = eventsParams();
+  if(!EV.lastEvents.length){ empty.hidden = false; empty.textContent = t('ev_loading'); }
+  try{
+    const st = await eventsStatus();
+    if(st && st.connected === false){ eventsRenderDisconnected(); return; }
+    const [evR, sumR] = await Promise.all([
+      fetch(`${API_BASE}/api/soc/events?${p}&limit=200`),
+      fetch(`${API_BASE}/api/soc/summary?${p}`),
+    ]);
+    if(!evR.ok) throw new Error('HTTP ' + evR.status);
+    const ev = await evR.json(); const sum = sumR.ok ? await sumR.json() : null;
+    if(seq !== EV.seq) return;              // a newer search started meanwhile
+    if(ev.connected === false){ eventsRenderDisconnected(); return; }
+    EV.lastEvents = ev.events || [];
+    eventsRenderSummary(sum);
+    eventsRenderTable(ev);
+  }catch(e){
+    if(seq !== EV.seq) return;
+    empty.hidden = false; empty.textContent = tf('ev_error', {msg: e.message || e});
+  }
+}
+
+function eventsRenderDisconnected(){
+  ['evTiles','evTimeline','evChips','evBody'].forEach(id=>document.getElementById(id).innerHTML='');
+  document.getElementById('evTimeline').style.display = 'none';
+  document.getElementById('evTable').style.display = 'none';
+  document.getElementById('evNote').textContent = '';
+  const empty = document.getElementById('evEmpty'); empty.hidden = false; empty.textContent = t('ev_not_connected');
+}
+
+function eventsRenderSummary(s){
+  const tiles = document.getElementById('evTiles');
+  const tl = document.getElementById('evTimeline');
+  const chips = document.getElementById('evChips');
+  if(!s || !s.connected){ tiles.innerHTML = tl.innerHTML = chips.innerHTML = ''; tl.style.display='none'; return; }
+  const tile = (n,label,cls,set)=>`<div class="evTile ${cls||''} ${set?'clickable':''}" ${set?`data-set="${escH(set)}"`:''}><div class="n">${escH(fmtNum(n))}</div><div class="l">${escH(label)}</div></div>`;
+  tiles.innerHTML = tile(s.total, t('ev_t_total')) + tile(s.blocked, t('ev_t_blocked'), 'blocked', 'outcome:blocked')
+    + tile(s.inbound, t('ev_t_inbound'), '', 'direction:inbound') + tile(s.outbound, t('ev_t_outbound'), '', 'direction:outbound')
+    + tile(s.remote_ips, t('ev_t_remote'));
+  tiles.querySelectorAll('.evTile.clickable').forEach(el=>el.onclick = ()=>{
+    const [k,v] = el.dataset.set.split(':');
+    document.getElementById(k==='outcome' ? 'evOutcome' : 'evDirection').value = v;
+    eventsLoad();
+  });
+
+  // Timeline: one bar per bucket, blocked share in red.
+  const pts = s.timeline || [];
+  if(pts.length){
+    const max = Math.max(...pts.map(p=>p.total), 1);
+    tl.style.display = 'flex'; tl.innerHTML = '';
+    pts.forEach(p=>{
+      const b = document.createElement('div'); b.className = 'b';
+      b.title = fmtTime(p.t) + ' — ' + tf('ev_bucket', {n: fmtNum(p.total), k: fmtNum(p.blocked)});
+      const k = document.createElement('div'); k.className = 'k'; k.style.height = (p.blocked/max*100) + '%';
+      const a = document.createElement('div'); a.className = 'a'; a.style.height = ((p.total-p.blocked)/max*100) + '%';
+      b.appendChild(k); b.appendChild(a); tl.appendChild(b);
+    });
+  } else { tl.style.display = 'none'; tl.innerHTML = ''; }
+
+  const row = (label, items)=> items.length ? `<div class="evChipsRow"><span class="lbl">${escH(label)}</span>${items.join('')}</div>` : '';
+  chips.innerHTML =
+      row(t('ev_top_countries'), (s.top_countries||[]).map(c=>`<button class="evChip" data-q="${escH(c.country)}">${escH(c.country)}<span class="c">${escH(fmtNum(c.count))}</span></button>`))
+    + row(t('ev_top_ports'), (s.top_ports_inbound||[]).map(p=>`<button class="evChip" data-q="${escH(p.port)}">${escH(p.port)}<span class="c">${escH(fmtNum(p.count))}</span></button>`));
+  chips.querySelectorAll('.evChip').forEach(el=>el.onclick = ()=>{ document.getElementById('evQuery').value = el.dataset.q; eventsLoad(); });
+}
+
+function eventsRenderTable(res){
+  const body = document.getElementById('evBody');
+  const empty = document.getElementById('evEmpty');
+  const note = document.getElementById('evNote');
+  document.getElementById('evTable').style.display = '';
+  const evs = res.events || [];
+  if(!evs.length){
+    body.innerHTML = ''; empty.hidden = false; empty.textContent = t('ev_none'); note.textContent = ''; return;
+  }
+  empty.hidden = true;
+  const ep = (ip, port, country)=> {
+    if(!ip) return '<span class="evDim">—</span>';
+    const c = country && country !== 'Reserved' ? ` <span class="evDim">${escH(country)}</span>` : '';
+    return `<span class="evMono">${escH(ip)}${port != null ? '<span class="evDim">:' + escH(port) + '</span>' : ''}</span>${c}`;
+  };
+  body.innerHTML = evs.map((e,i)=>{
+    const out = e.outcome ? `<span class="evOutcome ${e.outcome==='blocked'?'blocked':'allowed'}" title="${escH(e.action)}">${escH(t('ev_out_'+e.outcome) || e.outcome)}</span>` : `<span class="evDim">${escH(e.action || '—')}</span>`;
+    const dir = e.direction ? `<span class="evDir ${escH(e.direction)}">${escH(t('ev_dir_'+e.direction) || e.direction)}</span>` : '<span class="evDim">—</span>';
+    const svc = [e.proto, e.app].filter(Boolean).join(' · ');
+    const bytes = (e.bytes_in != null || e.bytes_out != null) ? `<div class="evBytes">↑ ${escH(fmtBytes(e.bytes_out))} &nbsp;↓ ${escH(fmtBytes(e.bytes_in))}</div>` : '';
+    return `<tr data-i="${i}">
+      <td class="evMono evTime" title="${escH(e.timestamp)}">${escH(fmtTime(e.ts_ms))}</td>
+      <td>${out}</td><td>${dir}</td>
+      <td>${ep(e.src_ip, e.src_port, e.src_country)}</td>
+      <td>${ep(e.dst_ip, e.dst_port, e.dst_country)}</td>
+      <td class="evMono">${escH(svc) || '<span class="evDim">—</span>'}${bytes}</td>
+      <td><div class="evSig" title="${escH(e.signature)}">${e.signature ? escH(e.signature) : '<span class="evDim">—</span>'}</div></td>
+      <td class="evDim evMono">${escH(e.dataset)}</td>
+    </tr>`;
+  }).join('');
+  body.querySelectorAll('tr[data-i]').forEach(tr=>tr.onclick = ()=>{
+    const next = tr.nextElementSibling;
+    if(next && next.classList.contains('evRawRow')){ next.remove(); return; }
+    const e = EV.lastEvents[Number(tr.dataset.i)];
+    const raw = document.createElement('tr'); raw.className = 'evRawRow';
+    const td = document.createElement('td'); td.colSpan = 8;
+    const pre = document.createElement('pre');
+    pre.textContent = JSON.stringify(e, null, 2);   // textContent: never interpreted as HTML
+    td.appendChild(pre); raw.appendChild(td); tr.after(raw);
+  });
+  note.textContent = (res.truncated ? tf('ev_truncated', {n: fmtNum(evs.length)}) + ' ' : '') + t('ev_click_row');
+}
+
+function eventsEnter(){
+  eventsControls();
+  eventsLoad();
+  clearInterval(EV.timer);
+  EV.timer = setInterval(()=>{
+    if(currentView==='events' && document.getElementById('evLive').checked && document.visibilityState==='visible') eventsLoad();
+  }, 30000);
+}
+function eventsLeave(){ clearInterval(EV.timer); EV.timer = null; }
+
+document.getElementById('evGo').onclick = ()=>eventsLoad();
+document.getElementById('evQuery').addEventListener('keydown', e=>{ if(e.key==='Enter') eventsLoad(); });
+['evRange','evDataset','evOutcome','evDirection'].forEach(id=>document.getElementById(id).onchange = ()=>eventsLoad());
+
 // Shows the running version, and marks any non-prod environment loudly.
 async function loadVersion(){
   try{

@@ -125,6 +125,19 @@ ls ~/eagle-soc/hot/
 tail -n 2 ~/eagle-soc/hot/fortigate.traffic/$(date -u +%F)/$(date -u +%H).ndjson
 ```
 
+## View in Talon
+Open Talon **staging** (http://core:8098) and click **Events** in the top bar.
+- **Filters:** time range (1 h to 7 d), source, allowed/blocked, direction, and
+  free text that matches IPs, countries, ports, signatures and apps.
+- **Tiles** (click *Blocked*, *Inbound* or *Outbound* to filter), a timeline
+  with the blocked share in red, top remote countries and inbound ports (click to search).
+- **Rows**: click one to see the full original log, including every FortiGate field under `raw`.
+- The dot at the top right shows collector freshness. It turns amber when no
+  new log has been written for 15 minutes.
+- It auto-refreshes every 30 s while "Live" is ticked. Self-test events are hidden.
+
+Prod shows "not connected" until SOC Phase 1 is released (v0.3.0).
+
 ## Operate
 
 | Task | Command |

@@ -25,11 +25,12 @@ import concurrent.futures as cf
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks, UploadFile, File
+from fastapi import FastAPI, HTTPException, BackgroundTasks, UploadFile, File, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from scanner import scan_domain, tier_for_score
+import soc_logs
 
 # Shared sector list — used both by the demo-data generator and by real scans
 # (so a real domain's sector places it correctly on the Talon Scope radar,
@@ -371,6 +372,53 @@ def version_info():
         "env": os.environ.get("EAGLE_TALON_ENV", "prod"),
         "scheduler": SCHEDULER_ENABLED,
     }
+
+
+# ---------------------------------------------------------------------------
+# SOC events (Phase 1): read-only search over the log collector's hot store.
+# See backend/soc_logs.py and docs/SOC-COLLECTOR.md. Every value in these
+# responses comes from logs and is attacker-controlled — the UI escapes it.
+# ---------------------------------------------------------------------------
+_RANGE_RE = "^(1h|6h|24h|7d)$"
+_OUTCOME_RE = "^(allowed|blocked)$"
+_DIRECTION_RE = "^(inbound|outbound|internal|external)$"
+_DATASET_RE = r"^[a-z0-9_]+\.[a-z0-9_]+$"
+
+
+@app.get("/api/soc/status")
+def soc_status():
+    return soc_logs.status()
+
+
+@app.get("/api/soc/events")
+def soc_events(
+    range: str = Query("24h", pattern=_RANGE_RE),
+    dataset: Optional[str] = Query(None, pattern=_DATASET_RE),
+    q: Optional[str] = Query(None, max_length=soc_logs.MAX_QUERY_LEN),
+    outcome: Optional[str] = Query(None, pattern=_OUTCOME_RE),
+    direction: Optional[str] = Query(None, pattern=_DIRECTION_RE),
+    limit: int = Query(200, ge=1, le=soc_logs.MAX_LIMIT),
+):
+    if not soc_logs.available():
+        return {"connected": False, "events": [], "files_scanned": 0, "truncated": False}
+    res = soc_logs.search(range, dataset, q, outcome, direction, limit)
+    res["connected"] = True
+    return res
+
+
+@app.get("/api/soc/summary")
+def soc_summary(
+    range: str = Query("24h", pattern=_RANGE_RE),
+    dataset: Optional[str] = Query(None, pattern=_DATASET_RE),
+    q: Optional[str] = Query(None, max_length=soc_logs.MAX_QUERY_LEN),
+    outcome: Optional[str] = Query(None, pattern=_OUTCOME_RE),
+    direction: Optional[str] = Query(None, pattern=_DIRECTION_RE),
+):
+    if not soc_logs.available():
+        return {"connected": False}
+    res = soc_logs.summary(range, dataset, q, outcome, direction)
+    res["connected"] = True
+    return res
 
 
 @app.get("/api/clients")

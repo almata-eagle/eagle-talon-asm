@@ -28,6 +28,9 @@ services:
     network_mode: host
     volumes:
       - eagle-talon-data:/app/data
+      # SOC hot store, READ-ONLY (Events view). Unset = an empty placeholder
+      # folder, so the Events view just says "not connected".
+      - ${SOC_HOT_DIR:-../soc/no-hot-store}:/soc-hot:ro
     environment:
       - EAGLE_TALON_DB_PATH=/app/data/eagle_talon.db
       - NVD_API_KEY=${NVD_API_KEY:-}
@@ -37,6 +40,7 @@ services:
       - EAGLE_TALON_SCHEDULER=${EAGLE_TALON_SCHEDULER:-on}
       - API_HOST=${API_HOST:-0.0.0.0}
       - API_PORT=${API_PORT:-8000}
+      - SOC_HOT_DIR_IN_CONTAINER=/soc-hot
 
   web:
     image: nginx:alpine

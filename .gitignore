@@ -14,3 +14,5 @@ deploy/.env
 
 # Deploy secrets (NVD_API_KEY, ANTHROPIC_API_KEY, ...)
 deploy/secrets.env
+backend/tests/.test-talon.db
+.pytest_cache/
