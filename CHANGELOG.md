@@ -17,6 +17,10 @@ Every change merged to `staging` adds a line under **Unreleased**.
   traffic that got through, ordinary web traffic, DNS, big uploads,
   threat-listed addresses, and one device behind most of the traffic.
   `GET /api/soc/insights?kind=country|device`.
+  Every part of a slice's traffic is described: a mix bar (pings, DNS, web/QUIC,
+  Tailscale, VPN, email, SSH, other) plus one sentence per part, so devices
+  that do several things at once are fully explained. Load errors are shown
+  instead of an empty box.
 - **Device view:** click any of your own IPs (in Events, the explainer or a
   summary) to see what that device did: protocols, busiest remote networks,
   countries, firewall outcomes and data.
@@ -46,7 +50,7 @@ Every change merged to `staging` adds a line under **Unreleased**.
     `GET /api/soc/intel/lookup?ip=`, `GET /api/soc/intel/sightings`, `GET /api/soc/intel/explain`.
   - New env: `SOC_INTEL` (on in prod and staging), `SOC_INTEL_FEEDS`
     (staging leaves out Spamhaus), `ABUSECH_AUTH_KEY` (optional).
-  - Tests: `backend/tests/test_soc_intel.py` (16), `test_soc_insights.py` (8). 99 in total.
+  - Tests: `backend/tests/test_soc_intel.py` (16), `test_soc_insights.py` (9). 100 in total.
 
 ### Fixed
 - Dashboard: when the API can't answer (for example an older API behind a newer

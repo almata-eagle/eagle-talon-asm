@@ -151,3 +151,21 @@ def test_api_insights_and_ask(client, env):
     assert client.get("/api/soc/insights", params={"kind": "sql", "value": "x"}).status_code == 422
     assert client.post("/api/soc/ask", json={"kind": "country", "value": "Nigeria", "range": "24h"}).status_code == 409
     assert client.post("/api/soc/ask", json={"kind": "country", "value": "Nigeria", "range": "99d"}).status_code == 422
+
+
+def test_mixed_device_gets_every_part_explained(env):
+    """Like the real 192.168.10.121: mostly pings, plus DNS, QUIC, HTTPS and Tailscale."""
+    vpn_pings(env)
+    write(env, [ev(M(i), src_ip="192.168.10.121", dst_ip="8.8.8.8", dst_port=53, proto="udp", dst_country="United States")
+                for i in range(30)])
+    write(env, [ev(M(i), src_ip="192.168.10.121", dst_ip="142.250.0.1", dst_port=443, proto="udp", dst_country="United States")
+                for i in range(15)])
+    write(env, [ev(M(i), src_ip="192.168.10.121", dst_ip="100.20.0.1", dst_port=41641, proto="udp", dst_country="Germany")
+                for i in range(8)])
+    p = soc_insights.profile("device", "192.168.10.121", "24h", NOW)
+    codes = [i["code"] for i in p["insights"]]
+    assert codes[0] == "mix"
+    for c in ("ping_sweep", "dns", "web", "tailscale"):
+        assert c in codes, c
+    parts = {x["cat"]: x["pct"] for x in p["insights"][0]["vars"]["parts"]}
+    assert parts["ping"] > parts["dns"] > parts["web"]

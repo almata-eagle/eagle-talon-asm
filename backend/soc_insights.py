@@ -24,9 +24,21 @@ import soc_logs
 
 _MAP_DIR = "CASE WHEN direction = 'inbound' THEN 'inbound' WHEN direction IN ('outbound','external') THEN 'outbound' END"
 ICMP = ("icmp", "icmp6", "ipv6-icmp")
-WEB_PORTS = (80, 443, 8080, 8443)
-DNS_PORTS = (53, 853)
 BIG_UPLOAD_BYTES = 200_000_000
+
+# What a connection is, from protocol and port. Shown to people as a share of a
+# slice's outbound traffic ("pings 68% · DNS 14% · web 12%").
+_CATEGORY = (
+    "CASE WHEN lower(proto) IN ('icmp','icmp6','ipv6-icmp') THEN 'ping' "
+    "WHEN dst_port IN (53, 853, 5353) THEN 'dns' "
+    "WHEN dst_port IN (80, 443, 8080, 8443) THEN 'web' "
+    "WHEN dst_port IN (41641, 3478) THEN 'tailscale' "
+    "WHEN dst_port IN (500, 4500, 1194, 51820, 1701, 1723) THEN 'vpn' "
+    "WHEN dst_port IN (123) THEN 'ntp' "
+    "WHEN dst_port IN (25, 110, 143, 465, 587, 993, 995) THEN 'mail' "
+    "WHEN dst_port IN (22) THEN 'ssh' "
+    "ELSE 'other' END"
+)
 
 
 def _net24(ip: str) -> Optional[str]:
@@ -74,12 +86,21 @@ def profile(kind: str, value: str, range_key: str = "24h", now: Optional[dt.date
         ccs = con.execute(base + " SELECT country, count(*) AS n, count(DISTINCT remote_ip)" + where
                           + " AND country IS NOT NULL AND country NOT IN ('Reserved','') GROUP BY 1 ORDER BY n DESC LIMIT 12",
                           params).fetchall()
-        # Cadence of the busiest local device's outbound traffic in this slice.
-        top = hosts[0][0] if hosts else None
+        mix = con.execute(base + f" SELECT {_CATEGORY} AS cat, count(*) AS n, count(DISTINCT remote_ip), "
+                          "COALESCE(sum(bytes_out),0)" + where + " AND dir = 'outbound' GROUP BY cat ORDER BY n DESC",
+                          params).fetchall()
+        # Pings, looked at on their own: how many servers, where, and how often.
+        ping_where = where + f" AND dir = 'outbound' AND lower(proto) IN {ICMP!r}"
+        ping_hosts = con.execute(base + " SELECT local_ip, count(*) AS n" + ping_where
+                                 + " GROUP BY 1 ORDER BY n DESC LIMIT 1", params).fetchall()
+        ping_remotes = con.execute(base + " SELECT remote_ip, count(*)" + ping_where
+                                   + " AND remote_ip IS NOT NULL GROUP BY 1 ORDER BY 2 DESC LIMIT 5000", params).fetchall()
+        ping_cc = con.execute(base + " SELECT count(DISTINCT country)" + ping_where
+                              + " AND country NOT IN ('Reserved','')", params).fetchone()[0]
         ts = []
-        if top:
-            ts = [r[0] for r in con.execute(base + " SELECT ts_ms" + where + " AND local_ip = ? AND dir = 'outbound' "
-                                            "ORDER BY ts_ms DESC LIMIT 400", [*params, top]).fetchall()]
+        if ping_hosts:
+            ts = [r[0] for r in con.execute(base + " SELECT ts_ms" + ping_where + " AND local_ip = ? "
+                                            "ORDER BY ts_ms DESC LIMIT 400", [*params, ping_hosts[0][0]]).fetchall()]
     finally:
         con.close()
     out.update({"events": tot[0], "bytes_out": tot[1], "bytes_in": tot[2], "first_ms": tot[3], "last_ms": tot[4],
@@ -103,6 +124,17 @@ def profile(kind: str, value: str, range_key: str = "24h", now: Optional[dt.date
     out["remote_nets"] = [{"net": k, "ips": v[0], "events": v[1]}
                           for k, v in sorted(nets.items(), key=lambda kv: -kv[1][1])[:5]]
     out["countries"] = [{"country": c, "events": n, "ips": r} for c, n, r in ccs]
+    out["mix"] = [{"cat": c, "n": n, "ips": r, "bytes_out": b} for c, n, r, b in mix]
+    pnets: dict[str, int] = {}
+    for ip, _ in ping_remotes:
+        net = _net24(ip)
+        if net:
+            pnets[net] = pnets.get(net, 0) + 1
+    top_pnet = max(pnets.items(), key=lambda kv: kv[1]) if pnets else None
+    out["pings"] = {"n": sum(n for _, n in ping_remotes), "ips": len(ping_remotes), "countries": ping_cc,
+                    "local": ping_hosts[0][0] if ping_hosts else None,
+                    "net": top_pnet[0] if top_pnet and top_pnet[1] >= 3 else None,
+                    "net_ips": top_pnet[1] if top_pnet else 0}
     if len(ts) >= 5:
         gaps = [(a - b) / 1000 for a, b in zip(ts, ts[1:]) if a > b]
         if gaps:
@@ -112,59 +144,68 @@ def profile(kind: str, value: str, range_key: str = "24h", now: Optional[dt.date
 
 
 def insights(p: dict) -> list[dict]:
-    """Patterns in a profile, worst first. Each is {code, tone, vars}."""
-    ev = p["events"]
-    if not ev:
+    """Patterns in a profile, most important first. Each is {code, tone, vars}.
+    Real devices do several things at once, so each part of the mix gets its
+    own sentence instead of looking for one dominant pattern."""
+    if not p["events"]:
         return []
     found: list[dict] = []
     out_d = p["dirs"].get("outbound", {})
     in_d = p["dirs"].get("inbound", {})
     n_out = sum(out_d.values())
     n_in = sum(in_d.values())
-    protos_out = [x for x in p["protocols"] if x["dir"] == "outbound"]
-    icmp_out = sum(x["n"] for x in protos_out if (x["proto"] or "") in ICMP)
-    web_out = sum(x["n"] for x in protos_out if x["port"] in WEB_PORTS)
-    dns_out = sum(x["n"] for x in protos_out if x["port"] in DNS_PORTS)
+    mix = {m["cat"]: m for m in p.get("mix", [])}
     hosts_out = [h for h in p["local_hosts"] if h["dir"] == "outbound"]
     top_host = hosts_out[0] if hosts_out else None
-    net = p["remote_nets"][0] if p["remote_nets"] else None
-    n_countries = len(p["countries"])
+    local = top_host["ip"] if top_host else "?"
 
+    # Things to check first.
     if p["listed_ips"]:
         found.append({"code": "listed", "tone": "check", "vars": {"n": p["listed_ips"]}})
-
+    if in_d.get("allowed"):
+        port = next((x["port"] for x in p["protocols"] if x["dir"] == "inbound" and x["allowed"]), None)
+        found.append({"code": "inbound_allowed", "tone": "check",
+                      "vars": {"n": in_d["allowed"], "port": port if port is not None else "?"}})
     if p["bytes_out"] >= BIG_UPLOAD_BYTES and n_out:
-        found.append({"code": "big_upload", "tone": "check",
-                      "vars": {"mb": round(p["bytes_out"] / 1e6), "local": top_host["ip"] if top_host else "?"}})
+        found.append({"code": "big_upload", "tone": "check", "vars": {"mb": round(p["bytes_out"] / 1e6), "local": local}})
 
-    if n_in:
-        blocked = in_d.get("blocked", 0)
-        allowed = in_d.get("allowed", 0)
-        if allowed:
-            port = next((x["port"] for x in p["protocols"] if x["dir"] == "inbound" and x["allowed"]), None)
-            found.append({"code": "inbound_allowed", "tone": "check", "vars": {"n": allowed, "port": port if port is not None else "?"}})
-        if blocked and blocked >= 0.8 * n_in:
-            ports = [str(x["port"]) for x in p["protocols"] if x["dir"] == "inbound" and x["port"] is not None][:4]
-            found.append({"code": "inbound_noise", "tone": "ok",
-                          "vars": {"n": blocked, "ports": ", ".join(ports) or "—"}})
+    # What the outbound traffic is made of.
+    if n_out and len(mix) >= 2:
+        parts = [{"cat": m["cat"], "pct": max(1, round(m["n"] * 100 / n_out))} for m in p["mix"][:6]]
+        found.append({"code": "mix", "tone": "info", "vars": {"parts": parts, "n": n_out}})
 
-    if n_out and icmp_out >= 0.8 * n_out and top_host:
-        many = top_host["remotes"] >= 5 or n_countries >= 3 or (p["kind"] == "device" and p["remote_ips"] >= 5)
-        v = {"local": top_host["ip"], "n": icmp_out, "ips": p["remote_ips"], "countries": n_countries,
-             "cadence": p["cadence_s"] or "?",
-             "net": net["net"] if net and net["ips"] >= 3 else None, "net_ips": net["ips"] if net else 0}
-        code = "ping_check" if not many else ("ping_sweep_here" if p["kind"] == "country" else "ping_sweep")
+    pings = p.get("pings") or {}
+    if pings.get("n", 0) >= 20 and pings.get("local"):
+        v = {"local": pings["local"], "n": pings["n"], "ips": pings["ips"], "countries": pings["countries"],
+             "cadence": p["cadence_s"] or "?", "net": pings.get("net"), "net_ips": pings.get("net_ips", 0)}
+        if pings["ips"] >= 5 or pings["countries"] >= 3:
+            code = "ping_sweep_here" if p["kind"] == "country" else "ping_sweep"
+        else:
+            code = "ping_check"
         found.append({"code": code, "tone": "info", "vars": v})
-    elif n_out and web_out >= 0.6 * n_out:
-        found.append({"code": "web", "tone": "ok",
-                      "vars": {"n": web_out, "hosts": len(hosts_out), "mb": round(p["bytes_out"] / 1e6, 1)}})
-    elif n_out and dns_out >= 0.6 * n_out:
-        found.append({"code": "dns", "tone": "ok", "vars": {"n": dns_out}})
+    if "vpn" in mix:
+        found.append({"code": "vpn", "tone": "info", "vars": {"n": mix["vpn"]["n"], "ips": mix["vpn"]["ips"]}})
+    if "tailscale" in mix:
+        found.append({"code": "tailscale", "tone": "ok", "vars": {"n": mix["tailscale"]["n"], "ips": mix["tailscale"]["ips"]}})
+    if "web" in mix and mix["web"]["n"] >= 5:
+        found.append({"code": "web", "tone": "ok", "vars": {"n": mix["web"]["n"], "ips": mix["web"]["ips"],
+                                                           "mb": round(mix["web"]["bytes_out"] / 1e6, 1)}})
+    if "dns" in mix and mix["dns"]["n"] >= 5:
+        found.append({"code": "dns", "tone": "ok", "vars": {"n": mix["dns"]["n"], "ips": mix["dns"]["ips"]}})
+    if "ssh" in mix:
+        found.append({"code": "ssh_out", "tone": "info", "vars": {"n": mix["ssh"]["n"], "ips": mix["ssh"]["ips"]}})
+    if "mail" in mix:
+        found.append({"code": "mail_out", "tone": "info", "vars": {"n": mix["mail"]["n"]}})
 
-    if top_host and n_out and top_host["n"] >= 0.9 * n_out and len(hosts_out) >= 1 and p["kind"] == "country":
+    # Inbound that the firewall handled.
+    if n_in and in_d.get("blocked", 0) >= 0.8 * n_in:
+        ports = [str(x["port"]) for x in p["protocols"] if x["dir"] == "inbound" and x["port"] is not None][:4]
+        found.append({"code": "inbound_noise", "tone": "ok", "vars": {"n": in_d["blocked"], "ports": ", ".join(ports) or "—"}})
+
+    if p["kind"] == "country" and top_host and n_out and top_host["n"] >= 0.9 * n_out:
         found.append({"code": "one_device", "tone": "info",
                       "vars": {"local": top_host["ip"], "pct": round(top_host["n"] * 100 / n_out)}})
 
     order = {"urgent": 0, "check": 1, "info": 2, "ok": 3}
-    found.sort(key=lambda x: order.get(x["tone"], 9))
+    found.sort(key=lambda x: (order.get(x["tone"], 9), x["code"] != "mix"))
     return found

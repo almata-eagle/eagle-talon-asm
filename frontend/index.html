@@ -472,6 +472,15 @@
   .insList .dot{flex-shrink:0; width:9px; height:9px; border-radius:50%; margin-top:7px; background:var(--dim);}
   .insList li.urgent .dot{background:var(--critical);} .insList li.check .dot{background:var(--watch);}
   .insList li.info .dot{background:var(--signal);} .insList li.ok .dot{background:var(--clear);}
+  .mixBar{display:flex; height:8px; border-radius:4px; overflow:hidden; margin:6px 0; background:var(--line-soft);}
+  .mixBar span{display:block; height:100%;}
+  .mixParts{display:flex; flex-wrap:wrap; gap:4px 12px; font-size:12px; color:var(--muted);}
+  .mixPart::before{content:''; display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:5px; vertical-align:middle; background:currentColor;}
+  .mixPart b{color:var(--text); font-weight:600;}
+  .mix-ping{color:#5EEAD4; background:#5EEAD4;} .mix-dns{color:#A78BFA; background:#A78BFA;} .mix-web{color:#60A5FA; background:#60A5FA;}
+  .mix-tailscale{color:#F2B84B; background:#F2B84B;} .mix-vpn{color:#F472B6; background:#F472B6;} .mix-ntp{color:#94A3B8; background:#94A3B8;}
+  .mix-mail{color:#FB923C; background:#FB923C;} .mix-ssh{color:#FF6B4A; background:#FF6B4A;} .mix-other{color:#64748B; background:#64748B;}
+  .mixParts .mixPart{background:none;}
   .devLink{color:var(--signal); cursor:pointer; text-decoration:underline; text-decoration-style:dotted; text-underline-offset:3px; font-family:var(--font-mono);}
   .devLink:hover{text-decoration-style:solid;}
   .insAsk{margin-top:12px; display:flex; flex-direction:column; gap:8px; align-items:flex-start;}
@@ -957,6 +966,13 @@ const STR = {
     ti_v_tor_in_steps:["Check whether port {port} on <code>{local}</code> should be reachable from the internet.", "If not, close it on the FortiGate."],
     ti_v_tor_other_t:"Tor exit node: informational", ti_v_tor_other_b:"{ip} is a Tor exit. Nothing allowed came in from it.", ti_v_tor_other_steps:[],
     ti_v_none_t:"Not seen on your network", ti_v_none_b:"{ip} is on a list, but there's no traffic with it in the last 7 days.", ti_v_none_steps:[],
+    in_error:"Couldn't load the summary ({msg}).", in_mix:"What this traffic is made of ({n} outgoing connections):",
+    cat_ping:"Pings", cat_dns:"DNS lookups", cat_web:"Web & apps (HTTPS, QUIC)", cat_tailscale:"Tailscale", cat_vpn:"VPN tunnels",
+    cat_ntp:"Time sync", cat_mail:"Email", cat_ssh:"SSH", cat_other:"Other",
+    in_vpn:"VPN tunnel traffic ({n} connections to {ips} server(s), on IPsec/WireGuard/OpenVPN ports). Expected if this device runs a VPN.",
+    in_tailscale:"Tailscale ({n} connections to {ips} address(es)): your private Tailscale network finding its peers and relays. Expected.",
+    in_ssh_out:"Outgoing SSH ({n} connections to {ips} server(s)). Fine if someone administers servers from here.",
+    in_mail_out:"Email traffic ({n} connections): a mail app or server sending or fetching mail.",
     in_h:"What's happening", in_none:"Nothing notable here.",
     in_listed:"{n} address(es) here are on a threat list. Click a ⚑ badge to see what each one means.",
     in_big_upload:"{local} uploaded {mb} MB here. Check that it's an expected backup, sync or upload.",
@@ -966,8 +982,8 @@ const STR = {
     in_ping_sweep_here:"{local} keeps pinging servers here: {ips} addresses, about one every {cadence}. Only tiny ping packets, no data. It's typical of a VPN app or game measuring which server is fastest, or of a monitoring tool. Click {local} to see whether it does the same with other countries.",
     in_ping_sweep_net:"Most of them are in one hosting block, {net} ({net_ips} addresses).",
     in_ping_check:"{local} pings {ips} address(es) here about every {cadence}. That's a reachability check (monitoring, a VPN or an app measuring latency). No data is transferred.",
-    in_web:"Ordinary web and app traffic: {n} HTTPS/HTTP connections from {hosts} device(s), {mb} MB sent.",
-    in_dns:"Name lookups (DNS, {n}): your devices asking a name server here. Normal.",
+    in_web:"Ordinary web and app traffic: {n} HTTPS/QUIC connections to {ips} server(s), {mb} MB sent.",
+    in_dns:"Name lookups (DNS, {n}) sent to {ips} name server(s). Normal; every app does this before connecting.",
     in_one_device:"{pct}% of the outbound traffic here comes from one device, {local}. Click it to see everything it does.",
     ask_btn:"Ask Claude to explain this", ask_again:"Ask Claude again", ask_working:"Claude is reading the traffic…",
     ask_off:"Claude isn't configured in this environment.", ask_from:"Claude's explanation", ask_concern:"Is it a concern?",
@@ -1190,6 +1206,13 @@ const STR = {
     ti_v_tor_in_steps:["<code>{local}</code> のポート{port}をインターネットから到達可能にすべきか確認します。", "不要ならFortiGateで閉じます。"],
     ti_v_tor_other_t:"Tor出口ノード（参考情報）", ti_v_tor_other_b:"{ip} はTorの出口です。ここから許可された受信通信はありません。", ti_v_tor_other_steps:[],
     ti_v_none_t:"社内ネットワークでは観測されていません", ti_v_none_b:"{ip} はリストに掲載されていますが、過去7日間に通信はありません。", ti_v_none_steps:[],
+    in_error:"概要を読み込めませんでした（{msg}）。", in_mix:"この通信の内訳（送信 {n}件）：",
+    cat_ping:"Ping", cat_dns:"DNS問い合わせ", cat_web:"Web・アプリ（HTTPS、QUIC）", cat_tailscale:"Tailscale", cat_vpn:"VPNトンネル",
+    cat_ntp:"時刻同期", cat_mail:"メール", cat_ssh:"SSH", cat_other:"その他",
+    in_vpn:"VPNトンネルの通信（{ips}台のサーバーへ{n}件、IPsec/WireGuard/OpenVPNのポート）。この端末でVPNを使っていれば想定どおりです。",
+    in_tailscale:"Tailscale（{ips}アドレスへ{n}件）：社内のTailscaleネットワークが相手や中継を探しています。想定どおりです。",
+    in_ssh_out:"送信SSH（{ips}台のサーバーへ{n}件）。ここからサーバーを管理しているなら問題ありません。",
+    in_mail_out:"メール通信（{n}件）：メールアプリやサーバーの送受信です。",
     in_h:"何が起きているか", in_none:"特に注目すべき点はありません。",
     in_listed:"ここには脅威リストに載っているアドレスが{n}件あります。⚑バッジをクリックすると、それぞれの意味を確認できます。",
     in_big_upload:"{local} がここへ {mb} MB を送信しました。想定どおりのバックアップ・同期・アップロードか確認してください。",
@@ -1199,8 +1222,8 @@ const STR = {
     in_ping_sweep_here:"{local} がここのサーバーにPingを送り続けています：{ips}アドレスに約{cadence}ごと。小さなPingパケットのみで、データは送られていません。VPNアプリやゲームが最速のサーバーを測定する場合や、監視ツールによく見られます。{local} をクリックすると、他の国にも同じことをしているか確認できます。",
     in_ping_sweep_net:"大半は1つのホスティング帯 {net}（{net_ips}アドレス）です。",
     in_ping_check:"{local} がここの{ips}アドレスに約{cadence}ごとにPingを送っています。疎通確認（監視、VPN、遅延を測るアプリなど）で、データ転送はありません。",
-    in_web:"通常のWeb・アプリ通信です：{hosts}台の端末から HTTPS/HTTP 接続{n}件、送信 {mb} MB。",
-    in_dns:"名前解決（DNS、{n}件）：社内端末がここの名前サーバーに問い合わせています。正常です。",
+    in_web:"通常のWeb・アプリ通信です：{ips}台のサーバーへ HTTPS/QUIC 接続{n}件、送信 {mb} MB。",
+    in_dns:"名前解決（DNS、{n}件、{ips}台の名前サーバー宛て）。どのアプリも接続前に行う正常な通信です。",
     in_one_device:"ここへの送信通信の{pct}%は1台の端末 {local} からです。クリックするとその端末の通信をすべて表示します。",
     ask_btn:"Claudeに解説してもらう", ask_again:"もう一度Claudeに聞く", ask_working:"Claudeが通信を読んでいます…",
     ask_off:"この環境ではClaudeが設定されていません。", ask_from:"Claudeの解説", ask_concern:"懸念はあるか：",
@@ -3609,7 +3632,13 @@ function insFill(key, vars){
 function insightsHtml(list){
   if(!list || !list.length) return `<div class="evDim">${escH(t('in_none'))}</div>`;
   return `<ul class="insList">` + list.map(i=>{
-    let txt = insFill('in_' + i.code, i.vars);
+    let txt;
+    if(i.code === 'mix'){
+      const parts = ((i.vars && i.vars.parts) || []).map(x=>`<span class="mixPart mix-${escH(x.cat)}">${escH(t('cat_' + x.cat) || x.cat)} <b>${escH(x.pct)}%</b></span>`).join('');
+      txt = `${escH(tf('in_mix', {n: fmtNum(i.vars.n)}))}<div class="mixBar">${((i.vars && i.vars.parts) || []).map(x=>`<span class="mix-${escH(x.cat)}" style="width:${Math.min(100, Number(x.pct) || 0)}%"></span>`).join('')}</div><div class="mixParts">${parts}</div>`;
+    } else {
+      txt = insFill('in_' + i.code, i.vars);
+    }
     if(/^ping_sweep/.test(i.code) && i.vars && i.vars.net) txt += ' ' + insFill('in_ping_sweep_net', i.vars);
     return `<li class="${escH(i.tone)}"><span class="dot"></span><span>${txt}</span></li>`;
   }).join('') + `</ul>`;
@@ -3635,7 +3664,10 @@ async function insightsInto(el, kind, value, range){
     const r = await fetch(`${API_BASE}/api/soc/insights?kind=${encodeURIComponent(kind)}&value=${encodeURIComponent(value)}&range=${encodeURIComponent(range)}`);
     if(!r.ok) throw new Error('HTTP ' + r.status);
     p = await r.json();
-  }catch(e){ el.innerHTML = ''; return null; }
+  }catch(e){
+    el.innerHTML = `<div class="insBox"><h4>${escH(t('in_h'))}</h4><div class="csWarn">${escH(tf('in_error', {msg: e.message || e}))}</div></div>`;
+    return null;
+  }
   const ask = p.ask || {};
   el.innerHTML = `<div class="insBox"><h4>${escH(t('in_h'))}</h4>${insightsHtml(p.insights)}
     <div class="insAsk">${ask.cached ? askHtml(ask.cached) : ''}
