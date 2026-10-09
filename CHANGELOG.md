@@ -10,6 +10,19 @@ Every change merged to `staging` adds a line under **Unreleased**.
 ## [Unreleased]
 
 ### Added
+- **Alerts** (`backend/soc_alerts.py`, [docs/SOC-ALERTS.md](docs/SOC-ALERTS.md), ADR 0008):
+  open cases at or above **high** go to your phone (ntfy) and/or Slack within one
+  detection run, with Claude's headline, what happened, the suggested option and a
+  link to the case.
+  - Raised severity alerts again. Reminders every 30 minutes until acknowledged
+    (at most 3 sends).
+  - Acknowledge from the phone (signed button) or in Talon.
+  - Quiet hours let only critical alerts through.
+  - A "no logs arriving" alert fires when the collector goes quiet for 30 minutes.
+  - Cases view: alert status in the toolbar, **Send test alert**, 🔔/✓ on cases,
+    and links that open a case (`#case=<id>`).
+  - New tables `soc_alert_state`, `soc_alert_log` (additive).
+  - Off by default (compose); on in staging.
 - **Talon OT, phase OT-1** (`backend/ot/`, `frontend/ot.html`, guide in
   [docs/OT.md](docs/OT.md)): FRCS assessments against UFC 4-010-06 / NIST SP
   800-82.

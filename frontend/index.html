@@ -318,6 +318,8 @@
 
   /* ---------- Cases + Claude triage (SOC Phase 2) ---------- */
   #casesStage{position:absolute; inset:0; display:none; flex-direction:column; padding:14px 20px 0;}
+  .csAlertLine{display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:12.5px; color:var(--muted); margin:8px 0 2px;}
+  .csAlertLine .btnGhost{padding:3px 10px; font-size:12px;}
   .csBar{display:flex; align-items:center; gap:12px; margin-bottom:12px; flex-wrap:wrap;}
   .csBar .btnGhost{padding:6px 12px; font-size:12px; margin-left:auto;}
   .csEngine{font-size:11px; color:var(--muted); font-family:var(--font-mono);}
@@ -820,6 +822,8 @@
             <button data-f="" data-i18n="cs_all">All</button>
           </div>
           <span class="csEngine" id="csEngine"></span>
+          <span class="csEngine" id="csAlerts"></span>
+          <button class="btnGhost" id="csAlertTest" data-i18n="al_test" hidden>Send test alert</button>
           <button class="btnGhost" id="csRun" data-i18n="cs_run">Run detection now</button>
         </div>
         <div class="csWrap">
@@ -1048,6 +1052,10 @@ const STR = {
     cs_recommended:"Recommended", cs_manual_note:"Options are suggestions. Nothing is changed on your network automatically — automated, approved actions arrive in a later phase.",
     cs_injection:"Claude flagged text in these logs that looks like an attempt to manipulate an AI analyst. Treat this case with extra suspicion.",
     cs_useful:"👍 Useful", cs_noise:"👎 Noise", cs_resolve:"Mark resolved", cs_reopen:"Reopen", cs_retriage:"Ask Claude again",
+    al_off:"Alerts off", al_on:"Alerts", al_no_channel:"Alerts on, but no channel set (SOC_NTFY_TOPIC / SOC_SLACK_WEBHOOK)",
+    al_quiet:"quiet {q}", al_quiet_now:"quiet hours now: only critical alerts", al_test:"Send test alert", al_test_ok:"Test alert sent: {res}",
+    al_from:"{sev} and above", al_sent:"🔔 Alerted {age} ago", al_sent_n:"🔔 Alerted {n}× · last {age} ago", al_acked:"✓ Acknowledged by {by}",
+    al_ack:"Acknowledge", al_ack_hint:"Stops reminders for this case. Resolving the case also stops them.",
     cs_evidence:"Evidence", cs_first:"First seen", cs_last:"Last seen", cs_ports:"Ports", cs_sources:"Sources",
     cs_targets:"Targets", cs_countries:"Countries", cs_actions_seen:"Firewall actions", cs_signatures:"Signatures",
     cs_blocked_allowed:"Blocked / allowed", cs_triage_waiting:"Claude hasn't assessed this case yet. It's in the queue (at most {n} per hour).",
@@ -1298,6 +1306,10 @@ const STR = {
     cs_recommended:"推奨", cs_manual_note:"対応案は提案のみです。ネットワークが自動で変更されることはありません（承認制の自動対応は今後のフェーズで追加予定）。",
     cs_injection:"このログには、AIアナリストを操作しようとする文言が含まれているとClaudeが判断しました。特に注意して扱ってください。",
     cs_useful:"👍 役に立った", cs_noise:"👎 ノイズ", cs_resolve:"対応済みにする", cs_reopen:"未対応に戻す", cs_retriage:"Claudeに再分析を依頼",
+    al_off:"通知オフ", al_on:"通知", al_no_channel:"通知はオンですが送信先が未設定です（SOC_NTFY_TOPIC / SOC_SLACK_WEBHOOK）",
+    al_quiet:"静音 {q}", al_quiet_now:"静音時間中：緊急のみ通知", al_test:"テスト通知を送る", al_test_ok:"テスト通知を送信：{res}",
+    al_from:"{sev}以上", al_sent:"🔔 {age}前に通知", al_sent_n:"🔔 {n}回通知・最終 {age}前", al_acked:"✓ {by} が確認済み",
+    al_ack:"確認済みにする", al_ack_hint:"このケースの再通知を止めます。対応済みにしても止まります。",
     cs_evidence:"根拠となるイベント", cs_first:"初回検知", cs_last:"最終検知", cs_ports:"ポート", cs_sources:"送信元",
     cs_targets:"宛先", cs_countries:"国", cs_actions_seen:"ファイアウォールの処理", cs_signatures:"シグネチャ",
     cs_blocked_allowed:"ブロック／許可", cs_triage_waiting:"このケースはまだClaudeの分析待ちです（1時間あたり最大{n}件）。",
@@ -2758,14 +2770,17 @@ function csAge(ms){ return ms ? fmtAge(Math.max(0, Math.round((Date.now()-ms)/10
 async function casesLoad(){
   if(currentView !== 'cases') return;
   try{
-    const [engR, listR] = await Promise.all([
+    const [engR, listR, alR] = await Promise.all([
       fetch(`${API_BASE}/api/soc/engine`),
       fetch(`${API_BASE}/api/soc/cases${CS.filter ? '?status='+encodeURIComponent(CS.filter) : ''}`),
+      fetch(`${API_BASE}/api/soc/alerts?limit=1`).catch(()=>null),
     ]);
     CS.engine = engR.ok ? await engR.json() : null;
     CS.cases = listR.ok ? ((await listR.json()).cases || []) : [];
-  }catch(e){ CS.engine = null; CS.cases = []; }
+    CS.alerts = (alR && alR.ok) ? await alR.json() : null;
+  }catch(e){ CS.engine = null; CS.cases = []; CS.alerts = null; }
   casesRenderEngine();
+  casesRenderAlerts();
   casesRenderList();
   if(CS.selected && CS.cases.some(c=>c.id===CS.selected)) casesOpen(CS.selected, true);
   else if(CS.cases.length) casesOpen(CS.cases[0].id, true);
@@ -2790,6 +2805,44 @@ function casesRenderEngine(){
   document.getElementById('csRun').disabled = !e.hot_store_connected;
 }
 
+function casesRenderAlerts(){
+  const el = document.getElementById('csAlerts'), btn = document.getElementById('csAlertTest'), a = CS.alerts;
+  if(!a){ el.textContent = ''; btn.hidden = true; return; }
+  const ch = Object.entries(a.channels || {}).filter(([,on])=>on).map(([k])=>k === 'ntfy' ? 'ntfy' : 'Slack');
+  let h;
+  if(!a.enabled) h = `<span class="off">●</span> ${escH(t('al_off'))}`;
+  else if(!ch.length) h = `<span class="warn">● ${escH(t('al_no_channel'))}</span>`;
+  else {
+    h = `<span class="on">●</span> ${escH(t('al_on'))}: ${escH(ch.join(' + '))} · ${escH(tf('al_from', {sev: t('sev_'+a.min_severity) || a.min_severity}))}`;
+    if(a.quiet) h += ' · ' + escH(a.quiet_now ? t('al_quiet_now') : tf('al_quiet', {q: a.quiet}));
+  }
+  el.innerHTML = h;
+  btn.hidden = !(a.enabled && ch.length);
+}
+document.getElementById('csAlertTest').onclick = async ()=>{
+  const b = document.getElementById('csAlertTest'); b.disabled = true;
+  try{
+    const r = await fetch(`${API_BASE}/api/soc/alerts/test`, {method:'POST'});
+    const j = await r.json().catch(()=>({}));
+    if(!r.ok){ alert(j.detail || ('HTTP '+r.status)); return; }
+    alert(tf('al_test_ok', {res: Object.entries(j.results||{}).map(([k,v])=>`${k} ${v.ok ? 'OK' : 'failed'}`).join(', ')}));
+  } finally { b.disabled = false; }
+};
+function casesAlertAge(iso){ return iso ? fmtAge(Math.max(0, Math.round((Date.now()-Date.parse(iso))/1000))) : '—'; }
+function casesAlertChip(c){
+  const a = c.alert; if(!a || !a.sends) return '';
+  return `<span class="csBadge ${a.acked_at ? '' : 'sev-high'}" title="${escH(a.acked_at ? tf('al_acked', {by: a.acked_by || '?'}) : '')}">🔔${a.acked_at ? ' ✓' : ''}</span>`;
+}
+function casesAlertBlock(c){
+  const a = c.alert;
+  if(!a || (!a.sends && !a.acked_at)) return '';
+  let h = '<div class="csAlertLine">';
+  if(a.sends) h += escH(a.sends > 1 ? tf('al_sent_n', {n: a.sends, age: casesAlertAge(a.last_sent_at)}) : tf('al_sent', {age: casesAlertAge(a.last_sent_at)}));
+  if(a.acked_at) h += (a.sends ? ' · ' : '') + escH(tf('al_acked', {by: a.acked_by || '?'}));
+  else if(c.status === 'open') h += ` <button class="btnGhost" data-act="ack" title="${escH(t('al_ack_hint'))}">${escH(t('al_ack'))}</button>`;
+  return h + '</div>';
+}
+
 function casesAiBadge(c){
   const st = c.triage_status;
   const key = {done:'cs_ai_done', pending:'cs_ai_pending', stale:'cs_ai_stale', error:'cs_ai_error', skipped:'cs_ai_skipped'}[st] || 'cs_ai_pending';
@@ -2812,7 +2865,7 @@ function casesRenderList(){
       <div class="t">${escH(head || csTitle(c))}</div>
       <div class="m"><span class="csBadge sev-${escH(sev)}">${escH(t('sev_'+sev) || sev)}</span>
         <span>${escH(t('rule_'+c.rule) || c.rule)}</span><span>${escH(tf('cs_events', {n: fmtNum(c.event_count)}))}</span>
-        <span>${escH(csAge(c.last_seen_ms))}</span>${casesAiBadge(c)}
+        <span>${escH(csAge(c.last_seen_ms))}</span>${casesAiBadge(c)}${casesAlertChip(c)}
         ${c.feedback ? `<span>${c.feedback==='useful'?'👍':'👎'}</span>` : ''}${c.status==='resolved' ? '<span>✓</span>' : ''}</div>
     </div>`;
   }).join('');
@@ -2847,6 +2900,7 @@ function casesRenderDetail(c){
       + chip(t('verdict_'+tri.verdict) || tri.verdict, 'ai') + chip(t('conf_'+tri.confidence) || tri.confidence);
   }
   h += chip(tf('cs_events', {n: fmtNum(c.event_count)})) + '</div>';
+  h += casesAlertBlock(c);
 
   if(tri){
     if(tri.injection_suspected) h += `<div class="csWarn">⚠ ${escH(t('cs_injection'))}</div>`;
@@ -2911,10 +2965,11 @@ function casesRenderDetail(c){
   if(tri) h += `<div class="csFoot">${escH(tf('cs_foot', {rule: c.rule, id: c.id, model: c.triage_model || '?', tin: fmtNum(c.triage_in_tokens), tout: fmtNum(c.triage_out_tokens)}))}</div>`;
   el.innerHTML = h;
 
-  el.querySelectorAll('.csActions button').forEach(b=>b.onclick = async ()=>{
+  el.querySelectorAll('.csActions button, .csAlertLine button').forEach(b=>b.onclick = async ()=>{
     if(b.disabled) return;
     const act = b.dataset.act; let url, body;
-    if(act==='fb'){ url = 'feedback'; body = {verdict: c.feedback===b.dataset.v ? null : b.dataset.v}; }
+    if(act==='ack'){ url = 'ack'; }
+    else if(act==='fb'){ url = 'feedback'; body = {verdict: c.feedback===b.dataset.v ? null : b.dataset.v}; }
     else if(act==='status'){ url = 'status'; body = {status: b.dataset.v}; }
     else { url = 'retriage'; }
     b.disabled = true;
@@ -3861,6 +3916,11 @@ window.addEventListener('resize', fitTopbar);
 
 applyStaticI18n();
 loadVersion().then(fitTopbar);
+// Alerts link to #case=<id>: open that case.
+(function(){
+  const m = /^#case=(case_[0-9a-f]{12})$/.exec(location.hash || '');
+  if(m) setTimeout(()=>dbGoCases(m[1]), 0);
+})();
 loadAssets();
 fitTopbar();
 loadSectors();

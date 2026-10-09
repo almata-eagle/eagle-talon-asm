@@ -210,6 +210,25 @@ Feeds refresh in the background (`SOC_INTEL=on`). Feed status, errors and a
 The optional ThreatFox key and each feed's licence are in [SOC-INTEL.md](SOC-INTEL.md).
 To stop all feed downloads, set `SOC_INTEL=off` and redeploy.
 
+## SOC alerts
+Staging alerts are on (`SOC_ALERTS=on`); prod's stay off until v0.6.0. Full
+guide: [SOC-ALERTS.md](SOC-ALERTS.md). To set up staging, on the phone install
+ntfy and subscribe to a hard-to-guess topic name, then on core:
+```
+nano ~/eagle-talon-staging/deploy/secrets.env
+```
+Add these lines (your own values), save, then redeploy staging:
+`SOC_NTFY_TOPIC=<your topic>`, `SOC_SLACK_WEBHOOK=<webhook URL>` (optional),
+`SOC_ALERT_SECRET=<long random string>`. To make a random string:
+```
+openssl rand -hex 24
+```
+Test from **Cases → Send test alert**, or:
+```
+curl -s -X POST http://127.0.0.1:8100/api/soc/alerts/test
+```
+To stop all alerts, set `SOC_ALERTS=off` in `deploy/env/<env>.env` and redeploy.
+
 ## Talon OT
 Staging runs it (`OT_ENABLED=on`); prod doesn't yet. Open `http://core:8098/ot.html`.
 Before the first admin is created, add a setup code to the staging checkout's

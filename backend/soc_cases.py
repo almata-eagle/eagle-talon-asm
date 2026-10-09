@@ -240,6 +240,8 @@ def run_once(now: Optional[dt.datetime] = None, triage: bool = True) -> dict:
             res.update(merge_findings(findings, now=now))
             if triage:
                 res.update(triage_pending())
+            import soc_alerts            # lazy: soc_alerts imports this module
+            res.update(soc_alerts.process())
         res["seconds"] = round(time.time() - t0, 2)
         _last_run.clear()
         _last_run.update(res)

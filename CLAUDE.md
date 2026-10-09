@@ -31,6 +31,9 @@ Read `docs/ARCHITECTURE.md` and `docs/RUNBOOK.md` before changing deploy or data
 - Threat intel (`docs/SOC-INTEL.md`) matches locally. Never send client addresses to a third-party
   lookup without an ADR. Keep feed parsing to strict IP/network values, respect each feed's rate
   limit and licence, and keep the table in SOC-INTEL.md current.
+- Alerts (`backend/soc_alerts.py`, `docs/SOC-ALERTS.md`, ADR 0008) only notify; they never act on the network.
+  Alert text is untrusted: plain text, capped, Slack syntax escaped, and never raw log lines. Keep
+  `SOC_ALERT_DETAIL=minimal` working for client data, and keep `tests/test_soc_alerts.py` passing.
 - Talon OT (`backend/ot/`, `frontend/ot.html`, `docs/OT.md`, ADR 0007) stays portable: no imports from
   Talon or SOC modules, its own SQLite under `OT_DATA_DIR` (never the Talon DB), no CDN or outside calls,
   and it must keep running alone via `backend/ot_app.py`. **Never add code that scans, connects or writes

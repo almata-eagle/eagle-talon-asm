@@ -57,6 +57,24 @@ services:
       # Talon OT (FRCS assessments). Prod default is OFF. Its data lives in
       # its own folder inside the data volume (/app/data/ot), never in the
       # Talon DB. OT_SETUP_CODE (secrets.env) guards first-run admin setup.
+      # SOC alerts (ADR 0008): ntfy push + Slack. Prod default OFF. Topic,
+      # webhook and ack secret come from secrets.env. See docs/SOC-ALERTS.md.
+      - SOC_ALERTS=${SOC_ALERTS:-off}
+      - SOC_NTFY_URL=${SOC_NTFY_URL:-https://ntfy.sh}
+      - SOC_NTFY_TOPIC=${SOC_NTFY_TOPIC:-}
+      - SOC_NTFY_TOKEN=${SOC_NTFY_TOKEN:-}
+      - SOC_SLACK_WEBHOOK=${SOC_SLACK_WEBHOOK:-}
+      - SOC_ALERT_SECRET=${SOC_ALERT_SECRET:-}
+      - SOC_ALERT_BASE_URL=${SOC_ALERT_BASE_URL:-http://core:8088}
+      - SOC_ALERT_MIN_SEVERITY=${SOC_ALERT_MIN_SEVERITY:-high}
+      - SOC_ALERT_QUIET=${SOC_ALERT_QUIET:-}
+      - SOC_ALERT_TZ=${SOC_ALERT_TZ:-Asia/Tokyo}
+      - SOC_ALERT_RENOTIFY_MIN=${SOC_ALERT_RENOTIFY_MIN:-30}
+      - SOC_ALERT_MAX_SENDS=${SOC_ALERT_MAX_SENDS:-3}
+      - SOC_ALERT_TRIAGE_WAIT_S=${SOC_ALERT_TRIAGE_WAIT_S:-600}
+      - SOC_ALERT_SILENT_MIN=${SOC_ALERT_SILENT_MIN:-30}
+      - SOC_ALERT_DETAIL=${SOC_ALERT_DETAIL:-summary}
+      - SOC_ALERT_LANG=${SOC_ALERT_LANG:-en}
       - OT_ENABLED=${OT_ENABLED:-off}
       - OT_DATA_DIR=${OT_DATA_DIR:-/app/data/ot}
       - OT_SETUP_CODE=${OT_SETUP_CODE:-}

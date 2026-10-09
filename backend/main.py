@@ -38,6 +38,7 @@ import soc_intel
 import soc_insights
 import soc_ask
 import soc_assets
+import soc_alerts
 
 # Shared sector list — used both by the demo-data generator and by real scans
 # (so a real domain's sector places it correctly on the Talon Scope radar,
@@ -442,6 +443,7 @@ soc_cases.init_db()
 soc_intel.init_db()
 soc_ask.init_db()
 soc_assets.init_db()
+soc_alerts.init_db()
 soc_cases.start_engine()
 soc_intel.start_engine()
 
@@ -497,7 +499,11 @@ def soc_detect_run():
 @app.get("/api/soc/cases")
 def soc_cases_list(status: Optional[str] = Query(None, pattern="^(open|resolved)$"),
                    limit: int = Query(100, ge=1, le=500)):
-    return {"cases": soc_cases.list_cases(status, limit)}
+    cases = soc_cases.list_cases(status, limit)
+    alerts = soc_alerts.state_for([c["id"] for c in cases])
+    for c in cases:
+        c["alert"] = alerts.get(c["id"])
+    return {"cases": cases}
 
 
 @app.get("/api/soc/cases/{case_id}")
@@ -508,6 +514,7 @@ def soc_case_get(case_id: str):
     ips += list(st.get("src_ips") or []) + list(st.get("dst_ips") or [])
     ips += [s.get(k) for s in (c.get("samples") or []) for k in ("src_ip", "dst_ip")]
     c["intel"] = soc_intel.lookup_many(ips)
+    c["alert"] = soc_alerts.state_for([case_id]).get(case_id)
     return c
 
 
@@ -536,6 +543,42 @@ def soc_case_retriage(case_id: str):
         raise HTTPException(429, "this case has reached its triage limit")
     threading.Thread(target=soc_cases.triage_pending, kwargs={"limit": 1}, daemon=True).start()
     return {"queued": True}
+
+
+# ---------------------------------------------------------------------------
+# SOC alerts (Phase 1 of "sellable", ADR 0008): ntfy push + Slack for cases at
+# or above SOC_ALERT_MIN_SEVERITY. Notify only; nothing here acts on the network.
+# ---------------------------------------------------------------------------
+_ACK_TOKEN_RE = r"^[0-9a-f]{32}$"
+
+
+@app.get("/api/soc/alerts")
+def soc_alerts_get(limit: int = Query(30, ge=1, le=200)):
+    return {**soc_alerts.status(), "recent": soc_alerts.recent(limit)}
+
+
+@app.post("/api/soc/alerts/test")
+def soc_alerts_test():
+    if not any(soc_alerts.channels().values()):
+        raise HTTPException(409, "no alert channel is configured (SOC_NTFY_TOPIC or SOC_SLACK_WEBHOOK)")
+    return {"results": soc_alerts.send_test()}
+
+
+@app.post("/api/soc/cases/{case_id}/ack")
+def soc_case_ack(case_id: str):
+    _case_or_404(case_id)
+    soc_alerts.ack(case_id, "talon-ui")
+    return {"acked": True}
+
+
+@app.post("/api/soc/alerts/ack/{case_id}")
+def soc_alert_ack_token(case_id: str, token: str = Query(..., pattern=_ACK_TOKEN_RE)):
+    """Called by the phone's 'Acknowledge' button; the token is an HMAC of the case id."""
+    if not soc_alerts.check_token(case_id, token):
+        raise HTTPException(403, "bad token")
+    _case_or_404(case_id)
+    soc_alerts.ack(case_id, "phone")
+    return {"acked": True}
 
 
 # ---------------------------------------------------------------------------
