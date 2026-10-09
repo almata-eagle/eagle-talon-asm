@@ -241,7 +241,7 @@ def _finding(rule_name: str, entity: tuple, stats: dict) -> dict:
 def _detect_new_country(con, now: dt.datetime) -> list[dict]:
     """An internal host talking to a country it hasn't contacted in the past
     week. Only runs once the hot store holds at least a day of history —
-    otherwise every country would look new."""
+    otherwise every country would look new. Ping-only contact doesn't count."""
     win_start = now - dt.timedelta(minutes=NEW_COUNTRY_WINDOW_MIN)
     base_start = now - dt.timedelta(days=BASELINE_DAYS)
     base_files = soc_logs._files(base_start, win_start)
@@ -264,6 +264,9 @@ def _detect_new_country(con, now: dt.datetime) -> list[dict]:
     cur = con.execute(
         _ev(win_files) + f" SELECT src_ip, dst_country, {_STATS_SELECT} FROM ev WHERE {_base_where()}"
         " AND direction = 'outbound' AND dst_country IS NOT NULL AND dst_country NOT IN ('Reserved', '')"
+        # Pings alone don't count: VPN apps and games ping servers worldwide to
+        # measure latency, and no data moves (v0.6).
+        " AND lower(COALESCE(proto, '')) NOT IN ('icmp', 'icmp6', 'ipv6-icmp')"
         " GROUP BY src_ip, dst_country",
         [win_files, soc_logs.COLUMNS, _ms(win_start), _ms(now), soc_logs.SELFTEST_HOST],
     )

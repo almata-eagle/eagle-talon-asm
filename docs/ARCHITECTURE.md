@@ -56,13 +56,14 @@ is in [adr/0003](adr/0003-log-collector-and-storage.md).
 | SOC dashboard | `backend/soc_dashboard.py`, `soc_geo.py`, `soc_geo_countries.json`, `frontend/world-110m.json` | Traffic map, callouts, MTTD/MTTR, ATT&CK tally. `/api/soc/map`, `/api/soc/map/country`, `/api/soc/dashboard`. Read-only. Geo data built by `tools/build-world-map.js`. |
 | Threat intel | `backend/soc_intel.py` | Public feeds → SQLite `ti_indicators`/`ti_feeds` → in-memory matching (IPs and networks). Rule `intel_match`, badges, dashboard panel, triage evidence. `/api/soc/intel*`. No address leaves Core. See [SOC-INTEL.md](SOC-INTEL.md). |
 | Insights + Ask Claude | `backend/soc_insights.py`, `soc_ask.py` | Traffic profile of a country or device → recognised patterns (plain-language in the UI) → optional on-demand Claude explanation (aggregates only, cached, capped). `/api/soc/insights`, `POST /api/soc/ask`. |
+| Known devices | `backend/soc_assets.py` | Names, type, notes and quieted case kinds per local IP. Used by case merging, the UI and Claude's network context. `/api/soc/assets`. |
 | Log collector | `soc/` | `collector/vector.yaml` (pipeline + schema), `collector/tests.yaml`, `preflight.sh`, `deploy-collector.sh`, `retention.sh`. |
 | Deploy | `deploy/` | `docker-compose.yml`, `env/<env>.env`, `deploy.sh`, `backup-db.sh`, `seed-staging-db.sh`. |
 
 ## Data
 
 SQLite, single file. Tables: `clients`, `scans`, `monitors`, `alerts`, `soc_cases`
-(`resolved_at` added in Phase 3), `ti_indicators`, `ti_feeds`, `soc_explanations` (v0.6).
+(`resolved_at` added in Phase 3), `ti_indicators`, `ti_feeds`, `soc_explanations`, `soc_assets` (v0.6).
 Migrations run at startup and are additive only (`PRAGMA table_info` check,
 then `ALTER TABLE ... ADD COLUMN`). Never drop or rename a column: older
 releases must keep working on a newer DB so rollback stays safe.

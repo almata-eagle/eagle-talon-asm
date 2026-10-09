@@ -37,6 +37,7 @@ import soc_dashboard
 import soc_intel
 import soc_insights
 import soc_ask
+import soc_assets
 
 # Shared sector list — used both by the demo-data generator and by real scans
 # (so a real domain's sector places it correctly on the Talon Scope radar,
@@ -440,6 +441,7 @@ def soc_summary(
 soc_cases.init_db()
 soc_intel.init_db()
 soc_ask.init_db()
+soc_assets.init_db()
 soc_cases.start_engine()
 soc_intel.start_engine()
 
@@ -653,6 +655,42 @@ def soc_ask_post(req: AskReq):
         raise HTTPException(429, str(e))
     except Exception as e:  # noqa: BLE001 — surface Claude/API errors to the UI without a traceback
         raise HTTPException(502, f"Claude couldn't answer: {str(e)[:200]}")
+
+
+# ---------------------------------------------------------------------------
+# Known devices (v0.6): names, notes and "expected behaviour" per local IP.
+# ---------------------------------------------------------------------------
+class AssetReq(BaseModel):
+    name: Optional[str] = None
+    kind: Optional[str] = None
+    notes: Optional[str] = None
+    quiet: list[str] = []
+    resolve_matching: bool = False
+
+
+@app.get("/api/soc/assets")
+def soc_assets_list():
+    return {"assets": soc_assets.all_assets(), "kinds": list(soc_assets.KINDS), "quietable": list(soc_assets.QUIETABLE)}
+
+
+@app.put("/api/soc/assets/{ip}")
+def soc_assets_put(ip: str, req: AssetReq):
+    try:
+        ip = soc_assets.normalise_ip(ip)
+        return soc_assets.save(ip, req.name, req.kind, req.notes, list(req.quiet or []), req.resolve_matching)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+
+
+@app.delete("/api/soc/assets/{ip}")
+def soc_assets_delete(ip: str):
+    try:
+        ok = soc_assets.delete(ip)
+    except ValueError:
+        raise HTTPException(422, "not an IP address")
+    if not ok:
+        raise HTTPException(404, "unknown device")
+    return {"deleted": True}
 
 
 @app.get("/api/soc/dashboard")

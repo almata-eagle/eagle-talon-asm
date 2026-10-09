@@ -10,6 +10,14 @@ Every change merged to `staging` adds a line under **Unreleased**.
 ## [Unreleased]
 
 ### Added
+- **Known devices** (`backend/soc_assets.py`, new table `soc_assets`): name
+  any of your own IPs, set its type and notes, and mark what's normal for it.
+  You can choose contacting new countries, large uploads, or allowed inbound
+  for a public server. Quieted kinds stop opening cases for that device, and
+  its open ones can be closed in the same step (marked 👎, reopenable).
+  Attacks from outside can't be quieted. Names show next to the IP in Events,
+  summaries, the explainer and the device view. Claude gets them as
+  operator-provided context. `GET/PUT/DELETE /api/soc/assets`.
 - **"What's happening" summaries** (`backend/soc_insights.py`): the country
   drawer and a new **device view** spell out the pattern in plain words (EN/JA).
   Recognised patterns: one device pinging many servers (VPN or game latency
@@ -50,7 +58,11 @@ Every change merged to `staging` adds a line under **Unreleased**.
     `GET /api/soc/intel/lookup?ip=`, `GET /api/soc/intel/sightings`, `GET /api/soc/intel/explain`.
   - New env: `SOC_INTEL` (on in prod and staging), `SOC_INTEL_FEEDS`
     (staging leaves out Spamhaus), `ABUSECH_AUTH_KEY` (optional).
-  - Tests: `backend/tests/test_soc_intel.py` (16), `test_soc_insights.py` (9). 100 in total.
+  - Tests: `backend/tests/test_soc_intel.py` (16), `test_soc_insights.py` (9), `test_soc_assets.py` (5). 105 in total.
+
+### Changed
+- Rule "New country" ignores ping-only contact. VPN apps and games ping
+  servers worldwide to measure latency, and that opened dozens of cases.
 
 ### Fixed
 - Dashboard: when the API can't answer (for example an older API behind a newer

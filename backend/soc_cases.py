@@ -96,10 +96,15 @@ def merge_findings(findings: list[dict], now: Optional[dt.datetime] = None) -> d
     """Merge findings into cases. Returns counts of created/updated cases."""
     now = now or soc_logs._utcnow()
     now_ms = int(now.timestamp() * 1000)
-    created = updated = 0
+    created = updated = quieted = 0
+    import soc_assets
+    assets = soc_assets.all_assets()
     con = _db()
     try:
         for f in findings:
+            if soc_assets.is_quiet(f["rule"], f["entity"], assets):
+                quieted += 1      # the device's owner marked this as expected
+                continue
             key = _entity_key(f["entity"])
             st = f["stats"]
             row = con.execute(
@@ -142,7 +147,7 @@ def merge_findings(findings: list[dict], now: Optional[dt.datetime] = None) -> d
         con.commit()
     finally:
         con.close()
-    return {"created": created, "updated": updated}
+    return {"created": created, "updated": updated, "quieted": quieted}
 
 
 def _max_sev(a: Optional[str], b: Optional[str]) -> str:

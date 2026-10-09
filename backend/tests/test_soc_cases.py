@@ -114,7 +114,7 @@ def test_repeated_findings_merge_into_one_case(env):
     soc_cases.merge_findings(soc_rules.detect(NOW - dt.timedelta(minutes=10)), now=NOW - dt.timedelta(minutes=10))
     scan(env, minute=4, n_ports=15)
     r = soc_cases.merge_findings(soc_rules.detect(NOW), now=NOW)
-    assert r == {"created": 0, "updated": 1}
+    assert r == {"created": 0, "updated": 1, "quieted": 0}
     cases = soc_cases.list_cases()
     assert len(cases) == 1
     c = soc_cases.get_case(cases[0]["id"])

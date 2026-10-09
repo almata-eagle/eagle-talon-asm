@@ -74,9 +74,17 @@ def status() -> dict:
 
 def _network_context() -> str:
     try:
-        return CONTEXT_FILE.read_text(encoding="utf-8")[:4000]
+        text = CONTEXT_FILE.read_text(encoding="utf-8")[:4000]
     except OSError:
-        return "(no network context provided)"
+        text = "(no network context provided)"
+    try:
+        import soc_assets
+        devices = soc_assets.context_text()
+    except Exception:  # noqa: BLE001 — context is best-effort
+        devices = ""
+    if devices:
+        text += "\n\nKNOWN DEVICES (named by the operator in Talon):\n" + devices[:3000]
+    return text
 
 
 SYSTEM_PROMPT = """You are the triage analyst inside Eagle Talon, a security operations console built by Almata K.K. (Tokyo). You review exactly ONE case at a time. A case is a group of related firewall or IDS events that a deterministic detection rule flagged. Your reader is a busy owner-operator, not a specialist: be clear, specific and brief.

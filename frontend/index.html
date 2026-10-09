@@ -483,6 +483,16 @@
   .mixParts .mixPart{background:none;}
   .devLink{color:var(--signal); cursor:pointer; text-decoration:underline; text-decoration-style:dotted; text-underline-offset:3px; font-family:var(--font-mono);}
   .devLink:hover{text-decoration-style:solid;}
+  .devName{font-family:var(--font-body); font-weight:600;}
+  .assetForm{background:var(--panel-2); border-radius:12px; padding:10px 14px; margin-bottom:14px; font-size:12.5px;}
+  .assetForm summary{cursor:pointer; font-weight:600; color:var(--signal);}
+  .assetForm label{display:flex; flex-direction:column; gap:4px; margin-top:10px; color:var(--muted); font-size:11.5px;}
+  .assetForm .row{display:grid; grid-template-columns:2fr 1fr; gap:10px;}
+  .assetForm input:not([type=checkbox]), .assetForm select{background:var(--panel); border:1px solid var(--line); color:var(--text); border-radius:7px; padding:7px 9px; font-size:12.5px; font-family:var(--font-body);}
+  .assetForm .q{margin-top:12px; display:flex; flex-direction:column; gap:2px;}
+  .assetForm .q b{font-size:12px; color:var(--text);}
+  .assetForm .q label{flex-direction:row; align-items:center; gap:7px; margin-top:6px; color:var(--text); font-size:12.5px;}
+  .assetForm .q label.sub{color:var(--muted); margin-left:20px;}
   .insAsk{margin-top:12px; display:flex; flex-direction:column; gap:8px; align-items:flex-start;}
   .askBtn{background:color-mix(in srgb, var(--signal) 14%, transparent); color:var(--signal); border:1px solid var(--signal); border-radius:8px; padding:7px 14px; font-size:12.5px; font-weight:600; cursor:pointer;}
   .askBtn:disabled{opacity:.6; cursor:wait;}
@@ -966,6 +976,16 @@ const STR = {
     ti_v_tor_in_steps:["Check whether port {port} on <code>{local}</code> should be reachable from the internet.", "If not, close it on the FortiGate."],
     ti_v_tor_other_t:"Tor exit node: informational", ti_v_tor_other_b:"{ip} is a Tor exit. Nothing allowed came in from it.", ti_v_tor_other_steps:[],
     ti_v_none_t:"Not seen on your network", ti_v_none_b:"{ip} is on a list, but there's no traffic with it in the last 7 days.", ti_v_none_steps:[],
+    as_add:"Name this device and mark what's normal for it", as_edit:"Edit name and normal behaviour", as_name:"Name", as_name_ph:"e.g. Eddy's MacBook",
+    as_kind:"Type", as_notes:"Notes (what it runs)", as_notes_ph:"e.g. runs a VPN app and Tailscale",
+    as_k_laptop:"Laptop", as_k_desktop:"Desktop", as_k_phone:"Phone/tablet", as_k_server:"Server", as_k_nas:"NAS", as_k_network:"Network gear",
+    as_k_iot:"Smart-home / IoT", as_k_tv:"TV / media", as_k_printer:"Printer", as_k_other:"Other",
+    as_quiet_h:"This is normal for this device, don't open cases for:", as_q_outbound_new_country:"contacting countries it hasn't used before (VPN apps, games, travel)",
+    as_q_outbound_volume:"large uploads (backups, cloud sync)", as_q_allowed_inbound:"internet connections the firewall lets in (it's a public server)",
+    as_resolve:"also close its open cases of these kinds (you can reopen them)",
+    as_quiet_note:"Attacks from outside (scans, password guessing, IDS alerts, known-bad addresses) are always reported.",
+    as_save:"Save", as_delete:"Forget this device", as_delete_confirm:"Remove the name and normal-behaviour settings for this device?",
+    as_saved:"Saved.", as_saved_resolved:"Saved. {n} open case(s) closed.",
     in_error:"Couldn't load the summary ({msg}).", in_mix:"What this traffic is made of ({n} outgoing connections):",
     cat_ping:"Pings", cat_dns:"DNS lookups", cat_web:"Web & apps (HTTPS, QUIC)", cat_tailscale:"Tailscale", cat_vpn:"VPN tunnels",
     cat_ntp:"Time sync", cat_mail:"Email", cat_ssh:"SSH", cat_other:"Other",
@@ -1206,6 +1226,16 @@ const STR = {
     ti_v_tor_in_steps:["<code>{local}</code> のポート{port}をインターネットから到達可能にすべきか確認します。", "不要ならFortiGateで閉じます。"],
     ti_v_tor_other_t:"Tor出口ノード（参考情報）", ti_v_tor_other_b:"{ip} はTorの出口です。ここから許可された受信通信はありません。", ti_v_tor_other_steps:[],
     ti_v_none_t:"社内ネットワークでは観測されていません", ti_v_none_b:"{ip} はリストに掲載されていますが、過去7日間に通信はありません。", ti_v_none_steps:[],
+    as_add:"この端末に名前を付け、通常の動作を登録", as_edit:"名前と通常の動作を編集", as_name:"名前", as_name_ph:"例：EddyのMacBook",
+    as_kind:"種類", as_notes:"メモ（動いているもの）", as_notes_ph:"例：VPNアプリとTailscaleを使用",
+    as_k_laptop:"ノートPC", as_k_desktop:"デスクトップ", as_k_phone:"スマホ／タブレット", as_k_server:"サーバー", as_k_nas:"NAS", as_k_network:"ネットワーク機器",
+    as_k_iot:"スマート家電／IoT", as_k_tv:"テレビ／メディア", as_k_printer:"プリンター", as_k_other:"その他",
+    as_quiet_h:"この端末では通常の動作なので、次のケースを作成しない：", as_q_outbound_new_country:"初めての国への接続（VPNアプリ、ゲーム、出張など）",
+    as_q_outbound_volume:"大量のアップロード（バックアップ、クラウド同期）", as_q_allowed_inbound:"ファイアウォールが許可したインターネットからの接続（公開サーバー）",
+    as_resolve:"この種類の未解決ケースも閉じる（再オープン可能）",
+    as_quiet_note:"外部からの攻撃（スキャン、パスワード推測、IDSアラート、既知の悪性アドレス）は常に報告されます。",
+    as_save:"保存", as_delete:"この端末の登録を削除", as_delete_confirm:"この端末の名前と通常動作の設定を削除しますか？",
+    as_saved:"保存しました。", as_saved_resolved:"保存しました。未解決ケース{n}件を閉じました。",
     in_error:"概要を読み込めませんでした（{msg}）。", in_mix:"この通信の内訳（送信 {n}件）：",
     cat_ping:"Ping", cat_dns:"DNS問い合わせ", cat_web:"Web・アプリ（HTTPS、QUIC）", cat_tailscale:"Tailscale", cat_vpn:"VPNトンネル",
     cat_ntp:"時刻同期", cat_mail:"メール", cat_ssh:"SSH", cat_other:"その他",
@@ -2669,7 +2699,7 @@ function eventsRenderTable(res){
     if(!ip) return '<span class="evDim">—</span>';
     const c = country && country !== 'Reserved' ? ` <span class="evDim">${escH(country)}</span>` : '';
     const isLocal = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(ip);
-    const ipHtml = isLocal ? `<a class="devLink" data-dev="${escH(ip)}" title="${escH(t('dev_open'))}">${escH(ip)}</a>` : escH(ip);
+    const ipHtml = isLocal ? devLinkHtml(ip) : escH(ip);
     return `<span class="evMono">${ipHtml}${port != null ? '<span class="evDim">:' + escH(port) + '</span>' : ''}</span>${c}${tiBadge(hits, ip)}`;
   };
   body.innerHTML = evs.map((e,i)=>{
@@ -3586,7 +3616,7 @@ async function tiExplain(ip){
   if(c.events){
     const dirs = (c.by || []).map(b=>`${escH(t(b.dir === 'inbound' ? 'db_leg_in' : 'db_leg_out'))}: ${escH(t('ev_out_' + b.outcome) || b.outcome || '—')} ×${escH(fmtNum(b.n))}`).join(' · ');
     h += `<h4>${escH(t('ti_x_seen'))}</h4><div class="csFacts">
-      <div><b>${escH(t('ti_x_devices'))}</b><span class="evMono">${(c.local_hosts || []).map(x=>`${x.dir==='inbound'?'↘':'↗'} <a class="devLink" data-dev="${escH(x.ip)}">${escH(x.ip)}</a> (${escH(fmtNum(x.n))})`).join('<br>') || '—'}</span></div>
+      <div><b>${escH(t('ti_x_devices'))}</b><span class="evMono">${(c.local_hosts || []).map(x=>`${x.dir==='inbound'?'↘':'↗'} ${devLinkHtml(x.ip)} (${escH(fmtNum(x.n))})`).join('<br>') || '—'}</span></div>
       <div><b>${escH(t('ti_x_how'))}</b>${(c.services || []).map(x=>`${x.dir==='inbound'?'↘':'↗'} ${escH(tiSvcText(x))} ×${escH(fmtNum(x.n))}`).join('<br>') || '—'}</div>
       <div><b>${escH(t('ti_x_firewall'))}</b>${dirs || '—'}</div>
       <div><b>${escH(t('ti_x_when'))}</b>${escH(fmtTime(c.first_ms))} → ${escH(fmtTime(c.last_ms))}</div>
@@ -3616,6 +3646,67 @@ document.addEventListener('keydown', ev=>{
   if(b && b.dataset.tiIp){ ev.preventDefault(); tiExplain(b.dataset.tiIp); }
 });
 
+// ---------- Known devices (v0.6) ----------
+// Names and "expected behaviour" the operator sets per local IP. Names are
+// operator input: still escaped everywhere.
+let ASSETS = {};
+async function loadAssets(){
+  try{
+    const r = await fetch(`${API_BASE}/api/soc/assets`);
+    if(r.ok) ASSETS = (await r.json()).assets || {};
+  }catch(e){ /* older API: no names */ }
+  return ASSETS;
+}
+function devName(ip){ return (ASSETS[ip] && ASSETS[ip].name) || ''; }
+function devLinkHtml(ip){
+  const n = devName(ip);
+  return `<a class="devLink" data-dev="${escH(ip)}" title="${escH(t('dev_open'))}">${n ? `<span class="devName">${escH(n)}</span> ` : ''}${escH(ip)}</a>`;
+}
+function assetFormHtml(ip){
+  const a = ASSETS[ip] || {name:'', kind:'', notes:'', quiet:[]};
+  const kinds = ['', 'laptop','desktop','phone','server','nas','network','iot','tv','printer','other'];
+  const q = k => (a.quiet || []).includes(k) ? 'checked' : '';
+  return `<details class="assetForm" ${a.name ? '' : 'open'}>
+    <summary>${escH(a.name ? t('as_edit') : t('as_add'))}</summary>
+    <div class="row">
+      <label>${escH(t('as_name'))}<input id="asName" maxlength="60" value="${escH(a.name || '')}" placeholder="${escH(t('as_name_ph'))}"></label>
+      <label>${escH(t('as_kind'))}<select id="asKind">${kinds.map(k=>`<option value="${k}" ${a.kind===k?'selected':''}>${escH(k ? t('as_k_' + k) : '—')}</option>`).join('')}</select></label>
+    </div>
+    <label>${escH(t('as_notes'))}<input id="asNotes" maxlength="300" value="${escH(a.notes || '')}" placeholder="${escH(t('as_notes_ph'))}"></label>
+    <div class="q"><b>${escH(t('as_quiet_h'))}</b>
+      <label><input type="checkbox" data-q="outbound_new_country" ${q('outbound_new_country')}> ${escH(t('as_q_outbound_new_country'))}</label>
+      <label><input type="checkbox" data-q="outbound_volume" ${q('outbound_volume')}> ${escH(t('as_q_outbound_volume'))}</label>
+      <label><input type="checkbox" data-q="allowed_inbound" ${q('allowed_inbound')}> ${escH(t('as_q_allowed_inbound'))}</label>
+      <label class="sub"><input type="checkbox" id="asResolve" checked> ${escH(t('as_resolve'))}</label>
+      <div class="evDim">${escH(t('as_quiet_note'))}</div>
+    </div>
+    <div class="csActions"><button class="btnPrimary" id="asSave">${escH(t('as_save'))}</button>${a.name ? `<button id="asDel">${escH(t('as_delete'))}</button>` : ''}<span id="asMsg" class="evDim"></span></div>
+  </details>`;
+}
+function wireAssetForm(ip, onSaved){
+  const msg = document.getElementById('asMsg');
+  document.getElementById('asSave').onclick = async ()=>{
+    const quiet = [...document.querySelectorAll('.assetForm [data-q]')].filter(x=>x.checked).map(x=>x.dataset.q);
+    const body = {name: document.getElementById('asName').value, kind: document.getElementById('asKind').value || null,
+                  notes: document.getElementById('asNotes').value, quiet,
+                  resolve_matching: document.getElementById('asResolve').checked};
+    try{
+      const r = await fetch(`${API_BASE}/api/soc/assets/${encodeURIComponent(ip)}`, {method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+      const j = await r.json().catch(()=>({}));
+      if(!r.ok) throw new Error(j.detail || ('HTTP ' + r.status));
+      await loadAssets();
+      msg.textContent = j.resolved ? tf('as_saved_resolved', {n: j.resolved}) : t('as_saved');
+      setTimeout(onSaved, 900);
+    }catch(e){ msg.textContent = e.message || String(e); }
+  };
+  const del = document.getElementById('asDel');
+  if(del) del.onclick = async ()=>{
+    if(!confirm(t('as_delete_confirm'))) return;
+    await fetch(`${API_BASE}/api/soc/assets/${encodeURIComponent(ip)}`, {method:'DELETE'});
+    await loadAssets(); onSaved();
+  };
+}
+
 // ---------- Plain-language insights + Ask Claude (v0.6) ----------
 // /api/soc/insights recognises patterns (pings to many servers, scanning,
 // web traffic…) and returns codes + numbers; the sentences below are ours.
@@ -3623,7 +3714,7 @@ document.addEventListener('keydown', ev=>{
 function insFill(key, vars){
   let s = t(key) || '';
   Object.entries(vars || {}).forEach(([k, v])=>{
-    const val = (k === 'local' && v && v !== '?') ? `<a class="devLink" data-dev="${escH(v)}">${escH(v)}</a>`
+    const val = (k === 'local' && v && v !== '?') ? devLinkHtml(v)
               : (k === 'cadence' && typeof v === 'number') ? escH(fmtAge(v)) : escH(v ?? '—');
     s = s.split('{' + k + '}').join(val);
   });
@@ -3695,13 +3786,16 @@ async function insightsInto(el, kind, value, range){
 async function dbOpenDevice(ip, range){
   range = range || '24h';
   const drawer = document.getElementById('drawer');
-  document.getElementById('drawerDomain').textContent = ip;
-  document.getElementById('drawerMeta').textContent = tf('dev_meta', {range: t('ev_range_' + range) || range});
+  await loadAssets();
+  const nm = devName(ip); const kind = (ASSETS[ip] || {}).kind;
+  document.getElementById('drawerDomain').textContent = nm || ip;
+  document.getElementById('drawerMeta').textContent = (nm ? ip + ' · ' : '') + (kind ? t('as_k_' + kind) + ' · ' : '') + tf('dev_meta', {range: t('ev_range_' + range) || range});
   const body = document.getElementById('drawerBody');
-  body.innerHTML = `<div class="viewToggle dbDSeg" id="devRange">${['1h','24h','7d'].map(r=>`<button data-r="${r}" class="${r===range?'active':''}">${escH(t('ev_range_' + r))}</button>`).join('')}</div><div id="devIns"></div><div id="devFacts"></div>`;
+  body.innerHTML = assetFormHtml(ip) + `<div class="viewToggle dbDSeg" id="devRange">${['1h','24h','7d'].map(r=>`<button data-r="${r}" class="${r===range?'active':''}">${escH(t('ev_range_' + r))}</button>`).join('')}</div><div id="devIns"></div><div id="devFacts"></div>`;
   drawer.classList.add('open', 'socWide');
   document.getElementById('overlay').classList.add('show');
   body.querySelectorAll('#devRange button').forEach(b=>b.onclick = ()=>dbOpenDevice(ip, b.dataset.r));
+  wireAssetForm(ip, ()=>dbOpenDevice(ip, range));
   const p = await insightsInto(document.getElementById('devIns'), 'device', ip, range);
   if(!p) return;
   const dirs = Object.entries(p.dirs || {}).map(([d, o])=>`${escH(t(d === 'inbound' ? 'db_leg_in' : 'db_leg_out'))}: ${escH(fmtNum(o.allowed))} ${escH(t('ev_out_allowed'))} · ${escH(fmtNum(o.blocked))} ${escH(t('ev_out_blocked'))}`).join('<br>');
@@ -3763,6 +3857,7 @@ window.addEventListener('resize', fitTopbar);
 
 applyStaticI18n();
 loadVersion().then(fitTopbar);
+loadAssets();
 fitTopbar();
 loadSectors();
 loadClients().then(()=>{ fitTopbar(); return loadPortfolio(); });  // the client list changes the bar's width

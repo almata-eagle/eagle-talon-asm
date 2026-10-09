@@ -106,3 +106,16 @@ network context. It never gets raw log lines or packet content.
 - Only on a click. Each answer is cached for 30 minutes per slice (in
   `soc_explanations`), and `SOC_ASK_MAX_PER_HOUR` (default 10) caps calls.
   It shares the Claude key and model with triage.
+
+
+## Known devices in Claude's context (v0.6)
+Device names and notes entered in Talon (device view → "Name this device")
+are appended to the network context as "KNOWN DEVICES". That way, Claude can
+say "Eddy's MacBook" instead of an IP and knows what the owner considers
+normal. They're operator input: stripped of control characters, length-capped,
+and escaped in the UI.
+
+Kinds that the owner marked as normal for a device (`outbound_new_country`,
+`outbound_volume`, `allowed_inbound`) are skipped when findings merge into
+cases. Attacks from outside (scans, brute force, IDS alerts, threat-intel
+matches) can't be quieted.
