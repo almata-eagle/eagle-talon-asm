@@ -320,6 +320,15 @@
   #casesStage{position:absolute; inset:0; display:none; flex-direction:column; padding:14px 20px 0;}
   .csAlertLine{display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:12.5px; color:var(--muted); margin:8px 0 2px;}
   .csAlertLine .btnGhost{padding:3px 10px; font-size:12px;}
+  .rsMode{font-size:12.5px; margin:2px 0 8px;} .rsMode.rsLive{color:var(--high);} .rsMode.rsDry{color:var(--watch);}
+  .rsList{display:flex; flex-direction:column; gap:6px;}
+  .rsRow{display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:6px 10px; border:1px solid var(--line); border-radius:8px; background:var(--panel-2);}
+  .rsRow .rsSp{flex:1;} .rsRow .btnGhost{padding:3px 10px; font-size:12px;}
+  .rsFormBox{display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:10px; margin-top:10px; padding:12px; border:1px solid var(--high); border-radius:10px; background:var(--panel-2);}
+  .rsFormBox .wide{grid-column:1/-1;} .rsFormBox label{display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--muted);}
+  .rsFormBox input,.rsFormBox select{background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:6px 8px; color:var(--text); font-size:13px;}
+  .rsFormH{grid-column:1/-1; font-weight:600;} .rsPreview{font-size:12.5px; line-height:1.5;}
+  .rsBtns{display:flex; justify-content:flex-end; gap:8px;}
   .csBar{display:flex; align-items:center; gap:12px; margin-bottom:12px; flex-wrap:wrap;}
   .csBar .btnGhost{padding:6px 12px; font-size:12px; margin-left:auto;}
   .csEngine{font-size:11px; color:var(--muted); font-family:var(--font-mono);}
@@ -824,6 +833,7 @@
           <span class="csEngine" id="csEngine"></span>
           <span class="csEngine" id="csAlerts"></span>
           <button class="btnGhost" id="csAlertTest" data-i18n="al_test" hidden>Send test alert</button>
+          <button class="btnGhost" id="csBlocks" hidden>Blocks</button>
           <button class="btnGhost" id="csRun" data-i18n="cs_run">Run detection now</button>
         </div>
         <div class="csWrap">
@@ -1049,9 +1059,24 @@ const STR = {
     conf_low:"low confidence", conf_medium:"medium confidence", conf_high:"high confidence",
     cs_rule_sev:"Rule severity", cs_ai_sev:"Claude severity",
     cs_what:"What happened", cs_why:"Why it matters", cs_unknowns:"What we don't know", cs_options:"Response options",
-    cs_recommended:"Recommended", cs_manual_note:"Options are suggestions. Nothing is changed on your network automatically — automated, approved actions arrive in a later phase.",
+    cs_recommended:"Recommended", cs_manual_note:"Options are suggestions. Nothing is changed on your network automatically. To block an address, use Response below and approve it.",
     cs_injection:"Claude flagged text in these logs that looks like an attempt to manipulate an AI analyst. Treat this case with extra suspicion.",
     cs_useful:"👍 Useful", cs_noise:"👎 Noise", cs_resolve:"Mark resolved", cs_reopen:"Reopen", cs_retriage:"Ask Claude again",
+    rs_h:"Response", rs_mode_live:"Live: approved blocks change the FortiGate", rs_mode_dryrun:"Dry run: approvals are recorded, the FortiGate is not changed",
+    rs_mode_off:"Response is off", rs_not_ready:"Blocking isn't available: {why}", rs_none:"No outside addresses in this case.",
+    rs_block:"Block…", rs_blocked_until:"Blocked until {t}", rs_dry_until:"Dry run until {t}", rs_undo:"Undo",
+    rs_form_h:"Block {ip} on the FortiGate", rs_duration:"How long", rs_approver:"Your name", rs_code:"Approval code",
+    rs_reason:"Reason (kept in the log and the FortiGate comment)",
+    rs_preview_live:"Talon will add the address object {obj} to the group {grp} on the FortiGate. Your deny policies that use {grp} will then drop traffic to and from {ip}. It is removed automatically at {until}, or when you click Undo.",
+    rs_preview_dry:"Dry run: Talon records this approval but does not change the FortiGate. It ends at {until}.",
+    rs_approve:"Approve and block", rs_cancel:"Cancel", rs_undo_h:"Undo the block on {ip}", rs_undo_go:"Remove the block",
+    rs_done_live:"Blocked {ip} until {t}.", rs_done_dry:"Dry run recorded for {ip}.", rs_undone:"Block removed.",
+    rs_blocks_btn:"Blocks", rs_blocks_n:"Blocks ({n})", rs_list_h:"Blocks", rs_list_meta:"{mode} · group {grp} · {n} active",
+    rs_check:"Check FortiGate connection", rs_check_ok:"Connected. Group {grp} has {n} members ({t} from Talon).",
+    rs_check_bad:"Not connected: {err}", rs_col_ip:"Address", rs_col_status:"Status", rs_col_until:"Until / ended",
+    rs_col_by:"Approved by", rs_col_case:"Case", rs_list_empty:"No blocks yet.",
+    rs_st_active:"active", rs_st_dryrun:"dry run", rs_st_expired:"expired", rs_st_undone:"undone", rs_st_failed:"failed", rs_st_pending:"pending",
+    rs_hint:"Claude's options are only suggestions. A block happens only when you approve it here with the approval code.",
     al_off:"Alerts off", al_on:"Alerts", al_no_channel:"Alerts on, but no channel set (SOC_NTFY_TOPIC / SOC_SLACK_WEBHOOK)",
     al_quiet:"quiet {q}", al_quiet_now:"quiet hours now: only critical alerts", al_test:"Send test alert", al_test_ok:"Test alert sent: {res}",
     al_from:"{sev} and above", al_sent:"🔔 Alerted {age} ago", al_sent_n:"🔔 Alerted {n}× · last {age} ago", al_acked:"✓ Acknowledged by {by}",
@@ -1303,9 +1328,24 @@ const STR = {
     conf_low:"確度 低", conf_medium:"確度 中", conf_high:"確度 高",
     cs_rule_sev:"ルールの重大度", cs_ai_sev:"Claudeの重大度",
     cs_what:"何が起きたか", cs_why:"なぜ重要か", cs_unknowns:"不明な点", cs_options:"対応案",
-    cs_recommended:"推奨", cs_manual_note:"対応案は提案のみです。ネットワークが自動で変更されることはありません（承認制の自動対応は今後のフェーズで追加予定）。",
+    cs_recommended:"推奨", cs_manual_note:"対応案は提案のみです。ネットワークが自動で変更されることはありません。アドレスを遮断するには、下の「対応」から承認してください。",
     cs_injection:"このログには、AIアナリストを操作しようとする文言が含まれているとClaudeが判断しました。特に注意して扱ってください。",
     cs_useful:"👍 役に立った", cs_noise:"👎 ノイズ", cs_resolve:"対応済みにする", cs_reopen:"未対応に戻す", cs_retriage:"Claudeに再分析を依頼",
+    rs_h:"対応", rs_mode_live:"本番：承認した遮断は FortiGate に反映されます", rs_mode_dryrun:"ドライラン：承認は記録されますが FortiGate は変更されません",
+    rs_mode_off:"対応機能はオフです", rs_not_ready:"遮断は利用できません：{why}", rs_none:"このケースに外部アドレスはありません。",
+    rs_block:"遮断…", rs_blocked_until:"{t} まで遮断中", rs_dry_until:"{t} までドライラン", rs_undo:"取り消す",
+    rs_form_h:"{ip} を FortiGate で遮断", rs_duration:"期間", rs_approver:"承認者名", rs_code:"承認コード",
+    rs_reason:"理由（ログと FortiGate のコメントに残ります）",
+    rs_preview_live:"Talon は FortiGate のグループ {grp} にアドレスオブジェクト {obj} を追加します。{grp} を使う拒否ポリシーにより {ip} との通信が遮断されます。{until} に自動で解除されます（取り消しも可能）。",
+    rs_preview_dry:"ドライラン：承認は記録されますが FortiGate は変更されません。{until} に終了します。",
+    rs_approve:"承認して遮断", rs_cancel:"キャンセル", rs_undo_h:"{ip} の遮断を取り消す", rs_undo_go:"遮断を解除",
+    rs_done_live:"{ip} を {t} まで遮断しました。", rs_done_dry:"{ip} のドライランを記録しました。", rs_undone:"遮断を解除しました。",
+    rs_blocks_btn:"遮断一覧", rs_blocks_n:"遮断一覧（{n}）", rs_list_h:"遮断一覧", rs_list_meta:"{mode}・グループ {grp}・有効 {n} 件",
+    rs_check:"FortiGate 接続を確認", rs_check_ok:"接続できました。グループ {grp} のメンバー {n} 件（Talon 分 {t} 件）。",
+    rs_check_bad:"接続できません：{err}", rs_col_ip:"アドレス", rs_col_status:"状態", rs_col_until:"期限 / 終了",
+    rs_col_by:"承認者", rs_col_case:"ケース", rs_list_empty:"遮断はまだありません。",
+    rs_st_active:"有効", rs_st_dryrun:"ドライラン", rs_st_expired:"期限切れ", rs_st_undone:"取り消し", rs_st_failed:"失敗", rs_st_pending:"処理中",
+    rs_hint:"Claude の対応案は提案のみです。遮断はここで承認コードを入れて承認したときだけ実行されます。",
     al_off:"通知オフ", al_on:"通知", al_no_channel:"通知はオンですが送信先が未設定です（SOC_NTFY_TOPIC / SOC_SLACK_WEBHOOK）",
     al_quiet:"静音 {q}", al_quiet_now:"静音時間中：緊急のみ通知", al_test:"テスト通知を送る", al_test_ok:"テスト通知を送信：{res}",
     al_from:"{sev}以上", al_sent:"🔔 {age}前に通知", al_sent_n:"🔔 {n}回通知・最終 {age}前", al_acked:"✓ {by} が確認済み",
@@ -2760,7 +2800,7 @@ document.getElementById('evQuery').addEventListener('keydown', e=>{ if(e.key==='
 // ---------- Cases + Claude triage (SOC Phase 2) ----------
 // Case titles, Claude's explanations and evidence can all contain text that
 // came from attacker-controlled logs. Everything goes through escH().
-const CS = { filter:'open', cases:[], selected:null, timer:null, engine:null, busy:false };
+const CS = { filter:'open', cases:[], selected:null, timer:null, engine:null, busy:false, formOpen:false, resp:null };
 
 function csSev(c){ return (c.triage && c.triage.severity) || c.rule_severity || 'low'; }
 function csLang(o){ return o ? (o[LANG] || o.en || {}) : {}; }
@@ -2781,6 +2821,7 @@ async function casesLoad(){
   }catch(e){ CS.engine = null; CS.cases = []; CS.alerts = null; }
   casesRenderEngine();
   casesRenderAlerts();
+  respToolbar();
   casesRenderList();
   if(CS.selected && CS.cases.some(c=>c.id===CS.selected)) casesOpen(CS.selected, true);
   else if(CS.cases.length) casesOpen(CS.cases[0].id, true);
@@ -2843,6 +2884,168 @@ function casesAlertBlock(c){
   return h + '</div>';
 }
 
+
+// ---------- Response: approved, time-limited FortiGate blocks (ADR 0009) ----------
+function rsTime(iso){ return iso ? fmtTime(Date.parse(iso)) : '—'; }
+function rsModeLine(r){
+  if(r.mode === 'off') return `<div class="evNote">${escH(t('rs_mode_off'))}</div>`;
+  const cls = r.mode === 'live' ? 'rsLive' : 'rsDry';
+  let h = `<div class="rsMode ${cls}">● ${escH(t(r.mode === 'live' ? 'rs_mode_live' : 'rs_mode_dryrun'))}</div>`;
+  if(!r.ready) h += `<div class="csWarn">${escH(tf('rs_not_ready', {why: r.not_ready_reason}))}</div>`;
+  return h;
+}
+async function respLoad(caseId){
+  const el = document.getElementById('csResp'); if(!el) return;
+  let r;
+  try{
+    const res = await fetch(`${API_BASE}/api/soc/cases/${encodeURIComponent(caseId)}/response`);
+    if(!res.ok){ el.remove(); return; }
+    r = await res.json();
+  }catch(e){ el.remove(); return; }
+  if(!document.getElementById('csResp') || el.dataset.case !== caseId) return;
+  CS.resp = r;
+  let h = `<h4>${escH(t('rs_h'))}</h4>` + rsModeLine(r);
+  if(r.mode !== 'off'){
+    if(!r.candidates.length) h += `<div class="evNote">${escH(t('rs_none'))}</div>`;
+    h += '<div class="rsList">' + r.candidates.map(c=>{
+      let right;
+      if(c.active){
+        right = `<span class="csBadge ${c.active.status==='active'?'sev-high':''}">${escH(tf(c.active.status==='active'?'rs_blocked_until':'rs_dry_until', {t: rsTime(c.active.expires_at)}))}</span>
+          <button class="btnGhost" data-rs="undo" data-aid="${escH(c.active.id)}" data-ip="${escH(c.ip)}">${escH(t('rs_undo'))}</button>`;
+      } else if(c.allowed && r.ready){
+        right = `<button class="btnGhost" data-rs="block" data-ip="${escH(c.ip)}">${escH(t('rs_block'))}</button>`;
+      } else {
+        right = `<span class="evDim">${escH(c.reason || '')}</span>`;
+      }
+      return `<div class="rsRow"><span class="evMono">${escH(c.ip)}</span>${tiBadge(c.intel || [], c.ip)}<span class="rsSp"></span>${right}</div>`;
+    }).join('') + '</div><div id="rsForm"></div>';
+    h += `<div class="evNote">${escH(t('rs_hint'))}</div>`;
+  }
+  el.innerHTML = h;
+  el.querySelectorAll('[data-rs="block"]').forEach(b=>b.onclick = ()=>respBlockForm(caseId, b.dataset.ip));
+  el.querySelectorAll('[data-rs="undo"]').forEach(b=>b.onclick = ()=>respUndoForm(caseId, b.dataset.aid, b.dataset.ip));
+}
+function respCloseForm(){ CS.formOpen = false; const f = document.getElementById('rsForm'); if(f) f.innerHTML = ''; }
+function respBlockForm(caseId, ip){
+  const r = CS.resp || {}; const f = document.getElementById('rsForm'); if(!f) return;
+  CS.formOpen = true;
+  const c = (CS.cases || []).find(x=>x.id === caseId);
+  const reason = c ? csTitle(c) : '';
+  f.innerHTML = `<form class="rsFormBox" autocomplete="off">
+    <div class="rsFormH">${escH(tf('rs_form_h', {ip}))}</div>
+    <label>${escH(t('rs_duration'))}<select name="duration">${r.durations.map(d=>`<option value="${escH(d)}" ${d==='24h'?'selected':''}>${escH(d)}</option>`).join('')}</select></label>
+    <label>${escH(t('rs_approver'))}<input name="approver" maxlength="60" required></label>
+    <label>${escH(t('rs_code'))}<input name="code" type="password" required></label>
+    <label class="wide">${escH(t('rs_reason'))}<input name="reason" maxlength="300"></label>
+    <div class="rsPreview wide" id="rsPreview"></div>
+    <div class="wide rsBtns"><button type="button" class="btnGhost" data-x="cancel">${escH(t('rs_cancel'))}</button>
+      <button type="submit" class="addbtn rsGo">${escH(t('rs_approve'))}</button></div>
+    <div class="csWarn wide" id="rsErr" hidden></div></form>`;
+  const form = f.querySelector('form');
+  form.reason.value = reason;
+  const secs = {'1h':3600,'24h':86400,'7d':604800,'30d':2592000};
+  const preview = ()=>{
+    const until = fmtTime(Date.now() + 1000*(secs[form.duration.value] || 0));
+    document.getElementById('rsPreview').textContent = r.mode === 'live'
+      ? tf('rs_preview_live', {obj: (r.prefix || 'talon-') + ip, grp: r.group, ip, until})
+      : tf('rs_preview_dry', {until});
+  };
+  form.duration.onchange = preview; preview();
+  form.querySelector('[data-x="cancel"]').onclick = respCloseForm;
+  form.onsubmit = async ev=>{
+    ev.preventDefault();
+    const btn = form.querySelector('.rsGo'); btn.disabled = true;
+    const err = document.getElementById('rsErr'); err.hidden = true;
+    try{
+      const res = await fetch(`${API_BASE}/api/soc/cases/${encodeURIComponent(caseId)}/block`, {method:'POST',
+        headers:{'Content-Type':'application/json'}, body: JSON.stringify({ip, duration: form.duration.value,
+        approver: form.approver.value.trim(), code: form.code.value, reason: form.reason.value})});
+      const j = await res.json().catch(()=>({}));
+      if(!res.ok){ err.textContent = j.detail || ('HTTP '+res.status); err.hidden = false; return; }
+      respCloseForm();
+      alert(j.status === 'active' ? tf('rs_done_live', {ip, t: rsTime(j.expires_at)}) : tf('rs_done_dry', {ip}));
+      respLoad(caseId); respToolbar();
+    } finally { btn.disabled = false; }
+  };
+  form.approver.focus();
+}
+function respUndoForm(caseId, aid, ip, afterList){
+  const host = afterList ? document.getElementById('rsListForm') : document.getElementById('rsForm'); if(!host) return;
+  CS.formOpen = true;
+  host.innerHTML = `<form class="rsFormBox" autocomplete="off">
+    <div class="rsFormH">${escH(tf('rs_undo_h', {ip}))}</div>
+    <label>${escH(t('rs_approver'))}<input name="by" maxlength="60" required></label>
+    <label>${escH(t('rs_code'))}<input name="code" type="password" required></label>
+    <div class="wide rsBtns"><button type="button" class="btnGhost" data-x="cancel">${escH(t('rs_cancel'))}</button>
+      <button type="submit" class="addbtn rsGo">${escH(t('rs_undo_go'))}</button></div>
+    <div class="csWarn wide" id="rsErr2" hidden></div></form>`;
+  const form = host.querySelector('form');
+  form.querySelector('[data-x="cancel"]').onclick = ()=>{ CS.formOpen = false; host.innerHTML = ''; };
+  form.onsubmit = async ev=>{
+    ev.preventDefault();
+    const btn = form.querySelector('.rsGo'); btn.disabled = true;
+    const err = document.getElementById('rsErr2'); err.hidden = true;
+    try{
+      const res = await fetch(`${API_BASE}/api/soc/response/actions/${encodeURIComponent(aid)}/undo`, {method:'POST',
+        headers:{'Content-Type':'application/json'}, body: JSON.stringify({by: form.by.value.trim(), code: form.code.value})});
+      const j = await res.json().catch(()=>({}));
+      if(!res.ok){ err.textContent = j.detail || ('HTTP '+res.status); err.hidden = false; return; }
+      CS.formOpen = false; host.innerHTML = '';
+      alert(t('rs_undone'));
+      if(afterList) respOpenList(); else respLoad(caseId);
+      respToolbar();
+    } finally { btn.disabled = false; }
+  };
+  form.by.focus();
+}
+async function respToolbar(){
+  const b = document.getElementById('csBlocks');
+  try{
+    const r = await fetch(`${API_BASE}/api/soc/response`);
+    if(!r.ok){ b.hidden = true; return; }
+    const j = await r.json();
+    b.hidden = j.mode === 'off';
+    b.textContent = j.active ? tf('rs_blocks_n', {n: j.active}) : t('rs_blocks_btn');
+  }catch(e){ b.hidden = true; }
+}
+async function respOpenList(){
+  const drawer = document.getElementById('drawer');
+  document.getElementById('drawerFullscreenBtn').title = t('drawer_fullscreen');
+  document.getElementById('drawerDomain').textContent = t('rs_list_h');
+  document.getElementById('drawerMeta').textContent = '';
+  document.getElementById('drawerBody').innerHTML = `<div class="evEmpty">${escH(t('ev_loading'))}</div>`;
+  drawer.classList.add('open', 'socWide');
+  document.getElementById('overlay').classList.add('show');
+  let st, list;
+  try{
+    const [a, b] = await Promise.all([fetch(`${API_BASE}/api/soc/response`), fetch(`${API_BASE}/api/soc/response/actions?limit=200`)]);
+    st = await a.json(); list = (await b.json()).actions || [];
+  }catch(e){ document.getElementById('drawerBody').innerHTML = `<div class="csWarn">${escH(e.message)}</div>`; return; }
+  document.getElementById('drawerMeta').textContent = tf('rs_list_meta', {mode: t(st.mode === 'live' ? 'rs_mode_live' : st.mode === 'dryrun' ? 'rs_mode_dryrun' : 'rs_mode_off'), grp: st.group, n: st.active});
+  let h = `<div style="margin-bottom:10px">${st.mode === 'live' ? `<button class="btnGhost" id="rsCheck">${escH(t('rs_check'))}</button> <span id="rsCheckOut" class="evDim"></span>` : ''}</div><div id="rsListForm"></div>`;
+  if(!list.length) h += `<div class="evNote">${escH(t('rs_list_empty'))}</div>`;
+  else h += `<table class="logtable"><thead><tr><th>${escH(t('rs_col_ip'))}</th><th>${escH(t('rs_col_status'))}</th><th>${escH(t('rs_col_until'))}</th><th>${escH(t('rs_col_by'))}</th><th></th></tr></thead><tbody>`
+    + list.map(a=>{
+      const live = a.status === 'active' || a.status === 'dryrun';
+      return `<tr style="cursor:default"><td class="evMono">${escH(a.target)}<div class="evDim">${escH(a.case_id || '')}</div></td>
+        <td><span class="csBadge ${a.status==='active'?'sev-high':a.status==='failed'?'sev-critical':''}">${escH(t('rs_st_'+a.status) || a.status)}</span>${a.error ? `<div class="evDim" title="${escH(a.error)}">${escH(a.error.slice(0,80))}</div>` : ''}</td>
+        <td>${escH(live ? rsTime(a.expires_at) : rsTime(a.ended_at || a.updated_at))}${!live && a.ended_by ? `<div class="evDim">${escH(a.ended_by)}</div>` : ''}</td>
+        <td>${escH(a.approved_by || '')}</td>
+        <td>${live ? `<button class="btnGhost" data-aid="${escH(a.id)}" data-ip="${escH(a.target)}">${escH(t('rs_undo'))}</button>` : ''}</td></tr>`;
+    }).join('') + '</tbody></table>';
+  document.getElementById('drawerBody').innerHTML = h;
+  document.querySelectorAll('#drawerBody [data-aid]').forEach(b=>b.onclick = ()=>respUndoForm(null, b.dataset.aid, b.dataset.ip, true));
+  const chk = document.getElementById('rsCheck');
+  if(chk) chk.onclick = async ()=>{
+    chk.disabled = true; const out = document.getElementById('rsCheckOut'); out.textContent = '…';
+    try{
+      const j = await (await fetch(`${API_BASE}/api/soc/response/check`, {method:'POST'})).json();
+      out.textContent = j.ok ? tf('rs_check_ok', {grp: j.group, n: j.members, t: j.talon_members}) : tf('rs_check_bad', {err: j.error});
+    } finally { chk.disabled = false; }
+  };
+}
+document.getElementById('csBlocks').onclick = respOpenList;
+
 function casesAiBadge(c){
   const st = c.triage_status;
   const key = {done:'cs_ai_done', pending:'cs_ai_pending', stale:'cs_ai_stale', error:'cs_ai_error', skipped:'cs_ai_skipped'}[st] || 'cs_ai_pending';
@@ -2883,7 +3086,7 @@ async function casesOpen(id, quiet){
     const r = await fetch(`${API_BASE}/api/soc/cases/${encodeURIComponent(id)}`);
     if(!r.ok) throw new Error('HTTP '+r.status);
     const c = await r.json();
-    if(CS.selected === id) casesRenderDetail(c);
+    if(CS.selected === id && !(quiet && CS.formOpen)) casesRenderDetail(c);
   }catch(e){ if(!quiet) document.getElementById('csDetail').innerHTML = `<div class="csEmpty">${escH(e.message)}</div>`; }
 }
 
@@ -2929,6 +3132,7 @@ function casesRenderDetail(c){
     <button data-act="fb" data-v="noise" class="${c.feedback==='noise'?'on':''}">${escH(t('cs_noise'))}</button>
     <button data-act="status" data-v="${c.status==='open'?'resolved':'open'}">${escH(t(c.status==='open'?'cs_resolve':'cs_reopen'))}</button>
     <button data-act="retriage" ${aiOn ? '' : 'disabled'}>${escH(t('cs_retriage'))}</button></div>`;
+  h += `<div class="csSec" id="csResp" data-case="${escH(c.id)}"></div>`;
 
   const list = a => (a && a.length) ? a.map(x=>escH(x)).join(', ') : '—';
   const countries = [...new Set([...(st.src_countries||[]), ...(st.dst_countries||[])])].filter(x=>x && x!=='Reserved');
@@ -2964,6 +3168,7 @@ function casesRenderDetail(c){
   h += '</div>';
   if(tri) h += `<div class="csFoot">${escH(tf('cs_foot', {rule: c.rule, id: c.id, model: c.triage_model || '?', tin: fmtNum(c.triage_in_tokens), tout: fmtNum(c.triage_out_tokens)}))}</div>`;
   el.innerHTML = h;
+  respLoad(c.id);
 
   el.querySelectorAll('.csActions button, .csAlertLine button').forEach(b=>b.onclick = async ()=>{
     if(b.disabled) return;

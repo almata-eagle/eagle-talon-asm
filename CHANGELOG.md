@@ -10,6 +10,19 @@ Every change merged to `staging` adds a line under **Unreleased**.
 ## [Unreleased]
 
 ### Added
+- **Approved FortiGate blocks** (`backend/soc_response.py`,
+  [docs/SOC-RESPONSE.md](docs/SOC-RESPONSE.md), ADR 0009): from a case,
+  **Block…** an outside address for 1 h, 24 h, 7 d or 30 d.
+  - Approval needs your name and the approval code. The form shows exactly what
+    changes.
+  - Talon adds `talon-<ip>` to the `TALON-BLOCK` group that your deny policies
+    use. It removes it at expiry or on **Undo**.
+  - Never offered: private, Tailscale/CGNAT, your protected list and known
+    devices. Claude's options are never executed.
+  - Limited FortiGate API admin, pinned certificate, rollback on failure,
+    alerts on every block. **Blocks** list with a connection check.
+  - Modes `off` / `dryrun` / `live`: compose `off`, staging `dryrun`.
+  - New tables `soc_actions`, `soc_action_log` (additive).
 - **Alerts** (`backend/soc_alerts.py`, [docs/SOC-ALERTS.md](docs/SOC-ALERTS.md), ADR 0008):
   open cases at or above **high** go to your phone (ntfy) and/or Slack within one
   detection run, with Claude's headline, what happened, the suggested option and a

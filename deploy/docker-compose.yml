@@ -75,6 +75,20 @@ services:
       - SOC_ALERT_SILENT_MIN=${SOC_ALERT_SILENT_MIN:-30}
       - SOC_ALERT_DETAIL=${SOC_ALERT_DETAIL:-summary}
       - SOC_ALERT_LANG=${SOC_ALERT_LANG:-en}
+      # SOC response (ADR 0009): approved, time-limited FortiGate blocks.
+      # Prod default OFF. Token, fingerprint, approval code and the protected
+      # list come from secrets.env. See docs/SOC-RESPONSE.md.
+      - SOC_RESPONSE_MODE=${SOC_RESPONSE_MODE:-off}
+      - SOC_RESPONSE_APPROVAL_CODE=${SOC_RESPONSE_APPROVAL_CODE:-}
+      - SOC_RESPONSE_PROTECT=${SOC_RESPONSE_PROTECT:-}
+      - SOC_RESPONSE_MAX_ACTIVE=${SOC_RESPONSE_MAX_ACTIVE:-200}
+      - SOC_RESPONSE_MAX_PER_HOUR=${SOC_RESPONSE_MAX_PER_HOUR:-20}
+      - SOC_FGT_HOST=${SOC_FGT_HOST:-}
+      - SOC_FGT_TOKEN=${SOC_FGT_TOKEN:-}
+      - SOC_FGT_FINGERPRINT=${SOC_FGT_FINGERPRINT:-}
+      - SOC_FGT_CA_FILE=${SOC_FGT_CA_FILE:-}
+      - SOC_FGT_VDOM=${SOC_FGT_VDOM:-root}
+      - SOC_FGT_BLOCK_GROUP=${SOC_FGT_BLOCK_GROUP:-TALON-BLOCK}
       - OT_ENABLED=${OT_ENABLED:-off}
       - OT_DATA_DIR=${OT_DATA_DIR:-/app/data/ot}
       - OT_SETUP_CODE=${OT_SETUP_CODE:-}

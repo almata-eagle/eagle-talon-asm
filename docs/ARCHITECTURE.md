@@ -57,6 +57,7 @@ is in [adr/0003](adr/0003-log-collector-and-storage.md).
 | Threat intel | `backend/soc_intel.py` | Public feeds → SQLite `ti_indicators`/`ti_feeds` → in-memory matching (IPs and networks). Rule `intel_match`, badges, dashboard panel, triage evidence. `/api/soc/intel*`. No address leaves Core. See [SOC-INTEL.md](SOC-INTEL.md). |
 | Insights + Ask Claude | `backend/soc_insights.py`, `soc_ask.py` | Traffic profile of a country or device → recognised patterns (plain-language in the UI) → optional on-demand Claude explanation (aggregates only, cached, capped). `/api/soc/insights`, `POST /api/soc/ask`. |
 | Alerts | `backend/soc_alerts.py` | After each detection run: open cases at or above `SOC_ALERT_MIN_SEVERITY` → ntfy push + Slack, reminders until acknowledged, quiet hours, "no logs" alert. Notify only. `/api/soc/alerts*`, `/api/soc/cases/{id}/ack`. See [SOC-ALERTS.md](SOC-ALERTS.md), ADR 0008. |
+| Response | `backend/soc_response.py` | The one action: a human-approved, time-limited block of a public IPv4 on the FortiGate (address object in `SOC_FGT_BLOCK_GROUP`, used by the operator's deny policies). Approval code, protected ranges, limits, expiry loop, undo, audit. `/api/soc/response*`, `/api/soc/cases/{id}/block`. See [SOC-RESPONSE.md](SOC-RESPONSE.md), ADR 0009. |
 | Known devices | `backend/soc_assets.py` | Names, type, notes and quieted case kinds per local IP. Used by case merging, the UI and Claude's network context. `/api/soc/assets`. |
 | Talon OT | `backend/ot/` (`db.py`, `auth.py`, `sheets.py`, `api.py`), `backend/ot_app.py`, `frontend/ot.html` | FRCS assessments (UFC 4-010-06). Own SQLite `ot.db` + `evidence/` under `OT_DATA_DIR`, own users/sessions/audit. Mounted at `/api/ot` when `OT_ENABLED=on`; `ot_app.py` runs it alone (DDIL). See [OT.md](OT.md), ADR 0007. |
 | Log collector | `soc/` | `collector/vector.yaml` (pipeline + schema), `collector/tests.yaml`, `preflight.sh`, `deploy-collector.sh`, `retention.sh`. |
@@ -65,7 +66,7 @@ is in [adr/0003](adr/0003-log-collector-and-storage.md).
 ## Data
 
 SQLite, single file. Tables: `clients`, `scans`, `monitors`, `alerts`, `soc_cases`
-(`resolved_at` added in Phase 3), `ti_indicators`, `ti_feeds`, `soc_explanations`, `soc_assets`, `soc_alert_state`, `soc_alert_log` (v0.6).
+(`resolved_at` added in Phase 3), `ti_indicators`, `ti_feeds`, `soc_explanations`, `soc_assets`, `soc_alert_state`, `soc_alert_log`, `soc_actions`, `soc_action_log` (v0.6).
 Migrations run at startup and are additive only (`PRAGMA table_info` check,
 then `ALTER TABLE ... ADD COLUMN`). Never drop or rename a column: older
 releases must keep working on a newer DB so rollback stays safe.
@@ -98,6 +99,9 @@ The same additive-only rule applies.
 | `SOC_NTFY_TOPIC`, `SOC_NTFY_TOKEN`, `SOC_SLACK_WEBHOOK`, `SOC_ALERT_SECRET` | secrets.env | secrets.env | Alert channels and the phone-acknowledge signing key |
 | `SOC_ALERT_BASE_URL` | `http://core:8088` | `http://core:8098` | Talon address used in alert links |
 | `SOC_ALERT_*` (severity, quiet hours, reminders, detail, language) | defaults | quiet 23:00–07:00 | Tuning; full list in SOC-ALERTS.md |
+| `SOC_RESPONSE_MODE` | off (compose default) | dryrun | `off`, `dryrun` or `live` |
+| `SOC_RESPONSE_APPROVAL_CODE`, `SOC_RESPONSE_PROTECT`, `SOC_FGT_HOST`, `SOC_FGT_TOKEN`, `SOC_FGT_FINGERPRINT` | secrets.env | secrets.env | Approval code, never-block list, FortiGate API access and its pinned certificate |
+| `SOC_FGT_BLOCK_GROUP`, `SOC_FGT_VDOM`, `SOC_RESPONSE_MAX_*` | TALON-BLOCK, root, 200 / 20 | same | Block group, VDOM, limits |
 | `OT_ENABLED` | off (compose default) | on | Mount Talon OT at `/api/ot` |
 | `OT_DATA_DIR` | `/app/data/ot` | `/app/data/ot` | Talon OT database and evidence folder |
 | `OT_SETUP_CODE` | secrets.env (optional) | secrets.env (optional) | Code needed to create the first OT admin |
@@ -120,6 +124,9 @@ Everything in a log line is attacker-controlled. In `frontend/index.html`, event
 values only reach the page through `escH()` or `textContent`, never raw
 `innerHTML`. The tests and a browser check use a signature containing
 `<img onerror=…>` to prove it.
+
+The response form shows exactly what will change on the FortiGate, and the
+address it blocks always comes from the case's evidence, never from Claude's text.
 
 Talon OT's page (`frontend/ot.html`) follows the same rule for everything that
 came from a person or a spreadsheet.

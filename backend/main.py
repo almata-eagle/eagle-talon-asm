@@ -39,6 +39,7 @@ import soc_insights
 import soc_ask
 import soc_assets
 import soc_alerts
+import soc_response
 
 # Shared sector list — used both by the demo-data generator and by real scans
 # (so a real domain's sector places it correctly on the Talon Scope radar,
@@ -444,8 +445,10 @@ soc_intel.init_db()
 soc_ask.init_db()
 soc_assets.init_db()
 soc_alerts.init_db()
+soc_response.init_db()
 soc_cases.start_engine()
 soc_intel.start_engine()
+soc_response.start_expiry()
 
 # ---------------------------------------------------------------------------
 # Talon OT (FRCS assessments, UFC 4-010-06 / NIST 800-82). Its own SQLite file
@@ -579,6 +582,79 @@ def soc_alert_ack_token(case_id: str, token: str = Query(..., pattern=_ACK_TOKEN
     _case_or_404(case_id)
     soc_alerts.ack(case_id, "phone")
     return {"acked": True}
+
+
+# ---------------------------------------------------------------------------
+# SOC response (ADR 0009): block a public IPv4 on the FortiGate for a fixed
+# time, only when a person approves it with the approval code. The target is
+# taken from the case's own evidence and re-checked; Claude's options are
+# never executed. SOC_RESPONSE_MODE=off|dryrun|live.
+# ---------------------------------------------------------------------------
+_ACTION_ID_RE = r"^act_[0-9a-f]{12}$"
+
+
+class BlockReq(BaseModel):
+    ip: str
+    duration: str
+    approver: str
+    code: str
+    reason: Optional[str] = None
+
+
+class UnblockReq(BaseModel):
+    by: str
+    code: str
+
+
+def _response_error(e: "soc_response.ResponseError"):
+    raise HTTPException(e.status, str(e))
+
+
+@app.get("/api/soc/response")
+def soc_response_status():
+    return soc_response.status()
+
+
+@app.post("/api/soc/response/check")
+def soc_response_check():
+    """Read-only connection test: reach the FortiGate and read the block group."""
+    return soc_response.check_connection()
+
+
+@app.get("/api/soc/response/actions")
+def soc_response_actions(status: Optional[str] = Query(None, pattern="^(active|dryrun|expired|undone|failed|pending)$"),
+                         limit: int = Query(100, ge=1, le=500)):
+    return {"actions": soc_response.list_actions(status, limit)}
+
+
+@app.get("/api/soc/cases/{case_id}/response")
+def soc_case_response(case_id: str):
+    c = _case_or_404(case_id)
+    return {**soc_response.status(), "candidates": soc_response.candidates(c),
+            "actions": [a for a in soc_response.list_actions(limit=500) if a["case_id"] == case_id]}
+
+
+@app.post("/api/soc/cases/{case_id}/block")
+def soc_case_block(case_id: str, req: BlockReq):
+    _case_or_404(case_id)
+    try:
+        return soc_response.block(case_id, req.ip.strip(), req.duration, req.approver, req.code, req.reason or "")
+    except soc_response.ResponseError as e:
+        _response_error(e)
+
+
+@app.post("/api/soc/response/actions/{action_id}/undo")
+def soc_response_undo(action_id: str, req: UnblockReq):
+    if not re.fullmatch(_ACTION_ID_RE, action_id):
+        raise HTTPException(404, "action not found")
+    if soc_response.code_locked():
+        raise HTTPException(429, "too many wrong approval codes; wait 15 minutes")
+    if not soc_response.check_code(req.code):
+        raise HTTPException(403, "wrong approval code")
+    try:
+        return soc_response.unblock(action_id, req.by, "undone")
+    except soc_response.ResponseError as e:
+        _response_error(e)
 
 
 # ---------------------------------------------------------------------------

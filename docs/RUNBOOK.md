@@ -229,6 +229,20 @@ curl -s -X POST http://127.0.0.1:8100/api/soc/alerts/test
 ```
 To stop all alerts, set `SOC_ALERTS=off` in `deploy/env/<env>.env` and redeploy.
 
+## SOC response (FortiGate blocks)
+Staging runs as a dry run (`SOC_RESPONSE_MODE=dryrun`); prod is off. The
+one-time FortiGate setup (block group, deny policies, limited REST API admin)
+is in [SOC-RESPONSE.md](SOC-RESPONSE.md). Then add the secrets on core:
+```
+nano ~/eagle-talon-staging/deploy/secrets.env
+```
+Lines to add: `SOC_FGT_HOST=`, `SOC_FGT_TOKEN=`, `SOC_FGT_FINGERPRINT=`,
+`SOC_RESPONSE_APPROVAL_CODE=`, `SOC_RESPONSE_PROTECT=`. Redeploy, then
+**Cases → Blocks → Check FortiGate connection**. To go live, set
+`SOC_RESPONSE_MODE=live` in `deploy/env/staging.env` and redeploy.
+Kill switch: `SOC_RESPONSE_MODE=off` and redeploy (existing blocks still expire),
+or disable the `talon` REST API admin on the FortiGate.
+
 ## Talon OT
 Staging runs it (`OT_ENABLED=on`); prod doesn't yet. Open `http://core:8098/ot.html`.
 Before the first admin is created, add a setup code to the staging checkout's
