@@ -114,6 +114,7 @@
   .banner{font-size:12px; border:1px dashed var(--line); border-radius:8px; padding:8px 10px; color:var(--muted);}
   .marking{text-align:center; font-weight:700; letter-spacing:.08em; font-size:12px; padding:4px; border:1px solid var(--line); border-radius:6px; margin-bottom:10px;}
   .empty{padding:30px; text-align:center; color:var(--muted); border:1px dashed var(--line); border-radius:12px;}
+  .empty .btn:not(.primary){color:var(--text);}
   .mapTable td,.mapTable th{font-size:12px; padding:4px 6px; white-space:nowrap; max-width:220px; overflow:hidden; text-overflow:ellipsis;}
   .mapTable th{position:static;}
   .mapTable th.mapped{color:var(--signal);}
@@ -211,6 +212,8 @@ const STR = {
     imp_file:'Spreadsheet', imp_sheet:'Sheet', imp_header:'Header row', imp_map:'Which column is which?', imp_unmapped:'— not in this file —',
     imp_rows:'{n} rows will be imported into “{sys}”.', imp_go:'Import {n} rows', imp_done:'Imported {n} rows.', imp_sample:'First rows, as Talon will read them',
     imp_hint:'Talon guessed the header row and columns from the headings. Check them; the highlighted columns are mapped.',
+    imp_into:'Import into', imp_new_sys:'A new system', imp_sys_name:'New system name', import_checklist:'⬆ Import checklist',
+    no_systems_imp:'Or import the client’s checklist spreadsheet: Talon creates the system for you.',
     users_h:'Users', add_user:'Add user', role:'Role', disabled:'Disabled', enable:'Enable', disable:'Disable', reset_pw:'Reset password',
     new_pw_q:'New password for {u} (at least 12 characters):', role_admin:'Admin — everything, including users, deletes and the audit log',
     role_assessor:'Assessor — create and edit engagements, checklists and evidence', role_viewer:'Viewer — read and export only',
@@ -256,7 +259,9 @@ const STR = {
     imp_h:'チェックリストを取り込む', imp_p:'顧客のスプレッドシート（.xlsx または .csv）を選択します。Talon は値のみを読み取り（数式やマクロは読みません）、元のセルをすべて保持し、同じレイアウトに回答を入れて出力できます。',
     imp_file:'スプレッドシート', imp_sheet:'シート', imp_header:'見出し行', imp_map:'どの列が何か',
     imp_unmapped:'— このファイルにはない —', imp_rows:'{n} 行を「{sys}」に取り込みます。', imp_go:'{n} 行を取り込む', imp_done:'{n} 行を取り込みました。',
-    imp_sample:'Talon が読み取る最初の行', imp_hint:'見出しから見出し行と列を推定しました。確認してください。色の付いた列が対応付け済みです。',
+    imp_sample:'Talon が読み取る最初の行',
+    imp_into:'取込先', imp_new_sys:'新しいシステム', imp_sys_name:'新しいシステム名', import_checklist:'⬆ チェックリスト取込',
+    no_systems_imp:'または顧客のチェックリスト（スプレッドシート）を取り込むと、システムが自動で作成されます。', imp_hint:'見出しから見出し行と列を推定しました。確認してください。色の付いた列が対応付け済みです。',
     users_h:'ユーザー', add_user:'ユーザー追加', role:'権限', disabled:'無効', enable:'有効化', disable:'無効化', reset_pw:'パスワード再設定',
     new_pw_q:'{u} の新しいパスワード（12文字以上）：', role_admin:'管理者 — ユーザー管理、削除、監査ログを含むすべて',
     role_assessor:'評価者 — 案件・チェックリスト・証跡の作成と編集', role_viewer:'閲覧者 — 閲覧と出力のみ',
@@ -509,7 +514,7 @@ async function openEngagement(id, report){
     </div>
     ${e.notes ? `<p class="note" style="margin-top:10px; white-space:pre-wrap;">${escH(e.notes)}</p>` : ''}
     <div class="row" style="justify-content:space-between; margin-top:10px;"><h2>${escH(t('sys_h'))}</h2>
-      ${canEdit() ? `<button class="btn" id="sysNew">${escH(t('new_sys'))}</button>` : ''}</div>
+      ${canEdit() ? `<span class="row"><button class="btn" id="engImport">${escH(t('import_checklist'))}</button><button class="btn" id="sysNew">${escH(t('new_sys'))}</button></span>` : ''}</div>
     ${e.systems.length ? `<div class="grid">${e.systems.map(s=>{
       const total = Object.values(s.counts).reduce((a,b)=>a+b,0);
       return `<div class="card">
@@ -519,12 +524,16 @@ async function openEngagement(id, report){
         <div class="row" style="justify-content:space-between; margin-top:10px;">
           <span class="note">${total} ${escH(t('items'))} · ${s.evidence} ${escH(t('evidence'))}${s.template ? ` · ${escH(t('imported_from'))} ${escH(s.template.filename)}` : ''}</span>
           <button class="btn small" data-sys="${s.id}">${escH(t('open_checklist'))}</button></div>
-      </div>`; }).join('')}</div>` : `<div class="empty">${escH(t('no_systems'))}</div>`}`;
+      </div>`; }).join('')}</div>` : `<div class="empty">${escH(t('no_systems'))}${canEdit() ? `<p style="margin-top:10px;">${escH(t('no_systems_imp'))}</p>
+        <div class="row" style="justify-content:center; margin-top:12px;"><button class="btn primary" id="engImport2">${escH(t('import_checklist'))}</button>
+        <button class="btn" id="sysNew2">${escH(t('new_sys'))}</button></div>` : ''}</div>`}`;
   $$('[data-sys]', m).forEach(b=> b.onclick = ()=> go('#/s/' + b.dataset.sys));
   $('#engExport').onclick = ()=> guarded(()=> download(`/engagements/${id}/export.xlsx`, 'talon-ot.xlsx'));
   $('#engReport').onclick = ()=> go(`#/e/${id}/report`);
   if($('#engEdit')) $('#engEdit').onclick = ()=> engagementForm(e);
   if($('#sysNew')) $('#sysNew').onclick = ()=> systemForm(null);
+  if($('#sysNew2')) $('#sysNew2').onclick = ()=> systemForm(null);
+  ['#engImport', '#engImport2'].forEach(sel=>{ if($(sel)) $(sel).onclick = ()=> importWizard({engagement: e}); });
   if($('#engDel')) $('#engDel').onclick = ()=> guarded(async ()=>{
     if(!confirm(t('del_eng_q'))) return;
     await api('/engagements/' + id, {method:'DELETE'}); await loadEngagements(); go('#/');
@@ -625,7 +634,7 @@ function renderSystem(){
       <th>${escH(t('f_ref'))}</th><th>${escH(t('f_control'))}</th><th>${escH(t('f_requirement'))}</th><th>${escH(t('f_category'))}</th>
       <th>${escH(t('lvl'))}</th><th>${escH(t('f_status'))}</th><th>${escH(t('f_severity'))}</th><th>📎</th></tr></thead><tbody id="itemRows"></tbody></table></div>`;
   if($('#sysEdit')) $('#sysEdit').onclick = ()=> systemForm(s);
-  if($('#impBtn')) $('#impBtn').onclick = importWizard;
+  if($('#impBtn')) $('#impBtn').onclick = ()=> importWizard({sysId: s.id, sysName: s.name});
   if($('#addItem')) $('#addItem').onclick = ()=> guarded(async ()=>{
     const r = await api(`/systems/${s.id}/items`, {body:{status:'not_assessed'}});
     await openSystem(s.id); openItem(r.id);
@@ -745,7 +754,9 @@ async function viewEvidence(e){
 }
 
 // ------------------------------------------------------------------ import wizard
-function importWizard(){
+// target: {sysId, sysName} from a system page, or {engagement} from an engagement page
+// (then the person picks an existing system or names a new one, created on import).
+function importWizard(target){
   const md = modal(`<h2 style="margin-top:0;">${escH(t('imp_h'))}</h2><p class="note">${escH(t('imp_p'))}</p>
     <label class="f" style="margin-top:12px; max-width:420px;">${escH(t('imp_file'))}<input type="file" id="impFile" accept=".xlsx,.xlsm,.csv"></label>
     <div id="impBody"></div>`);
@@ -754,10 +765,13 @@ function importWizard(){
     const fd = new FormData(); fd.append('file', file);
     $('#impBody', md).innerHTML = '<p class="note" style="margin-top:12px;">…</p>';
     const prev = await api('/import/preview', {body: fd});
-    importStep(md, prev);
+    importStep(md, prev, target, file.name);
   });
 }
-function importStep(md, prev){
+function importStep(md, prev, target, fileName){
+  const eng = target.engagement;
+  const into = {id: eng ? (eng.systems.length === 1 ? eng.systems[0].id : '') : target.sysId,
+                name: (fileName || '').replace(/\.(xlsx|xlsm|csv)$/i, '').slice(0, 200) || 'System', type: ''};
   // Start on the sheet that looks most like a checklist (most mapped columns, then most rows), not an instructions tab.
   const best = prev.sheets.reduce((b, s, i)=>{ const sc = Object.keys(s.mapping||{}).length * 10000 + (s.rows_total||0); return sc > b.sc ? {i, sc} : b; }, {i:0, sc:-1}).i;
   const st = {sheet: best, header: prev.sheets[best]?.header_row || 0, mapping: Object.assign({}, prev.sheets[best]?.mapping || {}), rows: null};
@@ -772,7 +786,14 @@ function importStep(md, prev){
     const total = Math.max(0, sh.rows_total + (sh.header_row - st.header));
     const mapped = new Set(Object.values(st.mapping).filter(v=>v!=null).map(Number));
     const colOpts = cur=> `<option value="">${escH(t('imp_unmapped'))}</option>` + headers.map((h,i)=>`<option value="${i}" ${String(cur)===String(i)?'selected':''}>${escH(String.fromCharCode(65 + (i%26)) + (i>=26?Math.floor(i/26):''))} · ${escH((h||'').slice(0,40))}</option>`).join('');
+    const sysLabel = into.id ? (eng ? (eng.systems.find(x=>x.id === into.id)||{}).name : target.sysName) : into.name;
     $('#impBody', md).innerHTML = `
+      ${eng ? `<div class="form" style="margin-top:14px;">
+        <label class="f">${escH(t('imp_into'))}<select id="impInto"><option value="">${escH(t('imp_new_sys'))}</option>
+          ${eng.systems.map(x=>`<option value="${x.id}" ${x.id===into.id?'selected':''}>${escH(x.name)}</option>`).join('')}</select></label>
+        ${into.id ? '' : `<label class="f">${escH(t('imp_sys_name'))}<input type="text" id="impSysName" maxlength="200" value="${escH(into.name)}"></label>
+        <label class="f">${escH(t('system_type'))}<select id="impSysType">${opts('system_type', S.meta.system_types, into.type, '—')}</select></label>`}
+      </div>` : ''}
       <div class="form" style="margin-top:14px;">
         <label class="f">${escH(t('imp_sheet'))}<select id="impSheet">${prev.sheets.map((s,i)=>`<option value="${i}" ${i===st.sheet?'selected':''}>${escH(s.name)} (${s.rows_total})</option>`).join('')}</select></label>
         <label class="f">${escH(t('imp_header'))}<input type="number" id="impHeader" min="${offset+1}" max="${offset+all.length}" value="${st.header+1}"></label>
@@ -784,17 +805,29 @@ function importStep(md, prev){
       <div class="tableWrap"><table class="mapTable"><thead><tr>${headers.map((h,i)=>`<th class="${mapped.has(i)?'mapped':''}" title="${escH(h)}">${escH(h || '#'+(i+1))}</th>`).join('')}</tr></thead>
         <tbody>${sample.map(r=>`<tr>${headers.map((_,i)=>`<td title="${escH(r[i])}">${escH(r[i] ?? '')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
       <div class="row" style="justify-content:space-between; margin-top:14px;">
-        <span class="note">${escH(tf('imp_rows', {n: total, sys: S.sys.name}))}</span>
+        <span class="note" id="impRowsNote">${escH(tf('imp_rows', {n: total, sys: sysLabel}))}</span>
         <span class="row"><button class="btn" id="impCancel">${escH(t('cancel'))}</button>
         <button class="btn primary" id="impGo" ${total && headers.length ? '' : 'disabled'}>${escH(tf('imp_go', {n: total}))}</button></span></div>`;
     $('#impSheet', md).onchange = ev=>{ st.sheet = +ev.target.value; const s2 = prev.sheets[st.sheet]; st.header = s2.header_row; st.mapping = Object.assign({}, s2.mapping); draw(); };
     $('#impHeader', md).onchange = ev=>{ const v = (+ev.target.value) - 1; if(v - offset >= 0 && v - offset < all.length){ st.header = v; st.mapping = {}; draw(); } };
     $$('[data-map]', md).forEach(sel=> sel.onchange = ()=>{ const v = sel.value; if(v === '') delete st.mapping[sel.dataset.map]; else st.mapping[sel.dataset.map] = +v; draw(); });
+    if($('#impInto', md)) $('#impInto', md).onchange = ev=>{ into.id = ev.target.value ? +ev.target.value : ''; draw(); };
+    if($('#impSysName', md)) $('#impSysName', md).oninput = ev=>{ into.name = ev.target.value; $('#impRowsNote', md).textContent = tf('imp_rows', {n: total, sys: into.name}); };
+    if($('#impSysType', md)) $('#impSysType', md).onchange = ev=>{ into.type = ev.target.value; };
     $('#impCancel', md).onclick = closeOverlay;
     $('#impGo', md).onclick = ()=> guarded(async ()=>{
-      $('#impGo', md).disabled = true;
-      const r = await api(`/systems/${S.sys.id}/import`, {body:{upload_id: prev.upload_id, sheet: sh.name, header_row: st.header, mapping: st.mapping}});
-      closeOverlay(); toast(tf('imp_done', {n: r.imported})); await loadEngagements(); await openSystem(S.sys.id);
+      const btn = $('#impGo', md); btn.disabled = true;
+      try{
+        let sid = into.id;
+        if(!sid){
+          if(!into.name.trim()){ toast(t('imp_sys_name'), true); return; }
+          sid = (await api(`/engagements/${eng.id}/systems`, {body:{name: into.name, system_type: into.type || null}})).id;
+          into.id = sid;   // a retry after a failed import goes into the same system
+        }
+        const r = await api(`/systems/${sid}/import`, {body:{upload_id: prev.upload_id, sheet: sh.name, header_row: st.header, mapping: st.mapping}});
+        closeOverlay(); toast(tf('imp_done', {n: r.imported})); await loadEngagements();
+        if(location.hash === '#/s/' + sid) await openSystem(sid); else go('#/s/' + sid);
+      } finally { if(btn.isConnected) btn.disabled = false; }
     });
   };
   draw();

@@ -47,8 +47,9 @@ username pause. Disabling a user or resetting their password ends their sessions
    UMCS…). Record the design phase and the **C-I-A impact**. UFC 4-010-06 has
    the System Owner set the impact with the AO's concurrence, so record who did
    it in **Impact set by**.
-3. **Import spreadsheet** (`.xlsx`, `.xlsm` or `.csv`, up to 15 MB, 5,000 rows,
-   60 columns):
+3. **Import checklist** on the engagement page (it can create the system for
+   you), or **Import spreadsheet** on a system's checklist page. Accepts `.xlsx`,
+   `.xlsm` or `.csv`, up to 15 MB, 5,000 rows and 60 columns:
    - Talon finds the header row and guesses the columns from the headings, in
      English and Japanese (CCI, Control, 要件, 実施状況, 備考…).
    - Check the mapping. The highlighted columns are the mapped ones.
