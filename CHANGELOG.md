@@ -60,6 +60,10 @@ Every change merged to `staging` adds a line under **Unreleased**.
     (staging leaves out Spamhaus), `ABUSECH_AUTH_KEY` (optional).
   - Tests: `backend/tests/test_soc_intel.py` (16), `test_soc_insights.py` (9), `test_soc_assets.py` (5). 105 in total.
 
+- Docs: `docs/OT-DESIGN.md` and ADR 0007 (proposed). Talon OT is a portable,
+  offline-first module for FRCS assessments against UFC 4-010-06 and NIST SP
+  800-82. Design only, no code yet.
+
 ### Changed
 - Rule "New country" ignores ping-only contact. VPN apps and games ping
   servers worldwide to measure latency, and that opened dozens of cases.
