@@ -667,6 +667,7 @@
       <input id="searchInput" placeholder="Search domains, sectors, watchlists…" data-i18n-placeholder="search_placeholder">
       <span class="kbd">/</span>
     </div>
+    <a class="themeBtn" id="otLink" href="ot.html" title="Talon OT — control-system (FRCS) assessments" style="display:none; text-decoration:none; align-items:center; justify-content:center; font-size:11px; font-weight:700; letter-spacing:.04em;">OT</a>
     <button class="themeBtn" id="themeToggle" title="Toggle light/dark">◐</button>
     <div style="position:relative;">
       <button class="themeBtn" id="alertsBellBtn" title="Alerts" style="position:relative;">
@@ -3823,6 +3824,9 @@ document.addEventListener('click', ev=>{
   ev.preventDefault(); ev.stopPropagation();
   dbOpenDevice(a.dataset.dev, (DB && DB.range) || '24h');
 }, true);
+
+// Talon OT link: only when this server has OT switched on (OT_ENABLED=on).
+fetch(`${API_BASE}/api/ot/status`).then(r=>{ if(r.ok) document.getElementById('otLink').style.display = 'inline-flex'; }).catch(()=>{});
 
 // Shows the running version, and marks any non-prod environment loudly.
 async function loadVersion(){

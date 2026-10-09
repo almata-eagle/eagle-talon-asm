@@ -10,6 +10,26 @@ Every change merged to `staging` adds a line under **Unreleased**.
 ## [Unreleased]
 
 ### Added
+- **Talon OT, phase OT-1** (`backend/ot/`, `frontend/ot.html`, guide in
+  [docs/OT.md](docs/OT.md)): FRCS assessments against UFC 4-010-06 / NIST SP
+  800-82.
+  - Engagements (with a marking banner), systems (type, design phase, C-I-A
+    impact and who set it), and a checklist worked item by item: status,
+    severity, finding, remediation, owner, due date.
+  - Import any `.xlsx`/`.csv` checklist. Header row and columns are guessed
+    (EN/JA), you confirm the mapping, answers are normalised, and the original
+    cells are kept.
+  - Export the same layout back with the answers filled in, plus Talon columns,
+    a POA&M sheet and a summary; formula injection blocked. Printable report
+    (EN/JA).
+  - Evidence stored by SHA-256, re-verified on download.
+  - Local accounts (admin/assessor/viewer) and an audit log of every change.
+  - Its own SQLite file under `/app/data/ot`, never the Talon DB. Inside
+    Talon behind `OT_ENABLED=on` (staging on, prod off); standalone for
+    on-prem/DDIL with `backend/ot_app.py` and `deploy/ot/docker-compose.yml`.
+  - Talon's top bar shows an **OT** button when it's on.
+  - New dependency `openpyxl==3.1.5`.
+  - nginx allows 30 MB bodies on `/api/ot/`.
 - **Known devices** (`backend/soc_assets.py`, new table `soc_assets`): name
   any of your own IPs, set its type and notes, and mark what's normal for it.
   You can choose contacting new countries, large uploads, or allowed inbound

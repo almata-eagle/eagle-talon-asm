@@ -11,6 +11,14 @@ server {
         try_files $uri $uri/ /index.html;
     }
 
+    # Talon OT: checklist imports (15 MB) and evidence files (25 MB).
+    location /api/ot/ {
+        client_max_body_size 30m;
+        proxy_pass http://localhost:${API_PORT}/api/ot/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
     location /api/ {
         proxy_pass http://localhost:${API_PORT}/api/;
         proxy_set_header Host $host;

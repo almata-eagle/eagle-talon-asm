@@ -445,6 +445,17 @@ soc_assets.init_db()
 soc_cases.start_engine()
 soc_intel.start_engine()
 
+# ---------------------------------------------------------------------------
+# Talon OT (FRCS assessments, UFC 4-010-06 / NIST 800-82). Its own SQLite file
+# and users, never this DB. Off unless OT_ENABLED=on; the same package runs
+# alone as ot_app.py for on-prem / DDIL sites. See docs/OT.md, ADR 0007.
+# ---------------------------------------------------------------------------
+OT_ENABLED = os.environ.get("OT_ENABLED", "off").strip().lower() in ("on", "1", "true", "yes")
+if OT_ENABLED:
+    import ot.api as ot_api
+    ot_api.init()
+    app.include_router(ot_api.router)
+
 _CASE_ID_RE = r"^case_[0-9a-f]{12}$"
 
 

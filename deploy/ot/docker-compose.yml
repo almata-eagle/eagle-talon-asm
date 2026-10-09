@@ -1,0 +1,31 @@
+name: talon-ot
+
+# Talon OT on its own, for an on-prem or disconnected (DDIL) site. No Talon
+# DB, no SOC, no scanner; nothing leaves the box. See docs/OT.md.
+#
+#   docker compose -f deploy/ot/docker-compose.yml up -d --build
+#   open http://<host>:${OT_PORT:-8090}/
+#
+# Build the image where there is internet, then `docker save` / `docker load`
+# it onto the disconnected host (docs/OT.md, "Running offline").
+
+services:
+  ot:
+    build:
+      context: ../../backend
+    image: talon-ot
+    container_name: talon-ot
+    restart: unless-stopped
+    ports:
+      - "${OT_BIND:-127.0.0.1}:${OT_PORT:-8090}:8090"
+    volumes:
+      - talon-ot-data:/app/data/ot
+      - ../../frontend:/app/static:ro
+    environment:
+      - OT_DATA_DIR=/app/data/ot
+      - OT_STATIC_DIR=/app/static
+      - OT_SETUP_CODE=${OT_SETUP_CODE:-}
+    command: ["uvicorn", "ot_app:app", "--host", "0.0.0.0", "--port", "8090"]
+
+volumes:
+  talon-ot-data:

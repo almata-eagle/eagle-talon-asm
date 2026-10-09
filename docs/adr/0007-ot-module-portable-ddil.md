@@ -1,6 +1,6 @@
 # ADR 0007 — OT security as a portable module, offline first
 
-- **Status:** proposed
+- **Status:** accepted (OT-1 built on it, 2026-10-09)
 - **Date:** 2026-10-09
 
 ## Context

@@ -31,7 +31,13 @@ Read `docs/ARCHITECTURE.md` and `docs/RUNBOOK.md` before changing deploy or data
 - Threat intel (`docs/SOC-INTEL.md`) matches locally. Never send client addresses to a third-party
   lookup without an ADR. Keep feed parsing to strict IP/network values, respect each feed's rate
   limit and licence, and keep the table in SOC-INTEL.md current.
-- Tests: `cd backend && python -m pytest -q tests` (SOC search, cases, triage, dashboard, intel), and
+- Talon OT (`backend/ot/`, `frontend/ot.html`, `docs/OT.md`, ADR 0007) stays portable: no imports from
+  Talon or SOC modules, its own SQLite under `OT_DATA_DIR` (never the Talon DB), no CDN or outside calls,
+  and it must keep running alone via `backend/ot_app.py`. **Never add code that scans, connects or writes
+  to a control system.** Bundle no CCI or control text. Spreadsheets and evidence are untrusted: values
+  only (no formulas), size and type limits, evidence stored by SHA-256 and never rendered as HTML, and
+  export cells written as text. Every change goes to `ot_audit`. AI stays off unless the engagement allows it.
+- Tests: `cd backend && python -m pytest -q tests` (SOC search, cases, triage, dashboard, intel, OT), and
   `vector test soc/collector/vector.yaml soc/collector/tests.yaml` (collector).
 - No secrets in git. They go in `deploy/secrets.env` (gitignored).
 

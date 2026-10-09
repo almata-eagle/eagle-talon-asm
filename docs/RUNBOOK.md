@@ -210,6 +210,21 @@ Feeds refresh in the background (`SOC_INTEL=on`). Feed status, errors and a
 The optional ThreatFox key and each feed's licence are in [SOC-INTEL.md](SOC-INTEL.md).
 To stop all feed downloads, set `SOC_INTEL=off` and redeploy.
 
+## Talon OT
+Staging runs it (`OT_ENABLED=on`); prod doesn't yet. Open `http://core:8098/ot.html`.
+Before the first admin is created, add a setup code to the staging checkout's
+secrets (pick any phrase):
+```
+nano ~/eagle-talon-staging/deploy/secrets.env
+```
+Add the line `OT_SETUP_CODE=<your phrase>`, save, then redeploy staging.
+OT data is in the data volume under `/app/data/ot` and is **not** in
+`backup-db.sh` yet. To take a copy:
+```
+docker cp eagle-talon-staging-api:/app/data/ot ~/eagle-talon-backups/ot-staging
+```
+Standalone and offline use: [OT.md](OT.md).
+
 ## SOC log collector
 Deploy, the FortiGate setup, health checks and retention are in
 [SOC-COLLECTOR.md](SOC-COLLECTOR.md). There is one collector per host. Start with

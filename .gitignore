@@ -6,6 +6,8 @@ venv/
 
 # Runtime data — don't commit scan history or secrets
 backend/eagle_talon.db
+# Talon OT standalone data (ot.db, evidence) — client data, never in git
+backend/data/
 .env
 deploy/.env
 

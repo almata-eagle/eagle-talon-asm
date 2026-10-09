@@ -1,4 +1,6 @@
-# Eagle Talon OT — design (draft for review)
+# Eagle Talon OT — design
+
+> OT-1 is built: see [OT.md](OT.md). Later phases below are still the plan.
 
 Working name **Talon OT**. It's a module for facility-related control system
 (FRCS) security assessments on construction projects. It starts in this repo and
@@ -67,14 +69,14 @@ The checklist is therefore always the version the client contract names.
 | **OT-5** Field ↔ HQ sync | Carry an engagement out on a laptop and bring it back: signed export bundle, conflict-safe import, multi-tenant at HQ | Two assessors work offline and merge cleanly |
 
 ## 4. Portability and DDIL
-- **Own package and database.** The code lives in `ot/` (FastAPI router plus a
-  separate UI view) and stores everything in **its own SQLite file per
+- **Own package and database.** The code lives in `backend/ot/` (FastAPI router)
+  with its own page, `frontend/ot.html`, and stores everything in **its own SQLite file per
   deployment**, never the Talon DB that Eagle Eye shares. Evidence files sit
   next to it on disk.
 - **One container, no internet needed.** No CDN, no external fonts, no
   phone-home. The same image runs on Core, on a field laptop (Docker, x86 or
   ARM) or on an on-prem server. Talon's SOC features are off in an OT-only
-  deployment (`EAGLE_MODE=ot`).
+  deployment: run `backend/ot_app.py` (built in OT-1) instead of `main.py`.
 - **Engagement bundle.** Export is one `.zip`: the SQLite file, evidence and a
   manifest with SHA-256 per file. Import verifies the hashes. That's how work
   moves from a disconnected site to HQ, and it doubles as the archive copy
@@ -88,7 +90,7 @@ The checklist is therefore always the version the client contract names.
   Access needs a login, every change goes to the audit log, and nothing is
   shared between engagements.
 
-## 5. Safety rules (to go into CLAUDE.md when OT-1 starts)
+## 5. Safety rules (in CLAUDE.md since OT-1)
 - **Never scan or write to OT devices.** The sensor is passive, and there's no
   code path that sends packets to a control network.
 - Evidence files are untrusted input: size limits, type checks, stored by

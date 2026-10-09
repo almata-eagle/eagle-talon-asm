@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="no-referrer">
+<title>Eagle Talon OT</title>
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<style>
+  /* Same tokens as Talon (index.html). No CDN: this page must work offline. */
+  :root{
+    --font-display:'Space Grotesk','Noto Sans JP',system-ui,sans-serif;
+    --font-body:'Inter','Noto Sans JP',system-ui,sans-serif;
+    --font-mono:'JetBrains Mono','Noto Sans JP',ui-monospace,monospace;
+  }
+  html[data-theme="dark"]{
+    --bg:#0B0F14; --panel:#121821; --panel-2:#161d27; --line:#232B36; --line-soft:#1a212b;
+    --text:#E7EDF3; --muted:#7C8B9C; --dim:#4b5866;
+    --clear:#3DDC84; --watch:#F2B84B; --high:#FF6B4A; --critical:#E23D5C; --signal:#5EEAD4;
+    --overlay:rgba(0,0,0,.55);
+  }
+  html[data-theme="light"]{
+    --bg:#F3F5F7; --panel:#FFFFFF; --panel-2:#F3F5F8; --line:#DEE3E9; --line-soft:#E9ECF0;
+    --text:#141A21; --muted:#5B6B7C; --dim:#93A0AC;
+    --clear:#1E9E5A; --watch:#B8790F; --high:#D14B26; --critical:#C21F45; --signal:#0E8E82;
+    --overlay:rgba(20,26,33,.35);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--bg); color:var(--text); font-family:var(--font-body); font-size:14px; min-height:100vh;}
+  button,input,select,textarea{font:inherit; color:inherit;}
+  a{color:var(--signal);}
+  .mono{font-family:var(--font-mono); font-size:12px;}
+  .muted{color:var(--muted);} .dim{color:var(--dim);}
+  [hidden]{display:none !important;}
+
+  .topbar{display:flex; align-items:center; gap:12px; padding:10px 16px; border-bottom:1px solid var(--line); background:var(--panel); position:sticky; top:0; z-index:20; flex-wrap:wrap;}
+  .brand{display:flex; align-items:center; gap:8px; font-family:var(--font-display); font-weight:700; letter-spacing:.06em;}
+  .brand img{width:24px; height:24px;}
+  .brand .sub{font-weight:500; letter-spacing:0; color:var(--muted); font-size:12.5px;}
+  .chip{display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:999px; border:1px solid var(--line); font-size:11.5px; color:var(--muted); white-space:nowrap;}
+  .spacer{flex:1;}
+  .toggle{display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden;}
+  .toggle button{background:transparent; border:0; padding:5px 10px; cursor:pointer; color:var(--muted); font-size:12.5px;}
+  .toggle button.active{background:var(--panel-2); color:var(--text);}
+  .btn{background:var(--panel-2); border:1px solid var(--line); border-radius:8px; padding:6px 12px; cursor:pointer; font-size:13px; white-space:nowrap;}
+  .btn:hover{border-color:var(--signal);}
+  .btn.primary{background:var(--signal); color:#05201c; border-color:var(--signal); font-weight:600;}
+  .btn.danger{color:var(--critical);}
+  .btn.small{padding:3px 8px; font-size:12px;}
+  .btn:disabled{opacity:.5; cursor:default;}
+
+  .layout{display:grid; grid-template-columns:260px 1fr; min-height:calc(100vh - 53px);}
+  .side{border-right:1px solid var(--line); padding:14px; display:flex; flex-direction:column; gap:10px;}
+  .side h3{font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:600;}
+  .navItem{display:block; width:100%; text-align:left; background:transparent; border:1px solid transparent; border-radius:8px; padding:8px 10px; cursor:pointer;}
+  .navItem:hover{background:var(--panel-2);}
+  .navItem.active{background:var(--panel-2); border-color:var(--line);}
+  .navItem .t{font-weight:600; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .navItem .s{font-size:11.5px; color:var(--muted); margin-top:2px;}
+  .main{padding:20px 24px 60px; min-width:0;}
+  h1{font-family:var(--font-display); font-size:22px; font-weight:600;}
+  h2{font-family:var(--font-display); font-size:16px; font-weight:600; margin:22px 0 10px;}
+  .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 16px;}
+  .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:12px;}
+  .kv{display:grid; grid-template-columns:140px 1fr; gap:6px 12px; font-size:13px;}
+  .kv dt{color:var(--muted);}
+  .bar{display:flex; height:8px; border-radius:4px; overflow:hidden; background:var(--line-soft); margin:10px 0 6px;}
+  .bar span{display:block; height:100%;}
+  .legend{display:flex; gap:10px; flex-wrap:wrap; font-size:11.5px; color:var(--muted);}
+  .legend i{display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:4px; vertical-align:0;}
+  .st-implemented{--c:var(--clear);} .st-partial{--c:var(--watch);} .st-not_implemented{--c:var(--high);}
+  .st-inherited{--c:var(--signal);} .st-na{--c:var(--dim);} .st-impractical{--c:#a78bfa;} .st-not_assessed{--c:var(--line);}
+  .pill{display:inline-block; padding:1px 8px; border-radius:999px; font-size:11.5px; border:1px solid var(--c,var(--line)); color:var(--c,var(--muted)); white-space:nowrap;}
+  .st-not_assessed.pill{color:var(--muted);}
+  .sev-critical{--c:var(--critical);} .sev-high{--c:var(--high);} .sev-moderate{--c:var(--watch);} .sev-low{--c:var(--muted);}
+  .cia{display:inline-flex; gap:4px;}
+  .cia b{font-family:var(--font-mono); font-size:11px; padding:1px 6px; border-radius:4px; background:var(--panel-2); border:1px solid var(--line); font-weight:500;}
+  .cia b.high{color:var(--high);} .cia b.moderate{color:var(--watch);} .cia b.low{color:var(--clear);}
+
+  table{border-collapse:collapse; width:100%;}
+  th,td{text-align:left; padding:7px 8px; border-bottom:1px solid var(--line-soft); vertical-align:top; font-size:13px;}
+  th{font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:600; position:sticky; top:0; background:var(--bg); z-index:1;}
+  tbody tr.click{cursor:pointer;} tbody tr.click:hover{background:var(--panel-2);}
+  tr.sel{background:var(--panel-2);}
+  td.req{max-width:520px;}
+  td.req div{display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
+  .tableWrap{overflow:auto; max-height:calc(100vh - 140px);}
+
+  label.f{display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--muted);}
+  input[type=text],input[type=password],input[type=date],input[type=search],input[type=number],select,textarea{background:var(--panel-2); border:1px solid var(--line); border-radius:8px; padding:7px 9px; color:var(--text); font-size:13px; width:100%;}
+  textarea{min-height:70px; resize:vertical;}
+  input:focus,select:focus,textarea:focus{outline:none; border-color:var(--signal);}
+  .form{display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:10px;}
+  .form .wide{grid-column:1/-1;}
+  .filters{display:flex; gap:8px; flex-wrap:wrap; margin:12px 0;}
+  .filters select,.filters input{width:auto; min-width:140px;}
+
+  .drawer{position:fixed; top:0; right:0; bottom:0; width:min(620px,100vw); background:var(--panel); border-left:1px solid var(--line); z-index:40; overflow-y:auto; padding:18px 20px 40px; box-shadow:-30px 0 60px rgba(0,0,0,.3);}
+  .modalBack{position:fixed; inset:0; background:var(--overlay); z-index:30;}
+  .modal{position:fixed; top:5vh; left:50%; transform:translateX(-50%); width:min(980px,96vw); max-height:90vh; overflow:auto; background:var(--panel); border:1px solid var(--line); border-radius:14px; z-index:50; padding:18px 20px;}
+  .closeX{float:right; background:none; border:0; font-size:20px; cursor:pointer; color:var(--muted);}
+  .src{font-size:12px; border:1px solid var(--line); border-radius:8px; padding:8px 10px; background:var(--panel-2);}
+  .src div{display:grid; grid-template-columns:150px 1fr; gap:8px; padding:2px 0;}
+  .src div b{color:var(--muted); font-weight:500; overflow-wrap:anywhere;}
+  .src div span{overflow-wrap:anywhere; white-space:pre-wrap;}
+  .ev{display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--line-soft); font-size:12.5px;}
+  .ev .n{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .toast{position:fixed; bottom:18px; left:50%; transform:translateX(-50%); background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px 16px; z-index:60; box-shadow:0 8px 24px rgba(0,0,0,.3); max-width:90vw;}
+  .toast.err{border-color:var(--critical); color:var(--critical);}
+  .auth{max-width:420px; margin:10vh auto; }
+  .auth .card{padding:24px;}
+  .note{font-size:12.5px; color:var(--muted); line-height:1.5;}
+  .banner{font-size:12px; border:1px dashed var(--line); border-radius:8px; padding:8px 10px; color:var(--muted);}
+  .marking{text-align:center; font-weight:700; letter-spacing:.08em; font-size:12px; padding:4px; border:1px solid var(--line); border-radius:6px; margin-bottom:10px;}
+  .empty{padding:30px; text-align:center; color:var(--muted); border:1px dashed var(--line); border-radius:12px;}
+  .mapTable td,.mapTable th{font-size:12px; padding:4px 6px; white-space:nowrap; max-width:220px; overflow:hidden; text-overflow:ellipsis;}
+  .mapTable th{position:static;}
+  .mapTable th.mapped{color:var(--signal);}
+
+  /* Printable report */
+  .report{max-width:960px;}
+  .report h1{font-size:20px;}
+  .report table th{position:static;}
+  @media print{
+    html,body{background:#fff !important; color:#000 !important;}
+    html[data-theme]{--text:#000; --muted:#444; --dim:#666; --line:#bbb; --line-soft:#ddd; --panel:#fff; --panel-2:#fff; --bg:#fff;
+      --clear:#1E7A47; --watch:#8A5A00; --high:#B23A1B; --critical:#A0102F; --signal:#0B6E65;}
+    .report{max-width:none;}
+    .report th,.report td{font-size:11px; padding:4px 5px;}
+    .bar,.legend i,.bar span{-webkit-print-color-adjust:exact; print-color-adjust:exact;}
+    .topbar,.side,.noprint,.toast{display:none !important;}
+    .layout{display:block;}
+    .main{padding:0;}
+    .report .card{break-inside:avoid; border-color:#bbb;}
+    th{position:static;}
+    .marking{border-color:#000;}
+  }
+  @media (max-width:820px){
+    .layout{grid-template-columns:1fr;}
+    .side{border-right:0; border-bottom:1px solid var(--line);}
+    .main{padding:16px;}
+    .kv{grid-template-columns:110px 1fr;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar" id="topbar" hidden>
+  <div class="brand"><img src="logo-icon.png" alt="">EAGLE TALON <span class="chip" style="color:var(--signal); border-color:var(--signal);">OT</span> <span class="sub" data-t="tagline">Control-system security assessments</span></div>
+  <div class="spacer"></div>
+  <a class="btn small" id="talonLink" href="index.html" hidden data-t="back_talon">← Talon</a>
+  <span class="chip" id="whoChip"></span>
+  <div class="toggle"><button id="lang-en" class="active">EN</button><button id="lang-ja">日本語</button></div>
+  <button class="btn small" id="themeBtn" title="Light / dark">◐</button>
+  <button class="btn small" id="logoutBtn" data-t="logout">Log out</button>
+</div>
+
+<div id="authView" class="auth" hidden></div>
+
+<div class="layout" id="appView" hidden>
+  <aside class="side">
+    <div class="row" style="justify-content:space-between;"><h3 data-t="engagements">Engagements</h3>
+      <button class="btn small" id="newEngBtn" data-role="edit" data-t="new">+ New</button></div>
+    <div id="engList"></div>
+    <div data-role="admin" style="margin-top:auto; display:flex; flex-direction:column; gap:4px;">
+      <h3 data-t="admin">Admin</h3>
+      <button class="navItem" data-nav="users"><div class="t" data-t="users">Users</div></button>
+      <button class="navItem" data-nav="audit"><div class="t" data-t="audit">Audit log</div></button>
+    </div>
+    <button class="navItem" data-nav="help"><div class="t" data-t="help">How this works</div></button>
+  </aside>
+  <main class="main" id="main"></main>
+</div>
+
+<div id="overlay"></div>
+
+<script>
+'use strict';
+/* Eagle Talon OT — single-file UI. Every value that came from a person or a
+   spreadsheet goes through escH() or textContent, never raw innerHTML. */
+
+// ------------------------------------------------------------------ i18n
+const STR = {
+  en: {
+    tagline:'Control-system security assessments', back_talon:'← Talon', logout:'Log out', engagements:'Engagements',
+    new:'+ New', admin:'Admin', users:'Users', audit:'Audit log', help:'How this works',
+    setup_h:'Set up Talon OT', setup_p:'Create the first administrator. Only this first account can be made without a login.',
+    login_h:'Log in to Talon OT', username:'Username', password:'Password', setup_code:'Setup code',
+    setup_code_p:'This site needs a setup code (OT_SETUP_CODE) to create the first admin.', create_admin:'Create admin and log in',
+    login:'Log in', pw_rule:'At least 12 characters. A passphrase is fine.', ot_off:'Talon OT is not switched on for this server (OT_ENABLED=on).',
+    no_eng:'No engagements yet. Create one for each site or contract you assess.', no_systems:'No systems yet. Add one per control system you assess (for example the HVAC/BAS or the fire alarm panel).',
+    name:'Name', client:'Client', site:'Site', contract:'Contract / task order', marking:'Marking', ai_allowed:'AI help allowed',
+    notes:'Notes', save:'Save', cancel:'Cancel', delete:'Delete', edit:'Edit', create:'Create',
+    new_eng:'New engagement', new_sys:'+ Add system', sys_h:'Systems', export_xlsx:'⬇ Export spreadsheet', report:'Report',
+    del_eng_q:'Delete this engagement, all its systems, checklist items and evidence records? This cannot be undone.',
+    del_sys_q:'Delete this system and its checklist? This cannot be undone.', del_item_q:'Delete this checklist item?',
+    del_ev_q:'Remove this evidence file from the item?',
+    system_type:'System type', phase:'Design phase', impact:'Impact (C / I / A)', impact_c:'Confidentiality', impact_i:'Integrity',
+    impact_a:'Availability', impact_set_by:'Impact set by', impact_note:'Per UFC 4-010-06 the System Owner sets the impact, with the Authorizing Official’s concurrence. Record who did.',
+    open_checklist:'Open checklist →', items:'items', evidence:'evidence', imported_from:'Imported from',
+    checklist:'Checklist', import:'⬆ Import spreadsheet', add_item:'+ Add item', all_statuses:'All statuses', all_categories:'All categories',
+    all_levels:'All levels', search:'Search ref, control, text…', showing:'Showing {n} of {t}', no_items:'No checklist items yet. Import the client’s spreadsheet or add items by hand.',
+    f_ref:'Ref / CCI', f_control:'Control', f_requirement:'Requirement', f_category:'CCI category', f_responsible:'Responsible',
+    f_level:'UFC level', f_status:'Status', f_owner:'Owner', f_notes:'Notes', f_finding:'Finding', f_remediation:'Remediation',
+    f_severity:'Severity', f_due_date:'Due date', original_row:'Original spreadsheet row', ev_h:'Evidence', ev_add:'Attach file',
+    ev_note:'What does this show?', ev_rule:'Photos, screenshots, PDFs, configs, logs, captures. Up to 25 MB. Files are hashed (SHA-256) and the hash goes in the export.',
+    ev_none:'No evidence attached.', view:'View', download:'Download', saved:'Saved', item_h:'Checklist item',
+    updated:'Updated {at} by {by}', prev:'← Prev', next:'Next →',
+    imp_h:'Import a checklist', imp_p:'Choose the client’s spreadsheet (.xlsx or .csv). Talon reads values only (never formulas or macros), keeps every original cell, and can export the same layout back with your answers filled in.',
+    imp_file:'Spreadsheet', imp_sheet:'Sheet', imp_header:'Header row', imp_map:'Which column is which?', imp_unmapped:'— not in this file —',
+    imp_rows:'{n} rows will be imported into “{sys}”.', imp_go:'Import {n} rows', imp_done:'Imported {n} rows.', imp_sample:'First rows, as Talon will read them',
+    imp_hint:'Talon guessed the header row and columns from the headings. Check them; the highlighted columns are mapped.',
+    users_h:'Users', add_user:'Add user', role:'Role', disabled:'Disabled', enable:'Enable', disable:'Disable', reset_pw:'Reset password',
+    new_pw_q:'New password for {u} (at least 12 characters):', role_admin:'Admin — everything, including users, deletes and the audit log',
+    role_assessor:'Assessor — create and edit engagements, checklists and evidence', role_viewer:'Viewer — read and export only',
+    audit_h:'Audit log', at:'When', actor:'Who', action:'Action', object:'Object', detail:'Detail',
+    report_h:'Assessment report', generated:'Generated', print:'Print / save as PDF', open_items:'Open items (POA&M)',
+    no_open:'No open items.', back:'← Back', summary:'Summary', total:'Total',
+    help_h:'How Talon OT works',
+    help_body:'<p>Talon OT tracks a cybersecurity assessment of facility-related control systems (FRCS) against <b>UFC 4-010-06</b> and the NIST SP 800-82 / RMF overlays.</p>'+
+      '<ol><li><b>Engagement</b>: one site or contract. Set the marking (for example CUI) so every export carries it.</li>'+
+      '<li><b>System</b>: one control system: HVAC/BAS, electrical, fire alarm, UMCS… Record its C-I-A impact and who set it.</li>'+
+      '<li><b>Checklist</b>: import the client’s own spreadsheet. Talon maps the columns, keeps the original cells, and normalises the answers (Yes/No/Partial, ○/×/△, 適合/不適合…).</li>'+
+      '<li><b>Assess</b>: set each item’s status, write findings and remediation, attach evidence.</li>'+
+      '<li><b>Deliver</b>: export the spreadsheet (their layout + Talon columns + POA&M + summary) or print the report.</li></ol>'+
+      '<p><b>What Talon OT never does:</b> it never connects to, scans or writes to a control system. It doesn’t ship CCI content, so import the list you are given. Nothing leaves this server; AI help is off unless an engagement allows it.</p>',
+    err_net:'Couldn’t reach the server.', session_over:'Your session ended. Log in again.',
+    lvl:'Level', none:'—',
+  },
+  ja: {
+    tagline:'制御システム セキュリティ評価', back_talon:'← Talon', logout:'ログアウト', engagements:'案件',
+    new:'+ 新規', admin:'管理', users:'ユーザー', audit:'監査ログ', help:'使い方',
+    setup_h:'Talon OT の初期設定', setup_p:'最初の管理者を作成します。ログインなしで作成できるのはこの最初のアカウントだけです。',
+    login_h:'Talon OT にログイン', username:'ユーザー名', password:'パスワード', setup_code:'セットアップコード',
+    setup_code_p:'最初の管理者の作成にはセットアップコード（OT_SETUP_CODE）が必要です。', create_admin:'管理者を作成してログイン',
+    login:'ログイン', pw_rule:'12文字以上。パスフレーズでも構いません。', ot_off:'このサーバーでは Talon OT が有効になっていません（OT_ENABLED=on）。',
+    no_eng:'案件がまだありません。評価するサイトや契約ごとに作成してください。', no_systems:'システムがまだありません。評価する制御システムごとに追加してください（例：空調/BAS、火災報知設備）。',
+    name:'名称', client:'顧客', site:'サイト', contract:'契約 / タスクオーダー', marking:'表示区分', ai_allowed:'AI 支援を許可',
+    notes:'メモ', save:'保存', cancel:'キャンセル', delete:'削除', edit:'編集', create:'作成',
+    new_eng:'新しい案件', new_sys:'+ システム追加', sys_h:'システム', export_xlsx:'⬇ スプレッドシート出力', report:'レポート',
+    del_eng_q:'この案件と、そのシステム・チェック項目・証跡記録をすべて削除しますか？元に戻せません。',
+    del_sys_q:'このシステムとチェックリストを削除しますか？元に戻せません。', del_item_q:'このチェック項目を削除しますか？',
+    del_ev_q:'この証跡ファイルを項目から外しますか？',
+    system_type:'システム種別', phase:'設計フェーズ', impact:'影響度（C / I / A）', impact_c:'機密性', impact_i:'完全性',
+    impact_a:'可用性', impact_set_by:'影響度の決定者', impact_note:'UFC 4-010-06 では、影響度はシステムオーナーが認可権者（AO）の同意を得て決定します。決定者を記録してください。',
+    open_checklist:'チェックリストを開く →', items:'項目', evidence:'証跡', imported_from:'取込元',
+    checklist:'チェックリスト', import:'⬆ スプレッドシート取込', add_item:'+ 項目追加', all_statuses:'すべての状態', all_categories:'すべての区分',
+    all_levels:'すべてのレベル', search:'番号・管理策・本文を検索…', showing:'{t} 件中 {n} 件を表示', no_items:'チェック項目がまだありません。顧客のスプレッドシートを取り込むか、手で追加してください。',
+    f_ref:'番号 / CCI', f_control:'管理策', f_requirement:'要件', f_category:'CCI 区分', f_responsible:'責任者区分',
+    f_level:'UFC レベル', f_status:'状態', f_owner:'担当者', f_notes:'メモ', f_finding:'指摘事項', f_remediation:'是正措置',
+    f_severity:'重要度', f_due_date:'期限', original_row:'元のスプレッドシート行', ev_h:'証跡', ev_add:'ファイルを添付',
+    ev_note:'何を示す証跡ですか？', ev_rule:'写真、スクリーンショット、PDF、設定、ログ、キャプチャ。25 MB まで。ファイルは SHA-256 でハッシュされ、出力に記載されます。',
+    ev_none:'証跡はありません。', view:'表示', download:'ダウンロード', saved:'保存しました', item_h:'チェック項目',
+    updated:'{at} に {by} が更新', prev:'← 前', next:'次 →',
+    imp_h:'チェックリストを取り込む', imp_p:'顧客のスプレッドシート（.xlsx または .csv）を選択します。Talon は値のみを読み取り（数式やマクロは読みません）、元のセルをすべて保持し、同じレイアウトに回答を入れて出力できます。',
+    imp_file:'スプレッドシート', imp_sheet:'シート', imp_header:'見出し行', imp_map:'どの列が何か',
+    imp_unmapped:'— このファイルにはない —', imp_rows:'{n} 行を「{sys}」に取り込みます。', imp_go:'{n} 行を取り込む', imp_done:'{n} 行を取り込みました。',
+    imp_sample:'Talon が読み取る最初の行', imp_hint:'見出しから見出し行と列を推定しました。確認してください。色の付いた列が対応付け済みです。',
+    users_h:'ユーザー', add_user:'ユーザー追加', role:'権限', disabled:'無効', enable:'有効化', disable:'無効化', reset_pw:'パスワード再設定',
+    new_pw_q:'{u} の新しいパスワード（12文字以上）：', role_admin:'管理者 — ユーザー管理、削除、監査ログを含むすべて',
+    role_assessor:'評価者 — 案件・チェックリスト・証跡の作成と編集', role_viewer:'閲覧者 — 閲覧と出力のみ',
+    audit_h:'監査ログ', at:'日時', actor:'実行者', action:'操作', object:'対象', detail:'詳細',
+    report_h:'評価レポート', generated:'作成日時', print:'印刷 / PDF 保存', open_items:'未対応項目（POA&M）',
+    no_open:'未対応項目はありません。', back:'← 戻る', summary:'概要', total:'合計',
+    help_h:'Talon OT の使い方',
+    help_body:'<p>Talon OT は、施設関連制御システム（FRCS）のサイバーセキュリティ評価を <b>UFC 4-010-06</b> と NIST SP 800-82 / RMF オーバーレイに沿って管理します。</p>'+
+      '<ol><li><b>案件</b>：サイトまたは契約ごと。表示区分（例：CUI）を設定すると、すべての出力に記載されます。</li>'+
+      '<li><b>システム</b>：制御システムごと（空調/BAS、電力、火災報知、UMCS…）。C-I-A 影響度と決定者を記録します。</li>'+
+      '<li><b>チェックリスト</b>：顧客のスプレッドシートを取り込みます。列を対応付け、元のセルを保持し、回答（Yes/No/Partial、○/×/△、適合/不適合…）を正規化します。</li>'+
+      '<li><b>評価</b>：各項目の状態、指摘事項、是正措置を記入し、証跡を添付します。</li>'+
+      '<li><b>納品</b>：スプレッドシート（顧客のレイアウト＋Talon 列＋POA&M＋概要）を出力するか、レポートを印刷します。</li></ol>'+
+      '<p><b>Talon OT がしないこと：</b>制御システムへの接続・スキャン・書き込みは一切しません。CCI の内容は同梱していないので、提供されたリストを取り込んでください。データはこのサーバーから外に出ません。AI 支援は案件で許可しない限りオフです。</p>',
+    err_net:'サーバーに接続できません。', session_over:'セッションが終了しました。再度ログインしてください。',
+    lvl:'レベル', none:'—',
+  },
+};
+const LABELS = {
+  en: {
+    status:{not_assessed:'Not assessed', implemented:'Implemented', partial:'Partial', not_implemented:'Not implemented', inherited:'Inherited', na:'N/A', impractical:'Impractical'},
+    category:{dod_defined:'DoD-Defined', designer:'Designer', non_designer:'Non-Designer', platform_enclave:'Platform Enclave', impractical:'Impractical'},
+    system_type:{hvac_bas:'HVAC / BAS', electrical_power:'Electrical power', generator:'Generator', fire_suppression:'Fire suppression', fire_alarm:'Fire alarm', umcs:'UMCS', lighting:'Lighting control', elevator:'Elevator', access_control:'Access control', water_wastewater:'Water / wastewater', utility_metering:'Utility metering', other:'Other'},
+    phase:{basis_of_design:'Basis of Design', concept:'Concept', interim:'Interim', final:'Final', ifc:'Issued for Construction', construction:'Construction', commissioning:'Commissioning', operations:'Operations'},
+    impact:{low:'Low', moderate:'Moderate', high:'High'},
+    severity:{low:'Low', moderate:'Moderate', high:'High', critical:'Critical'},
+    role:{admin:'Admin', assessor:'Assessor', viewer:'Viewer'},
+    level:{'0':'0 — sensors & actuators','1':'1 — non-IP field','2':'2 — IP field','3':'3 — FPOC','4':'4 — front end & network','5':'5 — external'},
+  },
+  ja: {
+    status:{not_assessed:'未評価', implemented:'実施済み', partial:'一部実施', not_implemented:'未実施', inherited:'継承', na:'対象外', impractical:'実施困難'},
+    category:{dod_defined:'DoD 定義', designer:'設計者', non_designer:'非設計者', platform_enclave:'プラットフォーム/エンクレーブ', impractical:'実施困難'},
+    system_type:{hvac_bas:'空調 / BAS', electrical_power:'電力', generator:'発電機', fire_suppression:'消火設備', fire_alarm:'火災報知', umcs:'UMCS', lighting:'照明制御', elevator:'昇降機', access_control:'入退室管理', water_wastewater:'上下水道', utility_metering:'計量', other:'その他'},
+    phase:{basis_of_design:'設計基準', concept:'基本設計', interim:'中間', final:'最終', ifc:'施工用（IFC）', construction:'施工', commissioning:'試運転', operations:'運用'},
+    impact:{low:'低', moderate:'中', high:'高'},
+    severity:{low:'低', moderate:'中', high:'高', critical:'緊急'},
+    role:{admin:'管理者', assessor:'評価者', viewer:'閲覧者'},
+    level:{'0':'0 — センサー・アクチュエーター','1':'1 — 非 IP フィールド','2':'2 — IP フィールド','3':'3 — FPOC','4':'4 — フロントエンド・ネットワーク','5':'5 — 外部'},
+  },
+};
+let LANG = 'en';
+function t(k){ return (STR[LANG] && STR[LANG][k]) ?? STR.en[k] ?? k; }
+function tf(k, vars){ let s = t(k); Object.entries(vars||{}).forEach(([a,b])=>{ s = s.split('{'+a+'}').join(String(b)); }); return s; }
+function L(group, code){ if(code==null || code==='') return t('none'); return (LABELS[LANG][group]||{})[code] ?? (LABELS.en[group]||{})[code] ?? code; }
+function escH(v){ return String(v ?? '').replace(/[&<>"'`]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;'}[c])); }
+function $(s, el=document){ return el.querySelector(s); }
+function $$(s, el=document){ return [...el.querySelectorAll(s)]; }
+function store(k, v){ try{ if(v===undefined) return localStorage.getItem(k); localStorage.setItem(k, v); }catch(e){ return null; } }
+function sstore(k, v){ try{ if(v===undefined) return sessionStorage.getItem(k); if(v===null) sessionStorage.removeItem(k); else sessionStorage.setItem(k, v); }catch(e){ return null; } }
+function fmtDate(iso){ if(!iso) return '—'; try{ return new Date(iso).toLocaleString(LANG==='ja'?'ja-JP':undefined, {dateStyle:'medium', timeStyle:'short'}); }catch(e){ return iso; } }
+function fmtSize(n){ return n>1048576 ? (n/1048576).toFixed(1)+' MB' : n>1024 ? Math.round(n/1024)+' KB' : n+' B'; }
+
+// ------------------------------------------------------------------ state + API
+const S = { token: sstore('ot_token'), me:null, meta:null, engagements:[], eng:null, sys:null, items:[], filters:{status:'',category:'',level:'',q:''}, view:'home', itemId:null };
+const API = 'api/ot';
+class ApiError extends Error { constructor(status, msg){ super(msg); this.status = status; } }
+
+async function api(path, opts={}){
+  const headers = Object.assign({}, opts.headers||{});
+  if(S.token) headers['Authorization'] = 'Bearer ' + S.token;
+  let body = opts.body;
+  if(body && !(body instanceof FormData) && typeof body !== 'string'){ body = JSON.stringify(body); headers['Content-Type'] = 'application/json'; }
+  let r;
+  try{ r = await fetch(API + path, {method: opts.method || (body ? 'POST' : 'GET'), headers, body}); }
+  catch(e){ throw new ApiError(0, t('err_net')); }
+  if(r.status === 401 && path !== '/login' && path !== '/setup'){ endSession(t('session_over')); throw new ApiError(401, t('session_over')); }
+  if(opts.raw){ if(!r.ok) throw new ApiError(r.status, await errText(r)); return r; }
+  if(!r.ok) throw new ApiError(r.status, await errText(r));
+  return r.json();
+}
+async function errText(r){
+  try{ const j = await r.json(); if(typeof j.detail === 'string') return j.detail; if(Array.isArray(j.detail)) return j.detail.map(d=>d.msg).join('; '); }catch(e){}
+  return 'HTTP ' + r.status;
+}
+function toast(msg, err){
+  $$('.toast').forEach(x=>x.remove());
+  const el = document.createElement('div'); el.className = 'toast' + (err ? ' err' : ''); el.textContent = msg;
+  document.body.appendChild(el); setTimeout(()=>el.remove(), err ? 6000 : 2500);
+}
+async function guarded(fn){ try{ return await fn(); }catch(e){ if(e.status !== 401) toast(e.message || String(e), true); } }
+const canEdit = ()=> S.me && (S.me.role === 'admin' || S.me.role === 'assessor');
+const isAdmin = ()=> S.me && S.me.role === 'admin';
+
+async function download(path, fallbackName){
+  const r = await api(path, {raw:true});
+  const blob = await r.blob();
+  const cd = r.headers.get('Content-Disposition') || '';
+  let name = fallbackName;
+  const m = cd.match(/filename\*=UTF-8''([^;]+)/i) || cd.match(/filename="([^"]+)"/i);
+  if(m){ try{ name = decodeURIComponent(m[1]); }catch(e){ name = m[1]; } }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 30000);
+}
+
+// ------------------------------------------------------------------ theme + language
+function setTheme(th){ document.documentElement.dataset.theme = th; store('ot_theme', th); $('#themeBtn').textContent = th === 'dark' ? '◐' : '◑'; }
+function setLang(lang){
+  LANG = lang; document.documentElement.lang = lang; store('ot_lang', lang);
+  $('#lang-en').classList.toggle('active', lang==='en'); $('#lang-ja').classList.toggle('active', lang==='ja');
+  $$('[data-t]').forEach(el=>{ el.textContent = t(el.dataset.t); });
+  if(S.me) render(); else showAuth();
+}
+$('#themeBtn').onclick = ()=> setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+$('#lang-en').onclick = ()=> setLang('en');
+$('#lang-ja').onclick = ()=> setLang('ja');
+
+// ------------------------------------------------------------------ auth
+function endSession(msg){
+  S.token = null; S.me = null; sstore('ot_token', null);
+  closeOverlay(); showAuth(msg);
+}
+async function showAuth(msg){
+  $('#topbar').hidden = false; $('#appView').hidden = true; $('#authView').hidden = false;
+  $('#whoChip').hidden = true; $('#logoutBtn').hidden = true;
+  const v = $('#authView');
+  if(!S.meta){
+    try{ S.meta = await api('/status'); }
+    catch(e){ v.innerHTML = `<div class="card"><h1>Talon OT</h1><p class="note" style="margin-top:10px;">${escH(e.status===404 ? t('ot_off') : e.message)}</p></div>`; return; }
+  }
+  const setup = !S.meta.users_exist;
+  v.innerHTML = `<div class="card">
+    <h1>${escH(t(setup ? 'setup_h' : 'login_h'))}</h1>
+    ${setup ? `<p class="note" style="margin:8px 0 0;">${escH(t('setup_p'))}</p>` : ''}
+    ${msg ? `<p class="note" style="margin-top:8px; color:var(--watch);">${escH(msg)}</p>` : ''}
+    <form id="authForm" style="display:flex; flex-direction:column; gap:12px; margin-top:16px;">
+      <label class="f">${escH(t('username'))}<input type="text" name="username" autocomplete="username" required minlength="3" maxlength="40"></label>
+      <label class="f">${escH(t('password'))}<input type="password" name="password" autocomplete="${setup?'new-password':'current-password'}" required ${setup?'minlength="12"':''}>
+        ${setup ? `<span class="dim">${escH(t('pw_rule'))}</span>` : ''}</label>
+      ${setup && S.meta.setup_code_required ? `<label class="f">${escH(t('setup_code'))}<input type="password" name="code" required><span class="dim">${escH(t('setup_code_p'))}</span></label>` : ''}
+      <button class="btn primary" type="submit">${escH(t(setup ? 'create_admin' : 'login'))}</button>
+    </form></div>`;
+  $('#authForm').onsubmit = async ev=>{
+    ev.preventDefault();
+    const f = new FormData(ev.target);
+    const body = {username: f.get('username').trim(), password: f.get('password'), code: f.get('code') || null};
+    await guarded(async ()=>{
+      const r = await api(setup ? '/setup' : '/login', {body});
+      S.token = r.token; sstore('ot_token', r.token);
+      S.meta.users_exist = true;
+      await start();
+    });
+  };
+  setTimeout(()=>{ const u = $('#authForm input[name=username]'); if(u) u.focus(); }, 0);
+}
+$('#logoutBtn').onclick = async ()=>{ try{ await api('/logout', {method:'POST'}); }catch(e){} endSession(); };
+
+async function start(){
+  try{ S.meta = S.meta || await api('/status'); }catch(e){ return showAuth(); }
+  if(!S.token) return showAuth();
+  try{ S.me = await api('/me'); }catch(e){ return; }
+  $('#authView').hidden = true; $('#appView').hidden = false; $('#topbar').hidden = false;
+  $('#logoutBtn').hidden = false; $('#whoChip').hidden = false;
+  $('#whoChip').textContent = S.me.username + ' · ' + L('role', S.me.role);
+  $$('[data-role=admin]').forEach(el=> el.hidden = !isAdmin());
+  $$('[data-role=edit]').forEach(el=> el.hidden = !canEdit());
+  await loadEngagements();
+  route();
+}
+
+// ------------------------------------------------------------------ routing (hash)
+function go(hash){ if(location.hash === hash) route(); else location.hash = hash; }
+window.addEventListener('hashchange', ()=>{ if(S.me) route(); });
+async function route(){
+  closeOverlay();
+  const h = location.hash.replace(/^#\/?/, '').split('/');
+  await guarded(async ()=>{
+    if(h[0] === 'e' && h[1]){ await openEngagement(+h[1], h[2] === 'report'); }
+    else if(h[0] === 's' && h[1]){ await openSystem(+h[1]); }
+    else if(h[0] === 'users' && isAdmin()){ S.view = 'users'; await renderUsers(); }
+    else if(h[0] === 'audit' && isAdmin()){ S.view = 'audit'; await renderAudit(); }
+    else if(h[0] === 'help'){ S.view = 'help'; renderHelp(); }
+    else { S.view = 'home'; S.eng = null; renderHome(); }
+  });
+  renderSide();
+}
+function render(){ renderSide(); route(); }
+
+// ------------------------------------------------------------------ sidebar
+async function loadEngagements(){ S.engagements = (await api('/engagements')).engagements; }
+function renderSide(){
+  const list = $('#engList');
+  if(!S.engagements.length){ list.innerHTML = `<p class="note">${escH(t('no_eng'))}</p>`; }
+  else list.innerHTML = S.engagements.map(e=>{
+    const total = Object.values(e.counts||{}).reduce((a,b)=>a+b, 0);
+    const done = total - (e.counts?.not_assessed || 0);
+    const active = S.eng && S.eng.id === e.id;
+    return `<button class="navItem ${active?'active':''}" data-eng="${e.id}">
+      <div class="t">${escH(e.name)}</div>
+      <div class="s">${escH(e.client || e.site || '')}${(e.client||e.site)?' · ':''}${e.systems} ${escH(t('sys_h').toLowerCase())} · ${done}/${total}</div></button>`;
+  }).join('');
+  $$('[data-eng]', list).forEach(b=> b.onclick = ()=> go('#/e/' + b.dataset.eng));
+  $$('[data-nav]').forEach(b=>{ b.classList.toggle('active', S.view === b.dataset.nav); b.onclick = ()=> go('#/' + b.dataset.nav); });
+}
+$('#newEngBtn').onclick = ()=> engagementForm(null);
+
+// ------------------------------------------------------------------ shared bits
+function statusBar(counts){
+  const total = Object.values(counts||{}).reduce((a,b)=>a+b, 0) || 1;
+  const order = ['implemented','inherited','partial','not_implemented','impractical','na','not_assessed'];
+  return `<div class="bar">${order.map(k=> counts[k] ? `<span class="st-${k}" style="width:${(counts[k]/total*100).toFixed(2)}%; background:var(--c);" title="${escH(L('status',k))}: ${counts[k]}"></span>` : '').join('')}</div>
+    <div class="legend">${order.filter(k=>counts[k]).map(k=>`<span class="st-${k}"><i style="background:var(--c)"></i>${escH(L('status',k))} ${counts[k]}</span>`).join('')}</div>`;
+}
+function ciaHtml(s){ return `<span class="cia" title="${escH(t('impact'))}">${['c','i','a'].map(x=>`<b class="${escH(s['impact_'+x]||'')}">${x.toUpperCase()}:${escH(s['impact_'+x] ? L('impact', s['impact_'+x]) : '—')}</b>`).join('')}</span>`; }
+function opts(group, list, cur, blank){ return (blank!==undefined ? `<option value="">${escH(blank)}</option>` : '') + list.map(v=>`<option value="${escH(v)}" ${v===cur?'selected':''}>${escH(L(group, v))}</option>`).join(''); }
+function closeOverlay(){ $('#overlay').innerHTML = ''; S.itemId = null; $$('tr.sel').forEach(r=>r.classList.remove('sel')); }
+function modal(html){
+  $('#overlay').innerHTML = `<div class="modalBack"></div><div class="modal" role="dialog" aria-modal="true"><button class="closeX" aria-label="close">×</button>${html}</div>`;
+  $('#overlay .modalBack').onclick = closeOverlay; $('#overlay .closeX').onclick = closeOverlay;
+  return $('#overlay .modal');
+}
+document.addEventListener('keydown', e=>{ if(e.key === 'Escape' && $('#overlay').innerHTML) closeOverlay(); });
+
+// ------------------------------------------------------------------ home + help
+function renderHome(){
+  const m = $('#main');
+  if(!S.engagements.length){
+    m.innerHTML = `<h1>${escH(t('engagements'))}</h1><div class="empty" style="margin-top:16px;">${escH(t('no_eng'))}
+      ${canEdit() ? `<div style="margin-top:12px;"><button class="btn primary" id="homeNew">${escH(t('new_eng'))}</button></div>` : ''}</div>
+      <h2>${escH(t('help_h'))}</h2><div class="card note">${t('help_body')}</div>`;
+    const b = $('#homeNew'); if(b) b.onclick = ()=> engagementForm(null);
+    return;
+  }
+  m.innerHTML = `<h1>${escH(t('engagements'))}</h1><div class="grid" style="margin-top:16px;">${S.engagements.map(e=>`
+    <div class="card" style="cursor:pointer;" data-open="${e.id}">
+      <div class="row" style="justify-content:space-between;"><b>${escH(e.name)}</b>${e.marking ? `<span class="chip">${escH(e.marking)}</span>` : ''}</div>
+      <div class="note" style="margin-top:4px;">${escH([e.client, e.site].filter(Boolean).join(' · ') || '—')}</div>
+      ${statusBar(e.counts)}
+    </div>`).join('')}</div>`;
+  $$('[data-open]', m).forEach(c=> c.onclick = ()=> go('#/e/' + c.dataset.open));
+}
+function renderHelp(){ $('#main').innerHTML = `<h1>${escH(t('help_h'))}</h1><div class="card note" style="margin-top:16px; max-width:820px; line-height:1.7;">${t('help_body')}</div>`; }
+
+// ------------------------------------------------------------------ engagement
+async function openEngagement(id, report){
+  S.eng = await api('/engagements/' + id);
+  S.view = 'eng';
+  if(report) return renderReport(id);
+  const e = S.eng, m = $('#main');
+  m.innerHTML = `
+    ${e.marking ? `<div class="marking">${escH(e.marking)}</div>` : ''}
+    <div class="row" style="justify-content:space-between;">
+      <div><h1>${escH(e.name)}</h1><div class="note">${escH([e.client, e.site, e.contract_ref].filter(Boolean).join(' · '))}</div></div>
+      <div class="row">
+        ${canEdit() ? `<button class="btn" id="engEdit">${escH(t('edit'))}</button>` : ''}
+        <button class="btn" id="engReport">${escH(t('report'))}</button>
+        <button class="btn primary" id="engExport">${escH(t('export_xlsx'))}</button>
+        ${isAdmin() ? `<button class="btn danger" id="engDel">${escH(t('delete'))}</button>` : ''}
+      </div>
+    </div>
+    ${e.notes ? `<p class="note" style="margin-top:10px; white-space:pre-wrap;">${escH(e.notes)}</p>` : ''}
+    <div class="row" style="justify-content:space-between; margin-top:10px;"><h2>${escH(t('sys_h'))}</h2>
+      ${canEdit() ? `<button class="btn" id="sysNew">${escH(t('new_sys'))}</button>` : ''}</div>
+    ${e.systems.length ? `<div class="grid">${e.systems.map(s=>{
+      const total = Object.values(s.counts).reduce((a,b)=>a+b,0);
+      return `<div class="card">
+        <div class="row" style="justify-content:space-between;"><b>${escH(s.name)}</b><span class="chip">${escH(L('system_type', s.system_type))}</span></div>
+        <div class="row" style="margin-top:8px; gap:8px;">${ciaHtml(s)}<span class="chip">${escH(L('phase', s.phase))}</span></div>
+        ${statusBar(s.counts)}
+        <div class="row" style="justify-content:space-between; margin-top:10px;">
+          <span class="note">${total} ${escH(t('items'))} · ${s.evidence} ${escH(t('evidence'))}${s.template ? ` · ${escH(t('imported_from'))} ${escH(s.template.filename)}` : ''}</span>
+          <button class="btn small" data-sys="${s.id}">${escH(t('open_checklist'))}</button></div>
+      </div>`; }).join('')}</div>` : `<div class="empty">${escH(t('no_systems'))}</div>`}`;
+  $$('[data-sys]', m).forEach(b=> b.onclick = ()=> go('#/s/' + b.dataset.sys));
+  $('#engExport').onclick = ()=> guarded(()=> download(`/engagements/${id}/export.xlsx`, 'talon-ot.xlsx'));
+  $('#engReport').onclick = ()=> go(`#/e/${id}/report`);
+  if($('#engEdit')) $('#engEdit').onclick = ()=> engagementForm(e);
+  if($('#sysNew')) $('#sysNew').onclick = ()=> systemForm(null);
+  if($('#engDel')) $('#engDel').onclick = ()=> guarded(async ()=>{
+    if(!confirm(t('del_eng_q'))) return;
+    await api('/engagements/' + id, {method:'DELETE'}); await loadEngagements(); go('#/');
+  });
+}
+
+function engagementForm(e){
+  const md = modal(`<h2 style="margin-top:0;">${escH(e ? t('edit') : t('new_eng'))}</h2>
+    <form id="engForm" class="form">
+      <label class="f wide">${escH(t('name'))}<input type="text" name="name" required maxlength="200" value="${escH(e?.name)}"></label>
+      <label class="f">${escH(t('client'))}<input type="text" name="client" maxlength="200" value="${escH(e?.client)}"></label>
+      <label class="f">${escH(t('site'))}<input type="text" name="site" maxlength="200" value="${escH(e?.site)}"></label>
+      <label class="f">${escH(t('contract'))}<input type="text" name="contract_ref" maxlength="200" value="${escH(e?.contract_ref)}"></label>
+      <label class="f">${escH(t('marking'))}<input type="text" name="marking" maxlength="80" placeholder="CUI" value="${escH(e?.marking)}"></label>
+      <label class="f wide">${escH(t('notes'))}<textarea name="notes" maxlength="2000">${escH(e?.notes)}</textarea></label>
+      <label class="row wide" style="font-size:13px;"><input type="checkbox" name="ai_allowed" ${e?.ai_allowed ? 'checked' : ''}> ${escH(t('ai_allowed'))}</label>
+      <div class="row wide" style="justify-content:flex-end;"><button type="button" class="btn" id="cancelBtn">${escH(t('cancel'))}</button>
+        <button class="btn primary" type="submit">${escH(e ? t('save') : t('create'))}</button></div>
+    </form>`);
+  $('#cancelBtn', md).onclick = closeOverlay;
+  $('#engForm', md).onsubmit = ev=>{ ev.preventDefault(); guarded(async ()=>{
+    const f = new FormData(ev.target);
+    const body = {name:f.get('name'), client:f.get('client'), site:f.get('site'), contract_ref:f.get('contract_ref'), marking:f.get('marking'), notes:f.get('notes'), ai_allowed: !!f.get('ai_allowed')};
+    let id = e?.id;
+    if(e) await api('/engagements/' + id, {method:'PATCH', body}); else id = (await api('/engagements', {body})).id;
+    await loadEngagements(); closeOverlay(); go('#/e/' + id); if(e) route();
+  }); };
+}
+
+function systemForm(s){
+  const ids = S.meta;
+  const md = modal(`<h2 style="margin-top:0;">${escH(s ? t('edit') : t('new_sys').replace('+ ',''))}</h2>
+    <form id="sysForm" class="form">
+      <label class="f wide">${escH(t('name'))}<input type="text" name="name" required maxlength="200" value="${escH(s?.name)}"></label>
+      <label class="f">${escH(t('system_type'))}<select name="system_type">${opts('system_type', ids.system_types, s?.system_type, '—')}</select></label>
+      <label class="f">${escH(t('phase'))}<select name="phase">${opts('phase', ids.phases, s?.phase, '—')}</select></label>
+      <label class="f">${escH(t('impact_c'))}<select name="impact_c">${opts('impact', ids.impact, s?.impact_c, '—')}</select></label>
+      <label class="f">${escH(t('impact_i'))}<select name="impact_i">${opts('impact', ids.impact, s?.impact_i, '—')}</select></label>
+      <label class="f">${escH(t('impact_a'))}<select name="impact_a">${opts('impact', ids.impact, s?.impact_a, '—')}</select></label>
+      <label class="f">${escH(t('impact_set_by'))}<input type="text" name="impact_set_by" maxlength="200" value="${escH(s?.impact_set_by)}"></label>
+      <p class="note wide">${escH(t('impact_note'))}</p>
+      <label class="f wide">${escH(t('notes'))}<textarea name="notes">${escH(s?.notes)}</textarea></label>
+      <div class="row wide" style="justify-content:space-between;">
+        <span>${s && isAdmin() ? `<button type="button" class="btn danger" id="sysDel">${escH(t('delete'))}</button>` : ''}</span>
+        <span class="row"><button type="button" class="btn" id="cancelBtn">${escH(t('cancel'))}</button>
+        <button class="btn primary" type="submit">${escH(s ? t('save') : t('create'))}</button></span></div>
+    </form>`);
+  $('#cancelBtn', md).onclick = closeOverlay;
+  if($('#sysDel', md)) $('#sysDel', md).onclick = ()=> guarded(async ()=>{
+    if(!confirm(t('del_sys_q'))) return;
+    await api('/systems/' + s.id, {method:'DELETE'}); await loadEngagements(); closeOverlay(); go('#/e/' + s.engagement_id);
+  });
+  $('#sysForm', md).onsubmit = ev=>{ ev.preventDefault(); guarded(async ()=>{
+    const f = new FormData(ev.target);
+    const body = {}; ['name','system_type','phase','impact_c','impact_i','impact_a','impact_set_by','notes'].forEach(k=> body[k] = f.get(k));
+    if(s){ await api('/systems/' + s.id, {method:'PATCH', body}); closeOverlay(); await openSystem(s.id); }
+    else { const r = await api(`/engagements/${S.eng.id}/systems`, {body}); await loadEngagements(); closeOverlay(); go('#/s/' + r.id); }
+  }); };
+}
+
+// ------------------------------------------------------------------ checklist
+async function openSystem(id){
+  const r = await api(`/systems/${id}/items`);
+  S.sys = r.system; S.items = r.items; S.view = 'sys';
+  if(!S.eng || S.eng.id !== S.sys.engagement_id) S.eng = await api('/engagements/' + S.sys.engagement_id);
+  renderSide();
+  renderSystem();
+}
+function itemCounts(){ const c = {}; S.meta.statuses.forEach(k=>c[k]=0); S.items.forEach(i=> c[i.status] = (c[i.status]||0)+1); return c; }
+function filtered(){
+  const f = S.filters, q = f.q.trim().toLowerCase();
+  return S.items.filter(i=> (!f.status || i.status === f.status) && (!f.category || i.category === f.category) && (!f.level || i.level === f.level) &&
+    (!q || [i.ref, i.control, i.requirement, i.notes, i.finding, i.owner].some(x=> (x||'').toLowerCase().includes(q))));
+}
+function renderSystem(){
+  const s = S.sys, e = S.eng, m = $('#main');
+  const cats = [...new Set(S.items.map(i=>i.category).filter(Boolean))];
+  m.innerHTML = `
+    ${e.marking ? `<div class="marking">${escH(e.marking)}</div>` : ''}
+    <div class="note"><a href="#/e/${e.id}">${escH(e.name)}</a> /</div>
+    <div class="row" style="justify-content:space-between; margin-top:2px;">
+      <div><h1>${escH(s.name)}</h1>
+        <div class="row" style="margin-top:6px; gap:8px;"><span class="chip">${escH(L('system_type', s.system_type))}</span><span class="chip">${escH(L('phase', s.phase))}</span>${ciaHtml(s)}
+        ${s.impact_set_by ? `<span class="note">${escH(t('impact_set_by'))}: ${escH(s.impact_set_by)}</span>` : ''}</div></div>
+      <div class="row">${canEdit() ? `<button class="btn" id="sysEdit">${escH(t('edit'))}</button>
+        <button class="btn" id="impBtn">${escH(t('import'))}</button><button class="btn" id="addItem">${escH(t('add_item'))}</button>` : ''}</div>
+    </div>
+    ${s.template ? `<p class="note" style="margin-top:8px;">${escH(t('imported_from'))} <span class="mono">${escH(s.template.filename)}</span> · ${escH(s.template.sheet)}</p>` : ''}
+    <div id="sysBar">${statusBar(itemCounts())}</div>
+    <div class="filters">
+      <input type="search" id="fq" placeholder="${escH(t('search'))}" value="${escH(S.filters.q)}" style="min-width:240px; flex:1;">
+      <select id="fs">${opts('status', S.meta.statuses, S.filters.status, t('all_statuses'))}</select>
+      <select id="fc"><option value="">${escH(t('all_categories'))}</option>${cats.map(c=>`<option value="${escH(c)}" ${c===S.filters.category?'selected':''}>${escH(L('category', c))}</option>`).join('')}</select>
+      <select id="fl">${opts('level', S.meta.levels, S.filters.level, t('all_levels'))}</select>
+    </div>
+    <div class="note" id="showing"></div>
+    <div class="tableWrap"><table><thead><tr>
+      <th>${escH(t('f_ref'))}</th><th>${escH(t('f_control'))}</th><th>${escH(t('f_requirement'))}</th><th>${escH(t('f_category'))}</th>
+      <th>${escH(t('lvl'))}</th><th>${escH(t('f_status'))}</th><th>${escH(t('f_severity'))}</th><th>📎</th></tr></thead><tbody id="itemRows"></tbody></table></div>`;
+  if($('#sysEdit')) $('#sysEdit').onclick = ()=> systemForm(s);
+  if($('#impBtn')) $('#impBtn').onclick = importWizard;
+  if($('#addItem')) $('#addItem').onclick = ()=> guarded(async ()=>{
+    const r = await api(`/systems/${s.id}/items`, {body:{status:'not_assessed'}});
+    await openSystem(s.id); openItem(r.id);
+  });
+  $('#fq').oninput = ev=>{ S.filters.q = ev.target.value; renderRows(); };
+  $('#fs').onchange = ev=>{ S.filters.status = ev.target.value; renderRows(); };
+  $('#fc').onchange = ev=>{ S.filters.category = ev.target.value; renderRows(); };
+  $('#fl').onchange = ev=>{ S.filters.level = ev.target.value; renderRows(); };
+  renderRows();
+}
+function renderRows(){
+  const rows = filtered(), body = $('#itemRows');
+  if(!body) return;
+  $('#showing').textContent = S.items.length ? tf('showing', {n: rows.length, t: S.items.length}) : '';
+  if(!S.items.length){ body.innerHTML = `<tr><td colspan="8"><div class="empty">${escH(t('no_items'))}</div></td></tr>`; return; }
+  body.innerHTML = rows.map(i=>`<tr class="click ${S.itemId===i.id?'sel':''}" data-item="${i.id}">
+    <td class="mono">${escH(i.ref || '')}</td><td class="mono">${escH(i.control || '')}</td>
+    <td class="req"><div>${escH(i.requirement || '')}</div></td>
+    <td>${i.category ? escH(L('category', i.category)) : '<span class="dim">—</span>'}</td>
+    <td class="mono">${escH(i.level ?? '')}</td>
+    <td><span class="pill st-${escH(i.status)}">${escH(L('status', i.status))}</span></td>
+    <td>${i.severity ? `<span class="pill sev-${escH(i.severity)}">${escH(L('severity', i.severity))}</span>` : ''}</td>
+    <td class="muted">${i.evidence.length || ''}</td></tr>`).join('');
+  $$('tr[data-item]', body).forEach(tr=> tr.onclick = ()=> openItem(+tr.dataset.item));
+}
+
+function openItem(id){
+  const it = S.items.find(i=>i.id === id); if(!it) return;
+  S.itemId = id;
+  $$('tr[data-item]').forEach(r=> r.classList.toggle('sel', +r.dataset.item === id));
+  const ro = !canEdit(), list = filtered(), idx = list.findIndex(i=>i.id===id);
+  const fld = (k, type, n)=> {
+    const label = `<span>${escH(t('f_'+k))}</span>`;
+    if(type === 'textarea') return `<label class="f wide">${label}<textarea name="${k}" maxlength="${n||4000}" ${ro?'readonly':''}>${escH(it[k])}</textarea></label>`;
+    return `<label class="f">${label}<input type="${type||'text'}" name="${k}" maxlength="${n||200}" value="${escH(it[k])}" ${ro?'readonly':''}></label>`;
+  };
+  const catList = [...S.meta.categories, ...(it.category && !S.meta.categories.includes(it.category) ? [it.category] : [])];
+  $('#overlay').innerHTML = `<div class="drawer" role="dialog" aria-label="${escH(t('item_h'))}">
+    <button class="closeX" aria-label="close">×</button>
+    <div class="row" style="gap:6px;"><button class="btn small" id="iPrev" ${idx<=0?'disabled':''}>${escH(t('prev'))}</button>
+      <button class="btn small" id="iNext" ${idx<0||idx>=list.length-1?'disabled':''}>${escH(t('next'))}</button>
+      <span class="note">${idx+1} / ${list.length}</span></div>
+    <h2 style="margin-top:12px;"><span class="mono">${escH(it.ref || '')}</span> ${escH(it.control || '')}</h2>
+    <form id="itemForm" class="form">
+      <label class="f">${escH(t('f_status'))}<select name="status" ${ro?'disabled':''}>${opts('status', S.meta.statuses, it.status)}</select></label>
+      <label class="f">${escH(t('f_severity'))}<select name="severity" ${ro?'disabled':''}>${opts('severity', S.meta.severities, it.severity, '—')}</select></label>
+      ${fld('ref','text',100)}${fld('control','text',200)}
+      ${fld('requirement','textarea')}
+      <label class="f">${escH(t('f_category'))}<select name="category" ${ro?'disabled':''}><option value="">—</option>${catList.map(c=>`<option value="${escH(c)}" ${c===it.category?'selected':''}>${escH(L('category', c))}</option>`).join('')}</select></label>
+      <label class="f">${escH(t('f_level'))}<select name="level" ${ro?'disabled':''}>${opts('level', S.meta.levels, it.level, '—')}</select></label>
+      ${fld('responsible','text',100)}${fld('owner','text',100)}
+      ${fld('finding','textarea')}${fld('remediation','textarea')}
+      <label class="f">${escH(t('f_due_date'))}<input type="date" name="due_date" value="${escH(it.due_date && /^\d{4}-\d{2}-\d{2}$/.test(it.due_date) ? it.due_date : '')}" ${ro?'readonly':''}></label>
+      ${fld('notes','textarea')}
+      ${ro ? '' : `<div class="row wide" style="justify-content:space-between;">
+        <span>${isAdmin() ? `<button type="button" class="btn danger" id="iDel">${escH(t('delete'))}</button>` : ''}</span>
+        <button class="btn primary" type="submit">${escH(t('save'))}</button></div>`}
+    </form>
+    <p class="note" style="margin-top:6px;">${escH(tf('updated', {at: fmtDate(it.updated_at), by: it.updated_by || '—'}))}</p>
+    <h2>${escH(t('ev_h'))}</h2>
+    <div id="evList">${it.evidence.length ? it.evidence.map(e=>`<div class="ev">
+        <span class="n" title="${escH(e.filename)}">${escH(e.filename)}<br><span class="dim mono" title="SHA-256">${escH(e.sha256.slice(0,16))}… · ${escH(fmtSize(e.size))}${e.note ? ' · ' : ''}</span><span class="muted">${escH(e.note || '')}</span></span>
+        <button class="btn small" data-evview="${e.id}">${escH(e.mime && e.mime.startsWith('image/') ? t('view') : t('download'))}</button>
+        ${ro ? '' : `<button class="btn small danger" data-evdel="${e.id}">×</button>`}</div>`).join('') : `<p class="note">${escH(t('ev_none'))}</p>`}</div>
+    ${ro ? '' : `<form id="evForm" style="margin-top:10px; display:flex; flex-direction:column; gap:8px;">
+      <input type="file" name="file" required>
+      <input type="text" name="note" maxlength="500" placeholder="${escH(t('ev_note'))}">
+      <div class="row" style="justify-content:space-between;"><span class="note" style="flex:1;">${escH(t('ev_rule'))}</span><button class="btn" type="submit">${escH(t('ev_add'))}</button></div>
+    </form>`}
+    ${it.source ? `<h2>${escH(t('original_row'))}</h2><div class="src">${Object.entries(it.source).map(([k,v])=>`<div><b>${escH(k)}</b><span>${escH(v)}</span></div>`).join('')}</div>` : ''}
+  </div>`;
+  $('#overlay .closeX').onclick = closeOverlay;
+  $('#iPrev').onclick = ()=> openItem(list[idx-1].id);
+  $('#iNext').onclick = ()=> openItem(list[idx+1].id);
+  $$('[data-evview]').forEach(b=> b.onclick = ()=> guarded(()=> viewEvidence(it.evidence.find(e=>e.id === +b.dataset.evview))));
+  $$('[data-evdel]').forEach(b=> b.onclick = ()=> guarded(async ()=>{
+    if(!confirm(t('del_ev_q'))) return;
+    await api('/evidence/' + b.dataset.evdel, {method:'DELETE'}); await refreshItem(id);
+  }));
+  if($('#iDel')) $('#iDel').onclick = ()=> guarded(async ()=>{
+    if(!confirm(t('del_item_q'))) return;
+    await api('/items/' + id, {method:'DELETE'}); closeOverlay(); await openSystem(S.sys.id);
+  });
+  const form = $('#itemForm');
+  form.onsubmit = ev=>{ ev.preventDefault(); guarded(async ()=>{
+    const f = new FormData(form), body = {};
+    ['status','severity','ref','control','requirement','category','level','responsible','owner','finding','remediation','due_date','notes'].forEach(k=>{ const v = f.get(k); if(v !== null) body[k] = v; });
+    await api('/items/' + id, {method:'PATCH', body});
+    toast(t('saved')); await refreshItem(id);
+  }); };
+  const ef = $('#evForm');
+  if(ef) ef.onsubmit = ev=>{ ev.preventDefault(); guarded(async ()=>{
+    const fd = new FormData(ef);
+    if(!fd.get('file') || !fd.get('file').name) return;
+    const btn = $('button[type=submit]', ef); btn.disabled = true;
+    try{ await api(`/items/${id}/evidence`, {body: fd}); } finally { btn.disabled = false; }
+    await refreshItem(id);
+  }); };
+}
+async function refreshItem(id){
+  const r = await api(`/systems/${S.sys.id}/items`); S.items = r.items;
+  $('#sysBar').innerHTML = statusBar(itemCounts());
+  renderRows(); openItem(id);
+}
+async function viewEvidence(e){
+  if(!(e.mime && e.mime.startsWith('image/'))) return download(`/evidence/${e.id}/file`, e.filename);
+  const r = await api(`/evidence/${e.id}/file`, {raw:true});
+  const url = URL.createObjectURL(await r.blob());
+  const back = document.createElement('div'); back.className = 'modalBack'; back.style.zIndex = 55;
+  const box = document.createElement('div'); box.className = 'modal'; box.style.zIndex = 56;
+  const cap = document.createElement('p'); cap.className = 'note'; cap.textContent = e.filename + ' · SHA-256 ' + e.sha256;
+  const img = document.createElement('img'); img.src = url; img.alt = e.filename; img.style.cssText = 'max-width:100%; display:block; margin-top:10px;';
+  box.append(cap, img);
+  const close = ()=>{ back.remove(); box.remove(); URL.revokeObjectURL(url); };
+  back.onclick = close; box.onclick = close;
+  document.body.append(back, box);
+}
+
+// ------------------------------------------------------------------ import wizard
+function importWizard(){
+  const md = modal(`<h2 style="margin-top:0;">${escH(t('imp_h'))}</h2><p class="note">${escH(t('imp_p'))}</p>
+    <label class="f" style="margin-top:12px; max-width:420px;">${escH(t('imp_file'))}<input type="file" id="impFile" accept=".xlsx,.xlsm,.csv"></label>
+    <div id="impBody"></div>`);
+  $('#impFile', md).onchange = ev=> guarded(async ()=>{
+    const file = ev.target.files[0]; if(!file) return;
+    const fd = new FormData(); fd.append('file', file);
+    $('#impBody', md).innerHTML = '<p class="note" style="margin-top:12px;">…</p>';
+    const prev = await api('/import/preview', {body: fd});
+    importStep(md, prev);
+  });
+}
+function importStep(md, prev){
+  const st = {sheet: 0, header: prev.sheets[0]?.header_row || 0, mapping: Object.assign({}, prev.sheets[0]?.mapping || {}), rows: null};
+  // The server previews ~7 sample rows around its guessed header; changing the header row re-reads from those rows.
+  const draw = ()=>{
+    const sh = prev.sheets[st.sheet];
+    const all = [...(sh.top||[]).slice(0, -1), sh.headers, ...(sh.sample||[])];
+    const topCount = Math.max(0, (sh.top||[]).length - 1), offset = sh.header_row - topCount;
+    const hdrIdx = st.header - offset;
+    const headers = all[hdrIdx] || [];
+    const sample = all.slice(hdrIdx + 1, hdrIdx + 6);
+    const total = Math.max(0, sh.rows_total + (sh.header_row - st.header));
+    const mapped = new Set(Object.values(st.mapping).filter(v=>v!=null).map(Number));
+    const colOpts = cur=> `<option value="">${escH(t('imp_unmapped'))}</option>` + headers.map((h,i)=>`<option value="${i}" ${String(cur)===String(i)?'selected':''}>${escH(String.fromCharCode(65 + (i%26)) + (i>=26?Math.floor(i/26):''))} · ${escH((h||'').slice(0,40))}</option>`).join('');
+    $('#impBody', md).innerHTML = `
+      <div class="form" style="margin-top:14px;">
+        <label class="f">${escH(t('imp_sheet'))}<select id="impSheet">${prev.sheets.map((s,i)=>`<option value="${i}" ${i===st.sheet?'selected':''}>${escH(s.name)} (${s.rows_total})</option>`).join('')}</select></label>
+        <label class="f">${escH(t('imp_header'))}<input type="number" id="impHeader" min="${offset+1}" max="${offset+all.length}" value="${st.header+1}"></label>
+      </div>
+      <p class="note" style="margin-top:8px;">${escH(t('imp_hint'))}</p>
+      <h2>${escH(t('imp_map'))}</h2>
+      <div class="form">${S.meta.fields.map(f=>`<label class="f">${escH(t('f_'+f))}<select data-map="${f}">${colOpts(st.mapping[f])}</select></label>`).join('')}</div>
+      <h2>${escH(t('imp_sample'))}</h2>
+      <div class="tableWrap"><table class="mapTable"><thead><tr>${headers.map((h,i)=>`<th class="${mapped.has(i)?'mapped':''}" title="${escH(h)}">${escH(h || '#'+(i+1))}</th>`).join('')}</tr></thead>
+        <tbody>${sample.map(r=>`<tr>${headers.map((_,i)=>`<td title="${escH(r[i])}">${escH(r[i] ?? '')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+      <div class="row" style="justify-content:space-between; margin-top:14px;">
+        <span class="note">${escH(tf('imp_rows', {n: total, sys: S.sys.name}))}</span>
+        <span class="row"><button class="btn" id="impCancel">${escH(t('cancel'))}</button>
+        <button class="btn primary" id="impGo" ${total && headers.length ? '' : 'disabled'}>${escH(tf('imp_go', {n: total}))}</button></span></div>`;
+    $('#impSheet', md).onchange = ev=>{ st.sheet = +ev.target.value; const s2 = prev.sheets[st.sheet]; st.header = s2.header_row; st.mapping = Object.assign({}, s2.mapping); draw(); };
+    $('#impHeader', md).onchange = ev=>{ const v = (+ev.target.value) - 1; if(v - offset >= 0 && v - offset < all.length){ st.header = v; st.mapping = {}; draw(); } };
+    $$('[data-map]', md).forEach(sel=> sel.onchange = ()=>{ const v = sel.value; if(v === '') delete st.mapping[sel.dataset.map]; else st.mapping[sel.dataset.map] = +v; draw(); });
+    $('#impCancel', md).onclick = closeOverlay;
+    $('#impGo', md).onclick = ()=> guarded(async ()=>{
+      $('#impGo', md).disabled = true;
+      const r = await api(`/systems/${S.sys.id}/import`, {body:{upload_id: prev.upload_id, sheet: sh.name, header_row: st.header, mapping: st.mapping}});
+      closeOverlay(); toast(tf('imp_done', {n: r.imported})); await loadEngagements(); await openSystem(S.sys.id);
+    });
+  };
+  draw();
+}
+
+// ------------------------------------------------------------------ report (printable)
+async function renderReport(eid){
+  const r = await api(`/engagements/${eid}/report`), m = $('#main');
+  const tot = {}; S.meta.statuses.forEach(k=> tot[k] = r.systems.reduce((a,s)=> a + (s.counts[k]||0), 0));
+  const mark = r.marking ? `<div class="marking">${escH(r.marking)}</div>` : '';
+  m.innerHTML = `<div class="report">
+    <div class="row noprint" style="justify-content:space-between; margin-bottom:12px;"><button class="btn" id="repBack">${escH(t('back'))}</button><button class="btn primary" id="repPrint">${escH(t('print'))}</button></div>
+    ${mark}
+    <h1>${escH(t('report_h'))} — ${escH(r.name)}</h1>
+    <dl class="kv" style="margin:12px 0;">
+      ${[['client', r.client], ['site', r.site], ['contract', r.contract_ref], ['generated', fmtDate(r.generated_at)]].filter(x=>x[1]).map(([k,v])=>`<dt>${escH(t(k))}</dt><dd>${escH(v)}</dd>`).join('')}
+    </dl>
+    <h2>${escH(t('summary'))}</h2>
+    <div class="card">${statusBar(tot)}
+      <table style="margin-top:12px;"><thead><tr><th>${escH(t('sys_h'))}</th><th>${escH(t('system_type'))}</th><th>${escH(t('phase'))}</th><th>C-I-A</th>
+        ${S.meta.statuses.map(k=>`<th>${escH(L('status',k))}</th>`).join('')}<th>${escH(t('total'))}</th></tr></thead>
+      <tbody>${r.systems.map(s=>`<tr><td>${escH(s.name)}</td><td>${escH(L('system_type', s.system_type))}</td><td>${escH(L('phase', s.phase))}</td><td>${ciaHtml(s)}</td>
+        ${S.meta.statuses.map(k=>`<td>${s.counts[k]||''}</td>`).join('')}<td>${Object.values(s.counts).reduce((a,b)=>a+b,0)}</td></tr>`).join('')}</tbody></table></div>
+    ${r.systems.map(s=>`<h2>${escH(s.name)} — ${escH(t('open_items'))}</h2>
+      ${s.impact_set_by ? `<p class="note">${escH(t('impact_set_by'))}: ${escH(s.impact_set_by)}</p>` : ''}
+      ${s.open_items.length ? `<div class="card" style="padding:4px 8px;"><table><thead><tr><th>${escH(t('f_ref'))}</th><th>${escH(t('f_finding'))}</th><th>${escH(t('f_severity'))}</th><th>${escH(t('f_remediation'))}</th><th>${escH(t('f_owner'))}</th><th>${escH(t('f_due_date'))}</th></tr></thead>
+        <tbody>${s.open_items.map(i=>`<tr><td class="mono">${escH(i.ref||'')}<br><span class="muted">${escH(i.control||'')}</span><br><span class="pill st-${escH(i.status)}">${escH(L('status', i.status))}</span></td>
+          <td style="white-space:pre-wrap;">${escH(i.finding || i.requirement || '')}</td><td>${i.severity ? `<span class="pill sev-${escH(i.severity)}">${escH(L('severity', i.severity))}</span>` : '—'}</td>
+          <td style="white-space:pre-wrap;">${escH(i.remediation||'')}</td><td>${escH(i.owner||'')}</td><td class="mono">${escH(i.due_date||'')}</td></tr>`).join('')}</tbody></table></div>`
+        : `<p class="note">${escH(t('no_open'))}</p>`}`).join('')}
+    <div style="margin-top:24px;">${mark}</div>
+    <p class="note">Eagle Talon OT · ${escH(r.generated_at)}</p></div>`;
+  $('#repBack').onclick = ()=> go('#/e/' + eid);
+  $('#repPrint').onclick = ()=> window.print();
+}
+
+// ------------------------------------------------------------------ users + audit (admin)
+async function renderUsers(){
+  const r = await api('/users'), m = $('#main');
+  m.innerHTML = `<h1>${escH(t('users_h'))}</h1>
+    <div class="card" style="margin-top:16px;"><table><thead><tr><th>${escH(t('username'))}</th><th>${escH(t('role'))}</th><th></th><th></th></tr></thead>
+    <tbody>${r.users.map(u=>`<tr><td>${escH(u.username)}${u.disabled ? ` <span class="chip">${escH(t('disabled'))}</span>` : ''}<br><span class="dim">${escH(fmtDate(u.created_at))}</span></td>
+      <td><select data-role-of="${escH(u.username)}" style="width:auto;" ${u.username===S.me.username?'disabled':''}>${opts('role', S.meta.roles, u.role)}</select></td>
+      <td><button class="btn small" data-pw="${escH(u.username)}">${escH(t('reset_pw'))}</button></td>
+      <td>${u.username===S.me.username ? '' : `<button class="btn small ${u.disabled?'':'danger'}" data-dis="${escH(u.username)}" data-v="${u.disabled?0:1}">${escH(t(u.disabled?'enable':'disable'))}</button>`}</td></tr>`).join('')}</tbody></table></div>
+    <h2>${escH(t('add_user'))}</h2>
+    <form id="userForm" class="card form">
+      <label class="f">${escH(t('username'))}<input type="text" name="username" required minlength="3" maxlength="40" autocomplete="off"></label>
+      <label class="f">${escH(t('password'))}<input type="password" name="password" required minlength="12" autocomplete="new-password"></label>
+      <label class="f">${escH(t('role'))}<select name="role">${opts('role', S.meta.roles, 'assessor')}</select></label>
+      <div class="row" style="align-items:flex-end;"><button class="btn primary" type="submit">${escH(t('create'))}</button></div>
+      <ul class="note wide" style="padding-left:18px;"><li>${escH(t('role_admin'))}</li><li>${escH(t('role_assessor'))}</li><li>${escH(t('role_viewer'))}</li></ul>
+    </form>`;
+  $$('[data-role-of]', m).forEach(s=> s.onchange = ()=> guarded(async ()=>{ await api('/users/' + encodeURIComponent(s.dataset.roleOf), {method:'PATCH', body:{role:s.value}}); toast(t('saved')); }));
+  $$('[data-dis]', m).forEach(b=> b.onclick = ()=> guarded(async ()=>{ await api('/users/' + encodeURIComponent(b.dataset.dis), {method:'PATCH', body:{disabled: b.dataset.v === '1'}}); renderUsers(); }));
+  $$('[data-pw]', m).forEach(b=> b.onclick = ()=> guarded(async ()=>{
+    const pw = prompt(tf('new_pw_q', {u: b.dataset.pw})); if(!pw) return;
+    await api('/users/' + encodeURIComponent(b.dataset.pw), {method:'PATCH', body:{password: pw}}); toast(t('saved'));
+    if(b.dataset.pw === S.me.username) endSession();
+  }));
+  $('#userForm').onsubmit = ev=>{ ev.preventDefault(); guarded(async ()=>{
+    const f = new FormData(ev.target);
+    await api('/users', {body:{username: f.get('username').trim(), password: f.get('password'), role: f.get('role')}});
+    renderUsers();
+  }); };
+}
+async function renderAudit(){
+  const r = await api('/audit?limit=500'), m = $('#main');
+  m.innerHTML = `<h1>${escH(t('audit_h'))}</h1><div class="tableWrap" style="margin-top:16px;"><table><thead><tr>
+    <th>${escH(t('at'))}</th><th>${escH(t('actor'))}</th><th>${escH(t('action'))}</th><th>${escH(t('object'))}</th><th>${escH(t('detail'))}</th></tr></thead>
+    <tbody>${r.audit.map(a=>`<tr><td class="mono" style="white-space:nowrap;">${escH(fmtDate(a.at))}</td><td>${escH(a.actor)}</td><td class="mono">${escH(a.action)}</td>
+      <td class="mono">${escH(a.object_type)} ${escH(a.object_id)}</td><td class="mono" style="max-width:420px; overflow-wrap:anywhere;">${escH(a.detail === '{}' ? '' : a.detail)}</td></tr>`).join('')}</tbody></table></div>`;
+}
+
+// ------------------------------------------------------------------ boot
+(async function boot(){
+  setTheme(store('ot_theme') || 'dark');
+  LANG = store('ot_lang') || ((navigator.language||'').startsWith('ja') ? 'ja' : 'en');
+  $('#lang-en').classList.toggle('active', LANG==='en'); $('#lang-ja').classList.toggle('active', LANG==='ja');
+  document.documentElement.lang = LANG;
+  $$('[data-t]').forEach(el=>{ el.textContent = t(el.dataset.t); });
+  // Inside Talon there is a way back; the standalone OT server has no /api/version.
+  fetch('api/version').then(r=>{ if(r.ok) $('#talonLink').hidden = false; }).catch(()=>{});
+  if(S.token) await start(); else await showAuth();
+})();
+</script>
+</body>
+</html>

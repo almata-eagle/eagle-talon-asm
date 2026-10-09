@@ -54,6 +54,12 @@ services:
       - SOC_INTEL=${SOC_INTEL:-off}
       - SOC_INTEL_FEEDS=${SOC_INTEL_FEEDS:-feodo,spamhaus_drop,spamhaus_drop_v6,tor_exits,blocklist_de,threatfox}
       - ABUSECH_AUTH_KEY=${ABUSECH_AUTH_KEY:-}
+      # Talon OT (FRCS assessments). Prod default is OFF. Its data lives in
+      # its own folder inside the data volume (/app/data/ot), never in the
+      # Talon DB. OT_SETUP_CODE (secrets.env) guards first-run admin setup.
+      - OT_ENABLED=${OT_ENABLED:-off}
+      - OT_DATA_DIR=${OT_DATA_DIR:-/app/data/ot}
+      - OT_SETUP_CODE=${OT_SETUP_CODE:-}
 
   web:
     image: nginx:alpine

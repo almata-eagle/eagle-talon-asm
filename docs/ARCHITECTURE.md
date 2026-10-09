@@ -57,6 +57,7 @@ is in [adr/0003](adr/0003-log-collector-and-storage.md).
 | Threat intel | `backend/soc_intel.py` | Public feeds → SQLite `ti_indicators`/`ti_feeds` → in-memory matching (IPs and networks). Rule `intel_match`, badges, dashboard panel, triage evidence. `/api/soc/intel*`. No address leaves Core. See [SOC-INTEL.md](SOC-INTEL.md). |
 | Insights + Ask Claude | `backend/soc_insights.py`, `soc_ask.py` | Traffic profile of a country or device → recognised patterns (plain-language in the UI) → optional on-demand Claude explanation (aggregates only, cached, capped). `/api/soc/insights`, `POST /api/soc/ask`. |
 | Known devices | `backend/soc_assets.py` | Names, type, notes and quieted case kinds per local IP. Used by case merging, the UI and Claude's network context. `/api/soc/assets`. |
+| Talon OT | `backend/ot/` (`db.py`, `auth.py`, `sheets.py`, `api.py`), `backend/ot_app.py`, `frontend/ot.html` | FRCS assessments (UFC 4-010-06). Own SQLite `ot.db` + `evidence/` under `OT_DATA_DIR`, own users/sessions/audit. Mounted at `/api/ot` when `OT_ENABLED=on`; `ot_app.py` runs it alone (DDIL). See [OT.md](OT.md), ADR 0007. |
 | Log collector | `soc/` | `collector/vector.yaml` (pipeline + schema), `collector/tests.yaml`, `preflight.sh`, `deploy-collector.sh`, `retention.sh`. |
 | Deploy | `deploy/` | `docker-compose.yml`, `env/<env>.env`, `deploy.sh`, `backup-db.sh`, `seed-staging-db.sh`. |
 
@@ -67,6 +68,12 @@ SQLite, single file. Tables: `clients`, `scans`, `monitors`, `alerts`, `soc_case
 Migrations run at startup and are additive only (`PRAGMA table_info` check,
 then `ALTER TABLE ... ADD COLUMN`). Never drop or rename a column: older
 releases must keep working on a newer DB so rollback stays safe.
+
+Talon OT keeps a separate SQLite file, `OT_DATA_DIR/ot.db` (default
+`/app/data/ot/ot.db`): `ot_users`, `ot_sessions` (token SHA-256 only),
+`ot_engagements`, `ot_systems`, `ot_items` (with the original `source_row`),
+`ot_evidence` (files at `OT_DATA_DIR/evidence/<sha[:2]>/<sha>`), `ot_audit`.
+The same additive-only rule applies.
 
 ## Configuration (environment variables)
 
@@ -86,6 +93,9 @@ releases must keep working on a newer DB so rollback stays safe.
 | `SOC_INTEL`, `SOC_INTEL_FEEDS` | on, all feeds (compose default off) | on, without Spamhaus | Threat-intel feeds, refreshed in the background |
 | `SOC_ASK_MAX_PER_HOUR` | 10 | 10 | Cap on on-demand "Ask Claude" explanations |
 | `ABUSECH_AUTH_KEY` | secrets.env (optional) | secrets.env (optional) | Enables the ThreatFox feed |
+| `OT_ENABLED` | off (compose default) | on | Mount Talon OT at `/api/ot` |
+| `OT_DATA_DIR` | `/app/data/ot` | `/app/data/ot` | Talon OT database and evidence folder |
+| `OT_SETUP_CODE` | secrets.env (optional) | secrets.env (optional) | Code needed to create the first OT admin |
 | `SOC_HOT_DIR` | `/home/eddy/eagle-soc/hot` (compose default: empty `soc/no-hot-store`) | `/home/eddy/eagle-soc/hot` | Host folder mounted read-only at `/soc-hot` for the Events view |
 
 ## Ports on core used by Eagle
@@ -98,12 +108,16 @@ releases must keep working on a newer DB so rollback stays safe.
 | 5514/udp | existing rootless container (likely Wazuh syslog) — not Eagle | — |
 | 5516/udp | SOC collector syslog in | all (UFW: FortiGate only) |
 | 8686 | SOC collector health API | loopback |
+| 8090 | Talon OT standalone (`deploy/ot/`), only if run on core | loopback by default (`OT_BIND`) |
 
 ## UI safety rule
 Everything in a log line is attacker-controlled. In `frontend/index.html`, event
 values only reach the page through `escH()` or `textContent`, never raw
 `innerHTML`. The tests and a browser check use a signature containing
 `<img onerror=…>` to prove it.
+
+Talon OT's page (`frontend/ot.html`) follows the same rule for everything that
+came from a person or a spreadsheet.
 
 ## Known limits
 - CORS is `*` and there is no auth on the Talon API. It is reachable only over
