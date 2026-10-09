@@ -35,6 +35,8 @@ import soc_cases
 import soc_triage
 import soc_dashboard
 import soc_intel
+import soc_insights
+import soc_ask
 
 # Shared sector list — used both by the demo-data generator and by real scans
 # (so a real domain's sector places it correctly on the Talon Scope radar,
@@ -437,6 +439,7 @@ def soc_summary(
 # ---------------------------------------------------------------------------
 soc_cases.init_db()
 soc_intel.init_db()
+soc_ask.init_db()
 soc_cases.start_engine()
 soc_intel.start_engine()
 
@@ -595,6 +598,61 @@ def soc_intel_sightings(range: str = Query("24h", pattern=_RANGE_RE)):
     res = soc_intel.sightings(range)
     res["connected"] = True
     return res
+
+
+# ---------------------------------------------------------------------------
+# Plain-language insights and "Ask Claude" for a country or a device (v0.6).
+# ---------------------------------------------------------------------------
+def _slice(kind: str, value: str) -> str:
+    import ipaddress
+    value = (value or "").strip()
+    if kind == "device":
+        try:
+            return str(ipaddress.ip_address(value))
+        except ValueError:
+            raise HTTPException(422, "device must be an IP address")
+    if kind == "country" and 0 < len(value) <= soc_dashboard.MAX_COUNTRY_LEN:
+        return value
+    raise HTTPException(422, "kind must be country or device")
+
+
+@app.get("/api/soc/insights")
+def soc_insights_get(kind: str = Query(..., pattern="^(country|device)$"),
+                     value: str = Query(..., min_length=1, max_length=80),
+                     range: str = Query("24h", pattern=_RANGE_RE)):
+    value = _slice(kind, value)
+    if not soc_logs.available():
+        return {"connected": False, "insights": []}
+    p = soc_insights.profile(kind, value, range)
+    p["connected"] = True
+    p["ask"] = {"enabled": soc_ask.enabled(), "cached": soc_ask.cached(kind, value, range)}
+    if kind == "device":
+        p["countries_detail"] = p["countries"]
+    return p
+
+
+class AskReq(BaseModel):
+    kind: str
+    value: str
+    range: str = "24h"
+
+
+@app.post("/api/soc/ask")
+def soc_ask_post(req: AskReq):
+    import re as _re
+    if req.kind not in ("country", "device") or not _re.fullmatch(_RANGE_RE, req.range or ""):
+        raise HTTPException(422, "bad kind or range")
+    value = _slice(req.kind, req.value)
+    if not soc_logs.available():
+        raise HTTPException(409, "hot store not connected")
+    try:
+        return soc_ask.explain(soc_insights.profile(req.kind, value, req.range))
+    except PermissionError as e:
+        raise HTTPException(409, str(e))
+    except OverflowError as e:
+        raise HTTPException(429, str(e))
+    except Exception as e:  # noqa: BLE001 — surface Claude/API errors to the UI without a traceback
+        raise HTTPException(502, f"Claude couldn't answer: {str(e)[:200]}")
 
 
 @app.get("/api/soc/dashboard")

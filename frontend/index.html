@@ -465,6 +465,23 @@
   .dbTiFoot button{background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:6px; font-size:10.5px; padding:2px 8px; cursor:pointer; margin-left:auto;}
   .csTi{display:flex; flex-direction:column; gap:6px;}
   .csTi div{background:var(--panel-2); border-radius:8px; padding:7px 10px; font-size:12px;}
+  .insBox{background:var(--panel-2); border-radius:12px; padding:12px 14px; margin-bottom:14px;}
+  .insBox h4{font-size:10.5px; text-transform:uppercase; letter-spacing:.08em; color:var(--dim); margin:0 0 8px; font-weight:600;}
+  .insList{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:9px;}
+  .insList li{display:flex; gap:9px; font-size:13.5px; line-height:1.6;}
+  .insList .dot{flex-shrink:0; width:9px; height:9px; border-radius:50%; margin-top:7px; background:var(--dim);}
+  .insList li.urgent .dot{background:var(--critical);} .insList li.check .dot{background:var(--watch);}
+  .insList li.info .dot{background:var(--signal);} .insList li.ok .dot{background:var(--clear);}
+  .devLink{color:var(--signal); cursor:pointer; text-decoration:underline; text-decoration-style:dotted; text-underline-offset:3px; font-family:var(--font-mono);}
+  .devLink:hover{text-decoration-style:solid;}
+  .insAsk{margin-top:12px; display:flex; flex-direction:column; gap:8px; align-items:flex-start;}
+  .askBtn{background:color-mix(in srgb, var(--signal) 14%, transparent); color:var(--signal); border:1px solid var(--signal); border-radius:8px; padding:7px 14px; font-size:12.5px; font-weight:600; cursor:pointer;}
+  .askBtn:disabled{opacity:.6; cursor:wait;}
+  .askBox{width:100%; background:var(--panel); border-radius:10px; padding:12px 14px; border-left:4px solid var(--signal); font-size:13px; line-height:1.6;}
+  .askBox.ok{border-left-color:var(--clear);} .askBox.check{border-left-color:var(--watch);} .askBox.urgent{border-left-color:var(--critical);}
+  .askBox .askHd{font-size:11px; color:var(--signal); font-weight:600; margin-bottom:6px; display:flex; gap:6px; align-items:center; flex-wrap:wrap;}
+  .askBox b{display:block; font-size:14px; margin-bottom:4px;}
+  .askBox p{margin:0 0 6px;} .askBox ol{margin:0 0 4px 20px;}
   @keyframes dbFlow{to{stroke-dashoffset:-15;}}
   @keyframes dbPulse{0%{transform:scale(.6); opacity:.9;} 100%{transform:scale(2.6); opacity:0;}}
   @media (prefers-reduced-motion: reduce){ .dbMapWrap .flow, .dbMapWrap .homeRing{animation:none;} }
@@ -940,6 +957,25 @@ const STR = {
     ti_v_tor_in_steps:["Check whether port {port} on <code>{local}</code> should be reachable from the internet.", "If not, close it on the FortiGate."],
     ti_v_tor_other_t:"Tor exit node: informational", ti_v_tor_other_b:"{ip} is a Tor exit. Nothing allowed came in from it.", ti_v_tor_other_steps:[],
     ti_v_none_t:"Not seen on your network", ti_v_none_b:"{ip} is on a list, but there's no traffic with it in the last 7 days.", ti_v_none_steps:[],
+    in_h:"What's happening", in_none:"Nothing notable here.",
+    in_listed:"{n} address(es) here are on a threat list. Click a ⚑ badge to see what each one means.",
+    in_big_upload:"{local} uploaded {mb} MB here. Check that it's an expected backup, sync or upload.",
+    in_inbound_allowed:"{n} connection(s) from here got through the firewall (port {port}). Make sure that port is meant to be open to the internet.",
+    in_inbound_noise:"{n} connection attempts from here were blocked (ports {ports}). This is internet-wide scanning that hits every address; the firewall handled it. Nothing to do.",
+    in_ping_sweep:"{local} keeps pinging many servers: {ips} addresses in {countries} countries, about one every {cadence}. These are only tiny ping packets; no files or data are sent. This pattern is typical of a VPN app or game measuring which server is fastest, or of a monitoring tool. If you don't run something like that on {local}, find out what does.",
+    in_ping_sweep_here:"{local} keeps pinging servers here: {ips} addresses, about one every {cadence}. Only tiny ping packets, no data. It's typical of a VPN app or game measuring which server is fastest, or of a monitoring tool. Click {local} to see whether it does the same with other countries.",
+    in_ping_sweep_net:"Most of them are in one hosting block, {net} ({net_ips} addresses).",
+    in_ping_check:"{local} pings {ips} address(es) here about every {cadence}. That's a reachability check (monitoring, a VPN or an app measuring latency). No data is transferred.",
+    in_web:"Ordinary web and app traffic: {n} HTTPS/HTTP connections from {hosts} device(s), {mb} MB sent.",
+    in_dns:"Name lookups (DNS, {n}): your devices asking a name server here. Normal.",
+    in_one_device:"{pct}% of the outbound traffic here comes from one device, {local}. Click it to see everything it does.",
+    ask_btn:"Ask Claude to explain this", ask_again:"Ask Claude again", ask_working:"Claude is reading the traffic…",
+    ask_off:"Claude isn't configured in this environment.", ask_from:"Claude's explanation", ask_concern:"Is it a concern?",
+    ask_v_no_concern:"no concern", ask_v_worth_checking:"worth checking", ask_v_concerning:"concerning",
+    ask_foot:"{model} · {age} ago · based on traffic counts, not on any content", ask_cached:"saved answer (refreshes after 30 min)",
+    dev_meta:"Your device · {range}", dev_facts:"What it did", dev_nets:"Busiest remote networks", dev_net:"{ips} addresses · {n} events",
+    dev_countries:"Countries it talked to", dev_events:"Open this device's events", dev_open:"See everything this device does",
+    dev_note:"Device names come later (UniFi). For now, look the IP up in UniFi → Clients.",
     db_co_events:"{n} events", db_kind_sensor:"sensor", db_kind_system:"system",
     db_co_sensor_stale_t:"{ds}: no new logs for {age}",
     db_co_stale_fortigate_b:"The firewall normally logs every few seconds. Until it resumes, detection can't see traffic.",
@@ -1154,6 +1190,25 @@ const STR = {
     ti_v_tor_in_steps:["<code>{local}</code> のポート{port}をインターネットから到達可能にすべきか確認します。", "不要ならFortiGateで閉じます。"],
     ti_v_tor_other_t:"Tor出口ノード（参考情報）", ti_v_tor_other_b:"{ip} はTorの出口です。ここから許可された受信通信はありません。", ti_v_tor_other_steps:[],
     ti_v_none_t:"社内ネットワークでは観測されていません", ti_v_none_b:"{ip} はリストに掲載されていますが、過去7日間に通信はありません。", ti_v_none_steps:[],
+    in_h:"何が起きているか", in_none:"特に注目すべき点はありません。",
+    in_listed:"ここには脅威リストに載っているアドレスが{n}件あります。⚑バッジをクリックすると、それぞれの意味を確認できます。",
+    in_big_upload:"{local} がここへ {mb} MB を送信しました。想定どおりのバックアップ・同期・アップロードか確認してください。",
+    in_inbound_allowed:"ここからの接続{n}件がファイアウォールを通過しました（ポート{port}）。そのポートをインターネットに公開する意図があるか確認してください。",
+    in_inbound_noise:"ここからの接続試行{n}件は遮断されました（ポート {ports}）。インターネット全体に対する走査で、すべてのアドレスが受けるものです。ファイアウォールが対処済みで、対応は不要です。",
+    in_ping_sweep:"{local} が多数のサーバーにPingを送り続けています：{countries}か国の{ips}アドレスに、約{cadence}ごと。小さなPingパケットのみで、ファイルやデータは送られていません。VPNアプリやゲームが最速のサーバーを測定する場合や、監視ツールによく見られるパターンです。{local} でそのようなソフトを使っていない場合は、何が送っているか確認してください。",
+    in_ping_sweep_here:"{local} がここのサーバーにPingを送り続けています：{ips}アドレスに約{cadence}ごと。小さなPingパケットのみで、データは送られていません。VPNアプリやゲームが最速のサーバーを測定する場合や、監視ツールによく見られます。{local} をクリックすると、他の国にも同じことをしているか確認できます。",
+    in_ping_sweep_net:"大半は1つのホスティング帯 {net}（{net_ips}アドレス）です。",
+    in_ping_check:"{local} がここの{ips}アドレスに約{cadence}ごとにPingを送っています。疎通確認（監視、VPN、遅延を測るアプリなど）で、データ転送はありません。",
+    in_web:"通常のWeb・アプリ通信です：{hosts}台の端末から HTTPS/HTTP 接続{n}件、送信 {mb} MB。",
+    in_dns:"名前解決（DNS、{n}件）：社内端末がここの名前サーバーに問い合わせています。正常です。",
+    in_one_device:"ここへの送信通信の{pct}%は1台の端末 {local} からです。クリックするとその端末の通信をすべて表示します。",
+    ask_btn:"Claudeに解説してもらう", ask_again:"もう一度Claudeに聞く", ask_working:"Claudeが通信を読んでいます…",
+    ask_off:"この環境ではClaudeが設定されていません。", ask_from:"Claudeの解説", ask_concern:"懸念はあるか：",
+    ask_v_no_concern:"懸念なし", ask_v_worth_checking:"確認推奨", ask_v_concerning:"懸念あり",
+    ask_foot:"{model} · {age}前 · 通信の件数に基づく（内容は見ていません）", ask_cached:"保存済みの回答（30分後に更新可）",
+    dev_meta:"社内端末 · {range}", dev_facts:"通信の内容", dev_nets:"通信の多い相手ネットワーク", dev_net:"{ips}アドレス · {n}件",
+    dev_countries:"通信した国", dev_events:"この端末のイベントを開く", dev_open:"この端末の通信をすべて表示",
+    dev_note:"端末名の表示は今後対応予定（UniFi連携）です。現在はUniFiの「クライアント」でIPを検索してください。",
     db_co_events:"{n}件", db_kind_sensor:"センサー", db_kind_system:"システム",
     db_co_sensor_stale_t:"{ds}：{age}間ログが届いていません",
     db_co_stale_fortigate_b:"ファイアウォールは通常数秒ごとにログを送信します。再開するまで通信を検知できません。",
@@ -2590,7 +2645,9 @@ function eventsRenderTable(res){
   const ep = (ip, port, country, hits)=> {
     if(!ip) return '<span class="evDim">—</span>';
     const c = country && country !== 'Reserved' ? ` <span class="evDim">${escH(country)}</span>` : '';
-    return `<span class="evMono">${escH(ip)}${port != null ? '<span class="evDim">:' + escH(port) + '</span>' : ''}</span>${c}${tiBadge(hits, ip)}`;
+    const isLocal = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(ip);
+    const ipHtml = isLocal ? `<a class="devLink" data-dev="${escH(ip)}" title="${escH(t('dev_open'))}">${escH(ip)}</a>` : escH(ip);
+    return `<span class="evMono">${ipHtml}${port != null ? '<span class="evDim">:' + escH(port) + '</span>' : ''}</span>${c}${tiBadge(hits, ip)}`;
   };
   body.innerHTML = evs.map((e,i)=>{
     const out = e.outcome ? `<span class="evOutcome ${e.outcome==='blocked'?'blocked':'allowed'}" title="${escH(e.action)}">${escH(t('ev_out_'+e.outcome) || e.outcome)}</span>` : `<span class="evDim">${escH(e.action || '—')}</span>`;
@@ -3298,7 +3355,7 @@ function dbRenderCountry(){
   }).join('');
 
   const sec = (title, inner, extra) => inner ? `<div class="csSec"><h4>${escH(title)}${extra||''}</h4>${inner}</div>` : '';
-  body.innerHTML = seg + `<div class="dbDTiles">${tiles}</div>`
+  body.innerHTML = seg + `<div id="dbDIns"></div><div class="dbDTiles">${tiles}</div>`
     + sec(t('db_d_activity'), tlHtml, `<span class="dbDKey"><i class="in"></i>↘ <i class="out"></i>↗</span>`)
     + sec(t('db_d_cases'), cases ? `<div class="dbDCases">${cases}</div>` : '')
     + sec(t('db_d_top_ips'), ipRows ? `<table class="dbTop dbDTable"><tr style="cursor:default"><td class="evDim">IP</td><td class="num evDim">${escH(t('db_th_events'))}</td><td class="num evDim">${escH(t('db_th_blocked'))}</td><td class="evDim">${escH(t('db_tip_ports'))}</td><td class="evDim">${escH(t('db_d_last'))}</td></tr>${ipRows}</table>` : '')
@@ -3308,6 +3365,7 @@ function dbRenderCountry(){
     + `<div class="evNote">${escH(t('db_d_note'))}</div>`;
 
   body.querySelectorAll('.dbDSeg button').forEach(b=>b.onclick = ()=>{ st.dir = b.dataset.d; dbRenderCountry(); });
+  insightsInto(document.getElementById('dbDIns'), 'country', d.country, DB.range);
   body.querySelectorAll('[data-case]').forEach(el=>el.onclick = ()=>{ closeDrawer(); dbGoCases(el.dataset.case); });
   body.querySelectorAll('tr[data-ip]').forEach(tr=>tr.onclick = ()=>{ const x = ips[Number(tr.dataset.ip)]; closeDrawer(); dbGoEvents({q: x.ip, direction: x.dir, range: DB.range}); });
   body.querySelectorAll('[data-port]').forEach(b=>b.onclick = ()=>{ const p = ports[Number(b.dataset.port)]; closeDrawer(); dbGoEvents({q: d.country, direction: p.dir, range: DB.range}); });
@@ -3505,7 +3563,7 @@ async function tiExplain(ip){
   if(c.events){
     const dirs = (c.by || []).map(b=>`${escH(t(b.dir === 'inbound' ? 'db_leg_in' : 'db_leg_out'))}: ${escH(t('ev_out_' + b.outcome) || b.outcome || '—')} ×${escH(fmtNum(b.n))}`).join(' · ');
     h += `<h4>${escH(t('ti_x_seen'))}</h4><div class="csFacts">
-      <div><b>${escH(t('ti_x_devices'))}</b><span class="evMono">${(c.local_hosts || []).map(x=>`${x.dir==='inbound'?'↘':'↗'} ${escH(x.ip)} (${escH(fmtNum(x.n))})`).join('<br>') || '—'}</span></div>
+      <div><b>${escH(t('ti_x_devices'))}</b><span class="evMono">${(c.local_hosts || []).map(x=>`${x.dir==='inbound'?'↘':'↗'} <a class="devLink" data-dev="${escH(x.ip)}">${escH(x.ip)}</a> (${escH(fmtNum(x.n))})`).join('<br>') || '—'}</span></div>
       <div><b>${escH(t('ti_x_how'))}</b>${(c.services || []).map(x=>`${x.dir==='inbound'?'↘':'↗'} ${escH(tiSvcText(x))} ×${escH(fmtNum(x.n))}`).join('<br>') || '—'}</div>
       <div><b>${escH(t('ti_x_firewall'))}</b>${dirs || '—'}</div>
       <div><b>${escH(t('ti_x_when'))}</b>${escH(fmtTime(c.first_ms))} → ${escH(fmtTime(c.last_ms))}</div>
@@ -3534,6 +3592,111 @@ document.addEventListener('keydown', ev=>{
   const b = ev.target.closest && ev.target.closest('.ti[data-ti-ip]');
   if(b && b.dataset.tiIp){ ev.preventDefault(); tiExplain(b.dataset.tiIp); }
 });
+
+// ---------- Plain-language insights + Ask Claude (v0.6) ----------
+// /api/soc/insights recognises patterns (pings to many servers, scanning,
+// web traffic…) and returns codes + numbers; the sentences below are ours.
+// Device IPs in them are links that open the device view.
+function insFill(key, vars){
+  let s = t(key) || '';
+  Object.entries(vars || {}).forEach(([k, v])=>{
+    const val = (k === 'local' && v && v !== '?') ? `<a class="devLink" data-dev="${escH(v)}">${escH(v)}</a>`
+              : (k === 'cadence' && typeof v === 'number') ? escH(fmtAge(v)) : escH(v ?? '—');
+    s = s.split('{' + k + '}').join(val);
+  });
+  return s;
+}
+function insightsHtml(list){
+  if(!list || !list.length) return `<div class="evDim">${escH(t('in_none'))}</div>`;
+  return `<ul class="insList">` + list.map(i=>{
+    let txt = insFill('in_' + i.code, i.vars);
+    if(/^ping_sweep/.test(i.code) && i.vars && i.vars.net) txt += ' ' + insFill('in_ping_sweep_net', i.vars);
+    return `<li class="${escH(i.tone)}"><span class="dot"></span><span>${txt}</span></li>`;
+  }).join('') + `</ul>`;
+}
+function askHtml(res){
+  const e = res.explanation || {}; const x = e[LANG] || e.en || {};
+  const tone = {no_concern:'ok', worth_checking:'check', concerning:'urgent'}[e.verdict] || 'check';
+  return `<div class="askBox ${tone}">
+    <div class="askHd">✦ ${escH(t('ask_from'))} · <span class="csBadge">${escH(t('ask_v_' + e.verdict) || e.verdict)}</span>
+      <span class="csBadge">${escH(t('conf_' + e.confidence) || e.confidence)}</span></div>
+    <b>${escH(x.headline)}</b>
+    <p>${escH(x.what_is_happening)}</p>
+    <p><span class="evDim">${escH(t('ask_concern'))}</span> ${escH(x.is_it_a_concern)}</p>
+    ${(x.next_steps || []).length ? `<ol>${x.next_steps.map(s=>`<li>${escH(s)}</li>`).join('')}</ol>` : ''}
+    <div class="evNote">${escH(tf('ask_foot', {model: res.model || '?', age: fmtAge(Math.max(0, Math.round((Date.now() - Date.parse(res.created_at)) / 1000)))}))}${res.cached ? ' · ' + escH(t('ask_cached')) : ''}</div>
+  </div>`;
+}
+// Renders the "What's happening" block for a slice into `el`, with Ask Claude.
+async function insightsInto(el, kind, value, range){
+  el.innerHTML = `<div class="insBox"><h4>${escH(t('in_h'))}</h4><div class="evDim">${escH(t('ev_loading'))}</div></div>`;
+  let p;
+  try{
+    const r = await fetch(`${API_BASE}/api/soc/insights?kind=${encodeURIComponent(kind)}&value=${encodeURIComponent(value)}&range=${encodeURIComponent(range)}`);
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    p = await r.json();
+  }catch(e){ el.innerHTML = ''; return null; }
+  const ask = p.ask || {};
+  el.innerHTML = `<div class="insBox"><h4>${escH(t('in_h'))}</h4>${insightsHtml(p.insights)}
+    <div class="insAsk">${ask.cached ? askHtml(ask.cached) : ''}
+      ${ask.enabled ? `<button class="askBtn">✦ ${escH(t(ask.cached ? 'ask_again' : 'ask_btn'))}</button>` : `<span class="evDim">${escH(t('ask_off'))}</span>`}
+    </div></div>`;
+  const btn = el.querySelector('.askBtn');
+  if(btn) btn.onclick = async ()=>{
+    btn.disabled = true; btn.textContent = t('ask_working');
+    try{
+      const r = await fetch(`${API_BASE}/api/soc/ask`, {method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({kind, value, range})});
+      const j = await r.json().catch(()=>({}));
+      if(!r.ok) throw new Error(j.detail || ('HTTP ' + r.status));
+      el.querySelector('.insAsk').innerHTML = askHtml(j);
+    }catch(e){
+      btn.disabled = false; btn.textContent = '✦ ' + t('ask_btn');
+      const err = document.createElement('div'); err.className = 'csWarn'; err.textContent = e.message || String(e);
+      el.querySelector('.insAsk').appendChild(err);
+    }
+  };
+  return p;
+}
+
+// ---------- Device view: everything one of our devices did ----------
+async function dbOpenDevice(ip, range){
+  range = range || '24h';
+  const drawer = document.getElementById('drawer');
+  document.getElementById('drawerDomain').textContent = ip;
+  document.getElementById('drawerMeta').textContent = tf('dev_meta', {range: t('ev_range_' + range) || range});
+  const body = document.getElementById('drawerBody');
+  body.innerHTML = `<div class="viewToggle dbDSeg" id="devRange">${['1h','24h','7d'].map(r=>`<button data-r="${r}" class="${r===range?'active':''}">${escH(t('ev_range_' + r))}</button>`).join('')}</div><div id="devIns"></div><div id="devFacts"></div>`;
+  drawer.classList.add('open', 'socWide');
+  document.getElementById('overlay').classList.add('show');
+  body.querySelectorAll('#devRange button').forEach(b=>b.onclick = ()=>dbOpenDevice(ip, b.dataset.r));
+  const p = await insightsInto(document.getElementById('devIns'), 'device', ip, range);
+  if(!p) return;
+  const dirs = Object.entries(p.dirs || {}).map(([d, o])=>`${escH(t(d === 'inbound' ? 'db_leg_in' : 'db_leg_out'))}: ${escH(fmtNum(o.allowed))} ${escH(t('ev_out_allowed'))} · ${escH(fmtNum(o.blocked))} ${escH(t('ev_out_blocked'))}`).join('<br>');
+  const protos = (p.protocols || []).slice(0, 8).map(x=>`${x.dir==='inbound'?'↘':'↗'} ${escH(tiSvcText({proto: x.proto, port: x.port, app: x.app}))} ×${escH(fmtNum(x.n))}`).join('<br>');
+  const nets = (p.remote_nets || []).map(x=>`<span class="evMono">${escH(x.net)}</span> · ${escH(tf('dev_net', {ips: fmtNum(x.ips), n: fmtNum(x.events)}))}`).join('<br>');
+  const ccs = (p.countries || []).map(x=>`<button class="evChip" data-c="${escH(x.country)}">${escH(x.country)}<span class="c">${escH(fmtNum(x.events))}</span></button>`).join('');
+  document.getElementById('devFacts').innerHTML = `
+    <div class="csSec"><h4>${escH(t('dev_facts'))}</h4><div class="csFacts">
+      <div><b>${escH(t('db_th_events'))}</b>${escH(fmtNum(p.events))}</div>
+      <div><b>${escH(t('db_d_ips'))}</b>${escH(fmtNum(p.remote_ips))}</div>
+      <div><b>${escH(t('ti_x_data'))}</b>↑ ${escH(fmtBytes(p.bytes_out) || '0 B')} · ↓ ${escH(fmtBytes(p.bytes_in) || '0 B')}</div>
+      <div><b>${escH(t('ti_x_firewall'))}</b>${dirs || '—'}</div>
+      <div style="grid-column:1/-1"><b>${escH(t('ti_x_how'))}</b>${protos || '—'}</div>
+      ${nets ? `<div style="grid-column:1/-1"><b>${escH(t('dev_nets'))}</b>${nets}</div>` : ''}
+    </div></div>
+    ${ccs ? `<div class="csSec"><h4>${escH(t('dev_countries'))}</h4><div class="evChipsRow">${ccs}</div></div>` : ''}
+    <div class="csActions"><button data-act="events">${escH(t('dev_events'))}</button></div>
+    <div class="evNote">${escH(t('dev_note'))}</div>`;
+  document.querySelectorAll('#devFacts [data-c]').forEach(b=>b.onclick = ()=>dbOpenCountry(b.dataset.c, ''));
+  document.querySelector('#devFacts [data-act=events]').onclick = ()=>{ closeDrawer(); dbGoEvents({q: ip, range}); };
+}
+document.addEventListener('click', ev=>{
+  const a = ev.target.closest && ev.target.closest('.devLink[data-dev]');
+  if(!a) return;
+  ev.preventDefault(); ev.stopPropagation();
+  dbOpenDevice(a.dataset.dev, (DB && DB.range) || '24h');
+}, true);
 
 // Shows the running version, and marks any non-prod environment loudly.
 async function loadVersion(){

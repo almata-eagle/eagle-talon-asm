@@ -10,6 +10,21 @@ Every change merged to `staging` adds a line under **Unreleased**.
 ## [Unreleased]
 
 ### Added
+- **"What's happening" summaries** (`backend/soc_insights.py`): the country
+  drawer and a new **device view** spell out the pattern in plain words (EN/JA).
+  Recognised patterns: one device pinging many servers (VPN or game latency
+  checks), reachability pings, internet scanning the firewall blocked, inbound
+  traffic that got through, ordinary web traffic, DNS, big uploads,
+  threat-listed addresses, and one device behind most of the traffic.
+  `GET /api/soc/insights?kind=country|device`.
+- **Device view:** click any of your own IPs (in Events, the explainer or a
+  summary) to see what that device did: protocols, busiest remote networks,
+  countries, firewall outcomes and data.
+- **Ask Claude to explain this:** on a country or device, Claude explains the
+  aggregated traffic (counts, never raw logs or content) with a verdict and next
+  steps, in EN/JA. On demand only, fenced and validated, cached for 30 minutes,
+  capped by `SOC_ASK_MAX_PER_HOUR` (default 10). New table `soc_explanations`.
+  `POST /api/soc/ask`.
 - **Threat intelligence** (see `docs/SOC-INTEL.md` and ADR 0006):
   - Public feeds are downloaded on Core and matched locally, so no address is
     sent out: abuse.ch Feodo Tracker, Spamhaus DROP (v4/v6), the Tor exit
@@ -31,7 +46,7 @@ Every change merged to `staging` adds a line under **Unreleased**.
     `GET /api/soc/intel/lookup?ip=`, `GET /api/soc/intel/sightings`, `GET /api/soc/intel/explain`.
   - New env: `SOC_INTEL` (on in prod and staging), `SOC_INTEL_FEEDS`
     (staging leaves out Spamhaus), `ABUSECH_AUTH_KEY` (optional).
-  - Tests: `backend/tests/test_soc_intel.py` (16). 91 in total.
+  - Tests: `backend/tests/test_soc_intel.py` (16), `test_soc_insights.py` (8). 99 in total.
 
 ### Fixed
 - Dashboard: when the API can't answer (for example an older API behind a newer

@@ -90,3 +90,19 @@ Logs are attacker-controlled. A signature, URL or DNS name can contain text like
 | POST | `/api/soc/cases/{id}/status` | `{"status": "open" \| "resolved"}` |
 | POST | `/api/soc/cases/{id}/feedback` | `{"verdict": "useful" \| "noise" \| null, "note": "…"}` |
 | POST | `/api/soc/cases/{id}/retriage` | ask Claude again (within limits) |
+
+
+## Ask Claude about a country or a device (v0.6)
+The country drawer and the device view have an **Ask Claude to explain this**
+button. Claude gets the aggregated traffic profile from
+`backend/soc_insights.py`: counts per direction and outcome, protocols and
+ports, busiest local devices and remote /24 networks, countries, timing,
+threat-list counts and the patterns already recognised. It also gets the
+network context. It never gets raw log lines or packet content.
+
+- Same defences as triage: the profile is fenced in `<traffic_summary>` and
+  escaped, there's a forced `record_explanation` tool call with a strict
+  schema, and the output is re-validated. Nothing is executed.
+- Only on a click. Each answer is cached for 30 minutes per slice (in
+  `soc_explanations`), and `SOC_ASK_MAX_PER_HOUR` (default 10) caps calls.
+  It shares the Claude key and model with triage.

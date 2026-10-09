@@ -47,6 +47,7 @@ services:
       - SOC_TRIAGE=${SOC_TRIAGE:-off}
       - SOC_TRIAGE_MODEL=${SOC_TRIAGE_MODEL:-claude-sonnet-5-5}
       - SOC_TRIAGE_MAX_PER_HOUR=${SOC_TRIAGE_MAX_PER_HOUR:-20}
+      - SOC_ASK_MAX_PER_HOUR=${SOC_ASK_MAX_PER_HOUR:-10}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       # Threat intelligence (v0.6): public feeds, matched locally. ThreatFox
       # only runs when ABUSECH_AUTH_KEY is set (in secrets.env).
