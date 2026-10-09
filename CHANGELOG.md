@@ -27,6 +27,7 @@ Every change merged to `staging` adds a line under **Unreleased**.
   - Its own SQLite file under `/app/data/ot`, never the Talon DB. Inside
     Talon behind `OT_ENABLED=on` (staging on, prod off); standalone for
     on-prem/DDIL with `backend/ot_app.py` and `deploy/ot/docker-compose.yml`.
+  - The import wizard opens on the sheet that looks most like a checklist.
   - Talon's top bar shows an **OT** button when it's on.
   - New dependency `openpyxl==3.1.5`.
   - nginx allows 30 MB bodies on `/api/ot/`.

@@ -758,7 +758,9 @@ function importWizard(){
   });
 }
 function importStep(md, prev){
-  const st = {sheet: 0, header: prev.sheets[0]?.header_row || 0, mapping: Object.assign({}, prev.sheets[0]?.mapping || {}), rows: null};
+  // Start on the sheet that looks most like a checklist (most mapped columns, then most rows), not an instructions tab.
+  const best = prev.sheets.reduce((b, s, i)=>{ const sc = Object.keys(s.mapping||{}).length * 10000 + (s.rows_total||0); return sc > b.sc ? {i, sc} : b; }, {i:0, sc:-1}).i;
+  const st = {sheet: best, header: prev.sheets[best]?.header_row || 0, mapping: Object.assign({}, prev.sheets[best]?.mapping || {}), rows: null};
   // The server previews ~7 sample rows around its guessed header; changing the header row re-reads from those rows.
   const draw = ()=>{
     const sh = prev.sheets[st.sheet];
