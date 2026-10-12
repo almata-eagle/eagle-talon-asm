@@ -352,7 +352,7 @@ def _detect_intel(con, now: dt.datetime) -> list[dict]:
     Tor exits and reported attackers only count when they came in."""
     if not soc_intel.INDEX.loaded:
         soc_intel.INDEX.reload()
-    if not soc_intel.INDEX.count:
+    if not soc_intel.INDEX.count and not soc_intel.test_status():
         return []
     since = now - dt.timedelta(minutes=INTEL_WINDOW_MIN)
     files = soc_logs._files(since, now)

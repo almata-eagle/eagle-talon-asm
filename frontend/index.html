@@ -1079,6 +1079,7 @@ const STR = {
     rs_col_by:"Approved by", rs_col_case:"Case", rs_list_empty:"No blocks yet.",
     rs_st_active:"active", rs_st_dryrun:"dry run", rs_st_expired:"expired", rs_st_undone:"undone", rs_st_failed:"failed", rs_st_pending:"pending",
     rs_hint:"Claude's options are only suggestions. A block happens only when you approve it here with the approval code.",
+    cs_drill:"DRILL ACTIVE: {ip} is treated as malicious until {t} (end-to-end check)",
     al_off:"Alerts off", al_on:"Alerts", al_no_channel:"Alerts on, but no channel set (SOC_NTFY_TOPIC / SOC_SLACK_WEBHOOK)",
     al_quiet:"quiet {q}", al_quiet_now:"quiet hours now: only critical alerts", al_test:"Send test alert", al_test_ok:"Test alert sent: {res}",
     al_from:"{sev} and above", al_sent:"🔔 Alerted {age} ago", al_sent_n:"🔔 Alerted {n}× · last {age} ago", al_acked:"✓ Acknowledged by {by}",
@@ -1352,6 +1353,7 @@ const STR = {
     rs_col_by:"承認者", rs_col_case:"ケース", rs_list_empty:"遮断はまだありません。",
     rs_st_active:"有効", rs_st_dryrun:"ドライラン", rs_st_expired:"期限切れ", rs_st_undone:"取り消し", rs_st_failed:"失敗", rs_st_pending:"処理中",
     rs_hint:"Claude の対応案は提案のみです。遮断はここで承認コードを入れて承認したときだけ実行されます。",
+    cs_drill:"演習中：{ip} を {t} まで悪性として扱います（動作確認）",
     al_off:"通知オフ", al_on:"通知", al_no_channel:"通知はオンですが送信先が未設定です（SOC_NTFY_TOPIC / SOC_SLACK_WEBHOOK）",
     al_quiet:"静音 {q}", al_quiet_now:"静音時間中：緊急のみ通知", al_test:"テスト通知を送る", al_test_ok:"テスト通知を送信：{res}",
     al_from:"{sev}以上", al_sent:"🔔 {age}前に通知", al_sent_n:"🔔 {n}回通知・最終 {age}前", al_acked:"✓ {by} が確認済み",
@@ -2850,6 +2852,7 @@ function casesRenderEngine(){
   parts.push(tr.enabled
     ? `<span class="on">●</span> ${escH(tf('cs_ai_on', {model: tr.model}))} · ${escH(tf('cs_ai_usage', {n: (e.usage||{}).cases_triaged_24h || 0}))}`
     : `<span class="off">●</span> ${escH(t('cs_ai_off'))}`);
+  if(e.drill) parts.push(`<span class="warn">⚠ ${escH(tf('cs_drill', {ip: e.drill.ip, t: fmtTime(Date.parse(e.drill.until))}))}</span>`);
   el.innerHTML = parts.join(' &nbsp;|&nbsp; ');
   document.getElementById('csRun').disabled = !e.hot_store_connected;
 }

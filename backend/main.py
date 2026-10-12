@@ -487,7 +487,7 @@ def _case_or_404(case_id: str) -> dict:
 def soc_engine():
     return {"detect_enabled": soc_cases.engine_enabled(), "last_run": soc_cases.last_run(),
             "triage": soc_triage.status(), "usage": soc_cases.usage_summary(),
-            "hot_store_connected": soc_logs.available()}
+            "hot_store_connected": soc_logs.available(), "drill": soc_intel.test_status()}
 
 
 @app.post("/api/soc/detect/run")
@@ -697,6 +697,35 @@ def soc_intel_refresh():
         raise HTTPException(409, "threat intelligence is off (SOC_INTEL)")
     threading.Thread(target=soc_intel.refresh, kwargs={"force": True}, daemon=True).start()
     return {"started": True}
+
+
+class DrillReq(BaseModel):
+    ips: Optional[list[str]] = None
+    minutes: int = 60
+
+
+@app.post("/api/soc/intel/test-indicator")
+def soc_intel_drill(req: DrillReq):
+    """Drill: treat harmless public IPv4 addresses (default: every address of
+    example.com) as malicious for up to 2 hours, so detect → alert → block can
+    be checked end to end with an ordinary web request. docs/SOC-INTEL.md."""
+    ips = req.ips
+    if not ips:
+        import socket
+        try:
+            ips = sorted({a[4][0] for a in socket.getaddrinfo("example.com", 80, socket.AF_INET)})
+        except OSError:
+            raise HTTPException(502, "couldn't resolve example.com; pass ips")
+    try:
+        return soc_intel.set_test_indicator(ips, req.minutes)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+
+
+@app.delete("/api/soc/intel/test-indicator")
+def soc_intel_drill_clear():
+    soc_intel.clear_test_indicator()
+    return {"cleared": True}
 
 
 @app.get("/api/soc/intel/lookup")

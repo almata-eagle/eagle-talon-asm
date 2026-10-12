@@ -249,3 +249,48 @@ def test_api_explain_validates(client, env):
     assert client.get("/api/soc/intel/explain", params={"ip": "<script>"}).status_code == 422
     r = client.get("/api/soc/intel/explain", params={"ip": "45.148.10.12", "range": "24h"})
     assert r.status_code == 200 and r.json()["ip"] == "45.148.10.12"
+
+
+# ------------------------------------------------------------------ drill indicator
+
+def test_drill_indicator_marks_one_public_ip_for_a_while(monkeypatch):
+    soc_intel.clear_test_indicator()
+    with pytest.raises(ValueError):
+        soc_intel.set_test_indicator("192.168.1.10", 30)
+    with pytest.raises(ValueError):
+        soc_intel.set_test_indicator("2001:4860::1", 30)
+    st = soc_intel.set_test_indicator("93.184.215.14", 999)          # capped at 2 hours
+    assert st["ip"] == "93.184.215.14"
+    hits = soc_intel.lookup("93.184.215.14")
+    assert soc_intel.worst_level(hits) == "malicious" and hits[0]["feed"] == "talon_test"
+    assert "TEST" in hits[0]["label_en"] and hits[0]["feed_name"] == "Talon drill (test)"
+    soc_intel.set_test_indicator(["93.184.215.15", "93.184.215.16"], 10)   # one drill at a time, several IPs
+    assert soc_intel.lookup("93.184.215.14") == [] and soc_intel.lookup("93.184.215.16")
+    assert soc_intel.test_status()["ips"] == ["93.184.215.15", "93.184.215.16"]
+    now = soc_intel.time.time()
+    monkeypatch.setattr(soc_intel.time, "time", lambda: now + 11 * 60)
+    assert soc_intel.lookup("93.184.215.15") == [] and soc_intel.test_status() is None
+    soc_intel.clear_test_indicator()
+
+
+def test_drill_indicator_opens_a_critical_case_with_no_feeds_loaded(env):
+    soc_intel.set_test_indicator("93.184.215.14", 60)
+    try:
+        assert soc_intel.INDEX.count == 0
+        write(env, [ev(M(2), dst_ip="93.184.215.14", dst_country="United States", dst_port=80)])
+        f = [x for x in soc_rules.detect(NOW) if x["rule"] == soc_rules.INTEL_RULE]
+        assert len(f) == 1 and f[0]["severity"] == "critical" and "TEST" in f[0]["title_en"]
+    finally:
+        soc_intel.clear_test_indicator()
+
+
+def test_drill_api(client, env, monkeypatch):
+    import socket
+    monkeypatch.setattr(socket, "getaddrinfo", lambda *a, **k: [(2, 1, 6, "", ("93.184.215.14", 80)),
+                                                               (2, 1, 6, "", ("93.184.215.14", 80))])
+    r = client.post("/api/soc/intel/test-indicator", json={"minutes": 30}).json()
+    assert r["ips"] == ["93.184.215.14"]
+    assert client.get("/api/soc/engine").json()["drill"]["ips"] == ["93.184.215.14"]
+    assert client.post("/api/soc/intel/test-indicator", json={"ips": ["10.0.0.1"]}).status_code == 422
+    assert client.delete("/api/soc/intel/test-indicator").json() == {"cleared": True}
+    assert client.get("/api/soc/engine").json()["drill"] is None

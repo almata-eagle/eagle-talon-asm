@@ -57,6 +57,34 @@ steps are fixed text in the UI, chosen from the list category and whether
 traffic was allowed in or out. Claude isn't involved. "Check on the source"
 links open the feed's public page for that address.
 
+## Drill indicator (end-to-end check)
+A way to prove that detection, alerting and blocking work together, without
+waiting for a real attack. For up to 2 hours, Talon treats the addresses of
+**example.com** (a harmless domain reserved for examples) as a known-bad server.
+- Any allowed connection to them opens a **critical** `intel_match` case labelled TEST.
+- The case is alerted, and it can be blocked through Response (dry run or live).
+- The Cases toolbar shows **DRILL ACTIVE** while it runs.
+- The indicator lives in memory only. It clears itself after the chosen time,
+  on restart, or on request.
+
+Start it (on core; staging API shown):
+```
+curl -s -X POST http://127.0.0.1:8100/api/soc/intel/test-indicator -H 'Content-Type: application/json' -d '{"minutes":60}'
+```
+Then open `http://example.com` in a browser on any device behind the
+FortiGate. Within about 5–15 minutes you should see:
+1. a critical TEST case in **Cases**;
+2. the alert on your phone;
+3. after **Block…** in live mode, example.com no longer loading from the LAN;
+4. after **Undo**, it loading again.
+
+Stop it:
+```
+curl -s -X DELETE http://127.0.0.1:8100/api/soc/intel/test-indicator
+```
+Resolve the TEST case afterwards and mark it 👍, so it doesn't skew the numbers.
+Only public IPv4 addresses are accepted, 8 at most, for at most 2 hours.
+
 ## Safety
 - Feed files are third-party data. Only values that parse as IP addresses or
   networks are stored, plus a tag stripped to letters, digits and `. _ - /`.

@@ -229,6 +229,11 @@ curl -s -X POST http://127.0.0.1:8100/api/soc/alerts/test
 ```
 To stop all alerts, set `SOC_ALERTS=off` in `deploy/env/<env>.env` and redeploy.
 
+## End-to-end check (drill)
+After any change to detection, alerts or response, run the drill in
+[SOC-INTEL.md](SOC-INTEL.md#drill-indicator-end-to-end-check). It confirms that
+a critical case opens, the phone alert arrives, and a block works and undoes.
+
 ## SOC response (FortiGate blocks)
 Staging runs as a dry run (`SOC_RESPONSE_MODE=dryrun`); prod is off. The
 one-time FortiGate setup (block group, deny policies, limited REST API admin)

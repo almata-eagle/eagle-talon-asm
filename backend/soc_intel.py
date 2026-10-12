@@ -45,6 +45,7 @@ CATEGORIES = {
     "hijacked_network": ("malicious", "Hijacked or criminal network", "乗っ取られた／犯罪者のネットワーク"),
     "attacker": ("suspicious", "Recently reported attacker", "最近報告された攻撃元"),
     "tor_exit": ("info", "Tor exit node", "Tor出口ノード"),
+    "talon_test": ("malicious", "TEST indicator (end-to-end check)", "テスト用の指標（動作確認）"),
 }
 LEVEL_ORDER = ("info", "suspicious", "malicious")
 
@@ -358,8 +359,9 @@ class _Index:
             return []
         if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_multicast or addr.is_reserved:
             return []
+        hits_test = test_hits(str(addr))
         with self._lock:
-            hits = list(self._ips.get(str(addr), []))
+            hits = list(self._ips.get(str(addr), [])) + hits_test
             a = int(addr)
             bits = addr.max_prefixlen
             for (ver, plen), table in self._nets.items():
@@ -371,6 +373,59 @@ class _Index:
 
 
 INDEX = _Index()
+
+
+# ------------------------------------------------------------------ drill indicator
+# For purple-team drills (docs/PURPLE-TEAM.md): one harmless public address is
+# treated as malicious for a short time, so detect → alert → block can be
+# tested end to end without touching real malware. In memory only; it clears
+# itself and on restart. Its cases say TEST everywhere.
+TEST_MAX_MIN = 120
+_test: dict[str, float] = {}
+
+
+def set_test_indicator(ips, minutes: int) -> dict:
+    """One drill at a time: up to 8 public IPv4 addresses (a name like
+    example.com can resolve to several), for 1 to TEST_MAX_MIN minutes."""
+    ips = [ips] if isinstance(ips, str) else list(ips)
+    clean = []
+    for ip in ips[:8]:
+        addr = ipaddress.ip_address(str(ip).strip())
+        if addr.version != 4 or addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_multicast \
+                or addr.is_reserved or addr.is_unspecified:
+            raise ValueError("test addresses must be public IPv4 addresses")
+        clean.append(str(addr))
+    if not clean:
+        raise ValueError("no test address given")
+    minutes = max(1, min(int(minutes), TEST_MAX_MIN))
+    until = time.time() + minutes * 60
+    _test.clear()
+    for ip in clean:
+        _test[ip] = until
+    return test_status()
+
+
+def clear_test_indicator() -> None:
+    _test.clear()
+
+
+def test_status() -> Optional[dict]:
+    now = time.time()
+    for ip, until in list(_test.items()):
+        if until <= now:
+            _test.pop(ip, None)
+    if not _test:
+        return None
+    until = max(_test.values())
+    return {"ips": sorted(_test), "ip": ", ".join(sorted(_test)),
+            "until": dt.datetime.fromtimestamp(until, dt.timezone.utc).isoformat(timespec="seconds")}
+
+
+def test_hits(ip: str) -> list:
+    until = _test.get(ip)
+    if not until or until <= time.time():
+        return []
+    return [("talon_test", "talon_test", "TEST", None, ip)]
 
 
 # Public pages where a person can check the listing themselves. The IP is
@@ -390,7 +445,8 @@ def _describe(feed_id: str, category: str, tag: Optional[str], first_seen: Optio
     level, en, ja = CATEGORIES.get(category, ("info", category, category))
     feed = FEEDS_BY_ID.get(feed_id)
     url = LOOKUP_URLS.get(feed_id)
-    return {"feed": feed_id, "feed_name": feed.name if feed else feed_id, "category": category,
+    name = feed.name if feed else ("Talon drill (test)" if feed_id == "talon_test" else feed_id)
+    return {"feed": feed_id, "feed_name": name, "category": category,
             "level": level, "label_en": en, "label_ja": ja, "tag": tag,
             "listed_since": first_seen, "listed_as": listed,
             "url": url.format(ip=ip) if url and ip else None}

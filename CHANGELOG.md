@@ -10,6 +10,12 @@ Every change merged to `staging` adds a line under **Unreleased**.
 ## [Unreleased]
 
 ### Added
+- **Drill indicator** for an end-to-end check
+  ([docs/SOC-INTEL.md](docs/SOC-INTEL.md#drill-indicator-end-to-end-check)).
+  `POST /api/soc/intel/test-indicator` treats example.com's addresses as malicious
+  for up to 2 hours (in memory). Opening example.com then produces a critical
+  TEST case, a phone alert and a blockable address. Cases shows **DRILL ACTIVE**
+  while it runs. `DELETE` ends it.
 - **Inside-the-network detection** (`backend/soc_rules.py`):
   - `internal_port_scan`: one device probes 15 or more ports on another
     (medium).
