@@ -29,6 +29,14 @@ import soc_logs
 # exploit a service, not just sweeping.
 SENSITIVE_PORTS = (21, 22, 23, 25, 110, 135, 139, 143, 445, 1433, 1521, 3306, 3389, 5432, 5900, 6379, 8080, 8443, 9200, 10443)
 _SENSITIVE_SQL = "(" + ", ".join(str(p) for p in SENSITIVE_PORTS) + ")"
+# Ports used to move from one machine to the next: SSH, Telnet, RPC/NetBIOS, SMB,
+# RDP, VNC, WinRM. One device touching many others on these is the classic sign
+# of lateral movement or a worm.
+LATERAL_PORTS = (22, 23, 135, 139, 445, 3389, 5900, 5985, 5986)
+_LATERAL_SQL = "(" + ", ".join(str(p) for p in LATERAL_PORTS) + ")"
+# Inside the network only routed (inter-VLAN) traffic reaches the FortiGate;
+# devices on the same VLAN talk through the switch and are not seen.
+INTERNAL_RULES = ("internal_port_scan", "internal_host_sweep", "internal_brute_force")
 _BLOCKED_SQL = "(" + ", ".join(repr(a) for a in soc_logs.BLOCKED_ACTIONS) + ")"
 _OUTCOME = soc_logs._OUTCOME
 
@@ -119,6 +127,44 @@ RULES: tuple[Rule, ...] = (
         ),
     ),
     Rule(
+        name="internal_port_scan",
+        window_min=15,
+        where="direction = 'internal'",
+        entity=("src_ip", "dst_ip"),
+        having="count(DISTINCT dst_port) >= 15",
+        severity=lambda s: "medium",
+        title=lambda s: (
+            f"Internal port scan: {s['entity'][0]} probed {s['ports_n']} ports on {s['entity'][1]}",
+            f"内部のポートスキャン：{s['entity'][0]} が {s['entity'][1]} の{s['ports_n']}ポートを調査",
+        ),
+    ),
+    Rule(
+        name="internal_host_sweep",
+        window_min=15,
+        where=f"direction = 'internal' AND dst_port IN {_LATERAL_SQL}",
+        entity=("src_ip",),
+        having="count(DISTINCT dst_ip) >= 10",
+        severity=lambda s: "high",
+        title=lambda s: (
+            f"{s['entity'][0]} tried to reach {s['dst_n']} other devices on remote-access ports "
+            f"({', '.join(str(p) for p in (s.get('ports') or [])[:4])})",
+            f"{s['entity'][0]} が社内の{s['dst_n']}台にリモート接続用ポート"
+            f"（{', '.join(str(p) for p in (s.get('ports') or [])[:4])}）で接続を試行",
+        ),
+    ),
+    Rule(
+        name="internal_brute_force",
+        window_min=15,
+        where=f"direction = 'internal' AND dst_port IN {_SENSITIVE_SQL}",
+        entity=("src_ip", "dst_ip", "dst_port"),
+        having="count(*) >= 30",
+        severity=_sev_by_allowed("medium", "high"),
+        title=lambda s: (
+            f"Repeated attempts on port {s['entity'][2]} of {s['entity'][1]} from {s['entity'][0]} (inside the network)",
+            f"社内の {s['entity'][0]} から {s['entity'][1]} のポート{s['entity'][2]}への繰り返しの接続試行",
+        ),
+    ),
+    Rule(
         name="outbound_volume",
         window_min=60,
         where="direction = 'outbound'",
@@ -152,6 +198,7 @@ _STATS_SELECT = (
     "count(DISTINCT dst_port) AS ports_n, "
     "list(DISTINCT dst_port ORDER BY dst_port)[1:25] AS ports, "
     "count(DISTINCT src_ip) AS src_n, "
+    "count(DISTINCT dst_ip) AS dst_n, "
     "list(DISTINCT src_ip ORDER BY src_ip)[1:10] AS src_ips, "
     "list(DISTINCT dst_ip ORDER BY dst_ip)[1:10] AS dst_ips, "
     "list(DISTINCT src_country ORDER BY src_country) FILTER (WHERE src_country IS NOT NULL)[1:5] AS src_countries, "

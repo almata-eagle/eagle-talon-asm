@@ -21,7 +21,10 @@ import sqlite3
 from typing import Optional
 
 KINDS = ("laptop", "desktop", "phone", "server", "nas", "network", "iot", "tv", "printer", "other")
-QUIETABLE = ("outbound_new_country", "outbound_volume", "allowed_inbound")
+QUIETABLE = ("outbound_new_country", "outbound_volume", "allowed_inbound", "internal_port_scan", "internal_host_sweep")
+# For internal rules only the device doing it (the first IP) can be quieted;
+# marking a scanner normal must never hide scans *of* other devices.
+_SOURCE_ONLY = ("internal_port_scan", "internal_host_sweep")
 MAX_NAME = 60
 MAX_NOTES = 300
 _CTRL = re.compile(r"[\x00-\x1f\x7f]")
@@ -136,7 +139,10 @@ def is_quiet(rule: str, entity, assets: Optional[dict] = None) -> bool:
     if rule not in QUIETABLE:
         return False
     assets = assets if assets is not None else all_assets()
-    return any(rule in (assets.get(ip) or {}).get("quiet", []) for ip in _entity_ips(entity))
+    ips = _entity_ips(entity)
+    if rule in _SOURCE_ONLY:
+        ips = ips[:1]
+    return any(rule in (assets.get(ip) or {}).get("quiet", []) for ip in ips)
 
 
 def context_text(limit: int = 40) -> str:

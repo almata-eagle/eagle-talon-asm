@@ -18,7 +18,17 @@ hot store ──► detection rules (every 5 min) ──► cases (SQLite) ─�
 | `ids_alert` | any Suricata alert or FortiGate IPS/AV/anomaly event | 15 min | from the device level; one notch lower if fully blocked |
 | `allowed_inbound` | internet traffic **allowed** in to an internal host | 15 min | medium; **high** for sensitive ports |
 | `outbound_volume` | one internal host sends ≥ 500 MB to one destination | 60 min | medium |
+| `internal_port_scan` | one internal device hits ≥ 15 ports on another internal device | 15 min | medium |
+| `internal_host_sweep` | one internal device reaches ≥ 10 other internal devices on remote-access ports (SSH, Telnet, RPC/NetBIOS, SMB, RDP, VNC, WinRM) | 15 min | **high** (lateral movement) |
+| `internal_brute_force` | ≥ 30 attempts from one internal device to one sensitive port on another | 15 min | medium; **high** if any attempt was allowed |
 | `outbound_new_country` | an internal host contacts a country it hasn't contacted in 7 days (needs ≥ 24 h of history) | 60 min | low |
+
+Internal rules only see traffic the FortiGate routes between VLANs. Devices
+on the same VLAN talk through the switch, so the firewall never logs that
+traffic. Covering it needs a sensor on a mirror port, or endpoint logs.
+Monitoring and backup tools that scan or sweep by design can be marked normal
+in **Known devices**. That only quiets cases where the tool is the source; scans
+*of* that device are still reported. Internal login attempts can't be quieted.
 
 The collector's self-test events are always ignored. Thresholds live at the top
 of `backend/soc_rules.py`; change them there, with a test.

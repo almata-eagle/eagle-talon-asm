@@ -997,8 +997,10 @@ const STR = {
     as_k_iot:"Smart-home / IoT", as_k_tv:"TV / media", as_k_printer:"Printer", as_k_other:"Other",
     as_quiet_h:"This is normal for this device, don't open cases for:", as_q_outbound_new_country:"contacting countries it hasn't used before (VPN apps, games, travel)",
     as_q_outbound_volume:"large uploads (backups, cloud sync)", as_q_allowed_inbound:"internet connections the firewall lets in (it's a public server)",
+    as_q_internal_port_scan:"scanning ports on other devices here (it's a monitoring or security tool)",
+    as_q_internal_host_sweep:"connecting to many devices here on SSH, SMB or RDP (it's a management or backup tool)",
     as_resolve:"also close its open cases of these kinds (you can reopen them)",
-    as_quiet_note:"Attacks from outside (scans, password guessing, IDS alerts, known-bad addresses) are always reported.",
+    as_quiet_note:"Attacks from outside (scans, password guessing, IDS alerts, known-bad addresses) are always reported, and so are scans of this device by others.",
     as_save:"Save", as_delete:"Forget this device", as_delete_confirm:"Remove the name and normal-behaviour settings for this device?",
     as_saved:"Saved.", as_saved_resolved:"Saved. {n} open case(s) closed.",
     in_error:"Couldn't load the summary ({msg}).", in_mix:"What this traffic is made of ({n} outgoing connections):",
@@ -1092,6 +1094,8 @@ const STR = {
     act_patch_or_update:"patch / update", act_contact_vendor:"contact vendor",
     rule_inbound_port_scan:"Port scan", rule_inbound_brute_force:"Repeated login attempts", rule_ids_alert:"IDS/IPS alert",
     rule_allowed_inbound:"Inbound allowed", rule_outbound_volume:"Large upload", rule_outbound_new_country:"New country",
+    rule_internal_port_scan:"Internal port scan", rule_internal_host_sweep:"Internal sweep (lateral movement)",
+    rule_internal_brute_force:"Internal login attempts",
     search_placeholder:"Search domains, sectors, watchlists…",
     events_title:"Security Events", events_desc:"Firewall and IDS logs from the SOC collector · newest first",
     ev_range_1h:"Last hour", ev_range_6h:"Last 6 hours", ev_range_24h:"Last 24 hours", ev_range_7d:"Last 7 days",
@@ -1266,8 +1270,10 @@ const STR = {
     as_k_iot:"スマート家電／IoT", as_k_tv:"テレビ／メディア", as_k_printer:"プリンター", as_k_other:"その他",
     as_quiet_h:"この端末では通常の動作なので、次のケースを作成しない：", as_q_outbound_new_country:"初めての国への接続（VPNアプリ、ゲーム、出張など）",
     as_q_outbound_volume:"大量のアップロード（バックアップ、クラウド同期）", as_q_allowed_inbound:"ファイアウォールが許可したインターネットからの接続（公開サーバー）",
+    as_q_internal_port_scan:"社内の他の端末のポート調査（監視・セキュリティツール）",
+    as_q_internal_host_sweep:"社内の多数の端末へのSSH・SMB・RDP接続（管理・バックアップツール）",
     as_resolve:"この種類の未解決ケースも閉じる（再オープン可能）",
-    as_quiet_note:"外部からの攻撃（スキャン、パスワード推測、IDSアラート、既知の悪性アドレス）は常に報告されます。",
+    as_quiet_note:"外部からの攻撃（スキャン、パスワード推測、IDSアラート、既知の悪性アドレス）と、他の端末からこの端末へのスキャンは常に報告されます。",
     as_save:"保存", as_delete:"この端末の登録を削除", as_delete_confirm:"この端末の名前と通常動作の設定を削除しますか？",
     as_saved:"保存しました。", as_saved_resolved:"保存しました。未解決ケース{n}件を閉じました。",
     in_error:"概要を読み込めませんでした（{msg}）。", in_mix:"この通信の内訳（送信 {n}件）：",
@@ -1361,6 +1367,8 @@ const STR = {
     act_patch_or_update:"更新・パッチ", act_contact_vendor:"ベンダーへ連絡",
     rule_inbound_port_scan:"ポートスキャン", rule_inbound_brute_force:"ログイン試行の繰り返し", rule_ids_alert:"IDS/IPSアラート",
     rule_allowed_inbound:"受信通信の許可", rule_outbound_volume:"大量送信", rule_outbound_new_country:"初めての国",
+    rule_internal_port_scan:"内部のポートスキャン", rule_internal_host_sweep:"内部の横展開の兆候",
+    rule_internal_brute_force:"内部のログイン試行",
     search_placeholder:"ドメイン、業種、ウォッチリストを検索…",
     events_title:"セキュリティイベント", events_desc:"SOCコレクターが収集したファイアウォール・IDSログ（新しい順）",
     ev_range_1h:"過去1時間", ev_range_6h:"過去6時間", ev_range_24h:"過去24時間", ev_range_7d:"過去7日間",
@@ -3938,6 +3946,8 @@ function assetFormHtml(ip){
       <label><input type="checkbox" data-q="outbound_new_country" ${q('outbound_new_country')}> ${escH(t('as_q_outbound_new_country'))}</label>
       <label><input type="checkbox" data-q="outbound_volume" ${q('outbound_volume')}> ${escH(t('as_q_outbound_volume'))}</label>
       <label><input type="checkbox" data-q="allowed_inbound" ${q('allowed_inbound')}> ${escH(t('as_q_allowed_inbound'))}</label>
+      <label><input type="checkbox" data-q="internal_port_scan" ${q('internal_port_scan')}> ${escH(t('as_q_internal_port_scan'))}</label>
+      <label><input type="checkbox" data-q="internal_host_sweep" ${q('internal_host_sweep')}> ${escH(t('as_q_internal_host_sweep'))}</label>
       <label class="sub"><input type="checkbox" id="asResolve" checked> ${escH(t('as_resolve'))}</label>
       <div class="evDim">${escH(t('as_quiet_note'))}</div>
     </div>

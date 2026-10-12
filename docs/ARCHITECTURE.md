@@ -132,6 +132,8 @@ Talon OT's page (`frontend/ot.html`) follows the same rule for everything that
 came from a person or a spreadsheet.
 
 ## Known limits
+- Internal rules see only inter-VLAN traffic routed by the FortiGate; same-VLAN
+  traffic is invisible until a mirror-port sensor or endpoint logs exist.
 - CORS is `*` and there is no auth on the Talon API. It is reachable only over
   Tailscale, and this must be fixed before any client-facing exposure.
 - SQLite is single-writer. The planned log/SOC pipeline will use its own store

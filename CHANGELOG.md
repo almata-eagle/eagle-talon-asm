@@ -10,6 +10,17 @@ Every change merged to `staging` adds a line under **Unreleased**.
 ## [Unreleased]
 
 ### Added
+- **Inside-the-network detection** (`backend/soc_rules.py`):
+  - `internal_port_scan`: one device probes 15 or more ports on another
+    (medium).
+  - `internal_host_sweep`: one device reaches 10 or more others on SSH, SMB,
+    RDP, WinRM, VNC and similar ports. It is high, so it alerts; this is the
+    classic sign of lateral movement or a worm.
+  - `internal_brute_force`: 30 or more attempts on one login port (medium; high
+    if any got through).
+  - Covers traffic the FortiGate routes between VLANs.
+  - Monitoring and backup tools can be marked normal in Known devices, as the
+    source only. Scans of them are still reported.
 - **Approved FortiGate blocks** (`backend/soc_response.py`,
   [docs/SOC-RESPONSE.md](docs/SOC-RESPONSE.md), ADR 0009): from a case,
   **Block…** an outside address for 1 h, 24 h, 7 d or 30 d.
